@@ -58,15 +58,6 @@ E(Y_{ig})=m_{ig},\mathrm{Var}(Y_{ig})=m_{ig}+\alpha_g m_{ig}^{2}
 $$
 
 在相同的平均表达下, $\alpha_g$ 越大，计数越分散。这与 INLA 使用的 size 参数 $n_g$ 对应，关系为 $\alpha_g=1/n_g$.
-NB dispersion 使用降维参数化：
-
-$$
-\alpha_g=\alpha_0\alpha_g^{rel},
-\qquad
-n_g=S_g\exp(\theta_{NB}),
-\qquad
-S_g=1/\alpha_g^{rel}.
-$$
 
 $\alpha_g^{rel}$ 由全 transcriptome 的 DESeq2 dispersion trend/ maximum a posteriori (MAP) shrinkage estimation 预估并进行 geometric-mean normalization。假设全转录组中用于归一化的有效基因，其 dispersion 几何均值为：
 
