@@ -20,7 +20,7 @@ Simulation: 并与GSDensity/STPathway/naïve analysis比较。
 PathwayLGM uses a Gaussian linear mixed model (LMM) for normalized expression data and a negative binomial generalized linear mixed model (GLMM) for raw UMI counts. 两者都包含随机效应。Gaussian 版本用正态误差描述观测波动, SCT/normalized read counts 已经校正 library size，因此默认 additive offset 为 0；不再次加入 log library size；NB 版本通过负二项分布描述计数波动，通常不再另加一个 Gaussian 观测误差项 \(\epsilon_{ig}\).
 
 Gaussian / Normalized reads：
-设 $i$ 表示 spot，$g$ 表示基因，$r(i)$ 表示 spot 所属的区域。对于一条 pathway，代码拟合：
+设$i$ 表示 spot, $g$ 表示基因, $r(i)$ 表示 spot 所属的区域。对于一条 pathway，代码拟合：
 
 $$
 Y_{ig}=X_i^T\beta+\mu_{r_i}+b_{g,r_i}+w_g(s_i)+\epsilon_{ig},
@@ -57,7 +57,7 @@ $$
 E(Y_{ig})=m_{ig},\mathrm{Var}(Y_{ig})=m_{ig}+\alpha_g m_{ig}^{2}
 $$
 
-在相同的平均表达下，$\alpha_g$ 越大，计数越分散。这与 INLA 使用的 size 参数 $n_g$ 对应，关系为 $\alpha_g=1/n_g$.
+在相同的平均表达下, $\alpha_g$ 越大，计数越分散。这与 INLA 使用的 size 参数 $n_g$ 对应，关系为 $\alpha_g=1/n_g$.
 NB dispersion 使用降维参数化：
 
 $$
