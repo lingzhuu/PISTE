@@ -53,7 +53,9 @@ $$
 - $L_i$: 第 $i$ 个cell(cell-level-resolution)或spot(sopt-level-resolution)的 library size，也就是这个样本总共测到了多少 reads/UMIs. 
 - $\log L_i$: offset. 因为测得越深，一个基因被观察到的 count 自然越大，account for differences in library size across cells.
 
-$$E(Y_{ig})=m_{ig},\operatorname{Var}(Y_{ig})=m_{ig}+\alpha_g m_{ig}^{2}$$
+$$
+E(Y_{ig})=m_{ig},\operatorname{Var}(Y_{ig})=m_{ig}+\alpha_g m_{ig}^{2}
+$$
 
 在相同的平均表达下，$\alpha_g$ 越大，计数越分散。这与 INLA 使用的 size 参数 $n_g$ 对应，关系为 $\alpha_g=1/n_g$。
 NB dispersion 使用降维参数化：
