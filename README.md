@@ -109,6 +109,9 @@ $$
 
 因此自由 hyperparameter 数量为 $R+2$: $R$ regional variances、a spatial variance，and a Gaussian residual variance or a NB calibration parameter.
 
+### Benchmark
+simulation result
+
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
 
@@ -127,12 +130,16 @@ The author has performed quality control steps, including:
 Since the data were normalized using SCTransform, we model the transformed expression values using a Gaussian distribution. 
 
 ### Tumor microenvironment
-Data:
+Data: 
+1. [A single-cell and spatially resolved atlas of human breast cancers. (Wu et al.)](https://www.nature.com/articles/s41588-021-00911-1)
+ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Visium，spot 直径约 55 μm。有独立的病理区域标注, 例如，可以把标注映射成肿瘤区、基质区、淋巴细胞富集区，再研究这些区域的通路差异，但是sample少。
+2. 另有sample多的：[Spatial transcriptomics reveals substantial heterogeneity in triple-negative breast cancer with potential clinical implications. (Wang wt al.)](https://www.nature.com/articles/s41467-024-54145-w)
+> In this retrospective study, 94 early-stage TNBC patients treated at the Institut Jules Bordet (Brussels, Belgium) with standard-of-care therapies between 2000 and 2016 were included. TNBC patients were selected based on their negative status for estrogen (ER) and progesterone (PR) receptors and the absence of HER2 amplification. Information regarding germline mutations in BRCA1 and BRCA2 genes was extracted from the patients’ medical records. All patients underwent initial surgery, followed by adjuvant chemotherapy and/or radiotherapy. Each TNBC sample was profiled for ST as triplicates consisting of three consecutive sections (16 μm-thick). As such, a 3D-stack of spatial gene expression could be obtained for each sample after image alignment. 
 
 
 
-### Benchmark
-simulation result
+
+
 
 ## Discussion
 #### summary
@@ -142,7 +149,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 #### Limitations
 - computational cost (INLA对hyperparameter sensitive)
 - sensitivity to spatial covariance assumptions
-- pathway gene dependence (i.i.d 但实际是稀疏正负相关)
+- pathway gene dependence (假设i.i.d 但实际是稀疏正负相关)
 - pathway overlap
 - uncertainty in cell type labels
 - future work
