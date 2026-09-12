@@ -82,7 +82,7 @@ $$
 整个数据集只做一次 DESeq2 预处理，保存每个基因的 $\alpha_g^{rel}$。分析不同通路时，取出对应基因的相对值重复使用。
 
 进入通路模型后，只估计 $\alpha_0$, 每条通路可以估计自己的 $\alpha_0$ 和 $\theta_{NB}$在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
-INLA 使用$n_g=\frac{1}{\alpha_g}$, 代入前面的分解：
+INLA 使用 $n_g=\frac{1}{\alpha_g}$, 代入前面的分解：
 
 $$
 n_g
