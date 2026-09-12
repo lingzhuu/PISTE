@@ -21,6 +21,7 @@ PathwayLGM uses a Gaussian linear mixed model (LMM) for normalized expression da
 
 Gaussian / Normalized reads：
 设 $i$ 表示 spot，$g$ 表示基因，$r(i)$ 表示 spot 所属的区域。对于一条 pathway，代码拟合：
+
 $$
 Y_{ig}=X_i^T\beta+\mu_{r_i}+b_{g,r_i}+w_g(s_i)+\epsilon_{ig},
 \quad
@@ -40,6 +41,7 @@ NB / Raw reads：
 每个基因有自己的偏离，但这些偏离共享一个分布，其离散程度由 $\tau_r^2$ 控制。
 $\tau_r^2$ 小：gene expression比较接近通路共同水平。$\tau_r^2$ 大：更分散。
 数据较少、噪声较大的基因，其 $b_{gr}$ 会更多地被shrinkage向 0。
+
 $$
 Y_{ig}\sim NB(m_{ig},n_g),
 $$
@@ -47,6 +49,7 @@ $$
 $$
 \log m_{ig}=\log L_i+X_i^T\beta+\mu_{r_i}+b_{g,r_i}+w_g(s_i)
 $$
+
 - $L_i$: 第 $i$ 个cell(cell-level-resolution)或spot(sopt-level-resolution)的 library size，也就是这个样本总共测到了多少 reads/UMIs. 
 - $\log L_i$: offset. 因为测得越深，一个基因被观察到的 count 自然越大，account for differences in library size across cells.
 
@@ -54,6 +57,7 @@ $$E(Y_{ig})=m_{ig},\operatorname{Var}(Y_{ig})=m_{ig}+\alpha_g m_{ig}^{2}$$
 
 在相同的平均表达下，$\alpha_g$ 越大，计数越分散。这与 INLA 使用的 size 参数 $n_g$ 对应，关系为 $\alpha_g=1/n_g$。
 NB dispersion 使用降维参数化：
+
 $$
 \alpha_g=\alpha_0\alpha_g^{rel},
 \qquad
@@ -63,6 +67,7 @@ S_g=1/\alpha_g^{rel}.
 $$
 
 $\alpha_g^{rel}$ 由全 transcriptome 的 DESeq2 dispersion trend/ maximum a posteriori (MAP) shrinkage estimation 预估并进行 geometric-mean normalization。假设全转录组中用于归一化的有效基因，其 dispersion 几何均值为：
+
 $$
 G=\exp\left(\frac{1}{J}\sum_{g=1}^{J}\log\widehat\alpha_g\right), \quad\alpha_g^{rel}=\frac{\widehat\alpha_g}{G}
 $$
@@ -76,6 +81,7 @@ $$
 
 进入通路模型后，只估计 \(\alpha_0\), 每条通路可以估计自己的 $\alpha_0$ 和 \(\theta_{NB}\)在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
 INLA 使用\(n_g=\frac{1}{\alpha_g}\), 代入前面的分解：
+
 $$
 n_g
 =\frac{1}{\alpha_0\alpha_g^{rel}}
