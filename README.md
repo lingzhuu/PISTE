@@ -110,17 +110,21 @@ $$
 因此自由 hyperparameter 数量为 $R+2$: $R$ regional variances、a spatial variance，and a Gaussian residual variance or a NB calibration parameter.
 
 ### Whole Mouse brain
-Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. Han et.al](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
+Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. Han et al.](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
+
 Using single-nucleus RNA sequencing (snRNA-seq) and Stereo-seq, genome-wide coverage. 
 > Coronal sections (10-μm thick) of the left hemisphere were prepared at 100-μm intervals, producing 123 sections (after quality control) with expression profiles for 29,655 genes, covering 95.5% of annotated protein-coding and non-coding genes. We defined the boundary of each cell based on the image of single-stranded DNA (ssDNA). A total of 4,229,623 cells were characterized in one mouse brain, with an average of 1,267 molecular identifiers (MIDs) and 668 detected genes per cell. Moreover, we manually segmented the brain areas for each section based on cytoarchitectural pattern and brain region delineation in ABA common coordinate framework (CCFv3)27.
 
-The processed data can be downloaded in [Whole Mouse brain data](https://www.braindatacenter.cn/datacenter/web/#/dataSet/details?id=1888062851995131906)
-The author has performed quality control steps include:
+The processed data can be downloaded in [Whole Mouse brain data](https://www.braindatacenter.cn/datacenter/web/#/dataSet/details?id=1888062851995131906). Raw data available upon request. 
+
+The author has performed quality control steps, including:
 
 - 去除 7 张捕获异常切片、5 张低质量切片，最终保留 195 张
 - 用 SAW 处理原始序列，过滤低质量 UMI、进行基因组比对和 UMI 去重
 - 使用检测基因数 100、线粒体比例 15% 两个阈值进行筛选，去除 20,019 个细胞，保留 4,209,604 个高质量细胞
 - Bin100: 过滤低基因数、高线粒体比例的 bin，然后进行 SCTransform
+
+Since the data were normalized using SCTransform, we model the transformed expression values using a Gaussian distribution. 
 
 ### Tumor microenvironment
 Data:
