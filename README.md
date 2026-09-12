@@ -79,10 +79,10 @@ $$
 2.利用大量基因，拟合平均表达水平与 dispersion 之间的总体趋势。
 3.结合这个趋势，稳定各基因的估计。信息不足的基因通常更受趋势约束；信息充分的基因保留更多自己的数据特征。
 所以，它利用其他基因的信息，减少单个基因估计过于不稳定的问题。收缩的参照与平均表达水平有关，并不是把所有基因都拉向同一个 dispersion。
-整个数据集只做一次 DESeq2 预处理，保存每个基因的 \(\alpha_g^{rel}\)。分析不同通路时，取出对应基因的相对值重复使用。
+整个数据集只做一次 DESeq2 预处理，保存每个基因的 $\alpha_g^{rel}$。分析不同通路时，取出对应基因的相对值重复使用。
 
-进入通路模型后，只估计 \(\alpha_0\), 每条通路可以估计自己的 $\alpha_0$ 和 $\theta_{NB}$在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
-INLA 使用\(n_g=\frac{1}{\alpha_g}\), 代入前面的分解：
+进入通路模型后，只估计 $\alpha_0$, 每条通路可以估计自己的 $\alpha_0$ 和 $\theta_{NB}$在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
+INLA 使用$n_g=\frac{1}{\alpha_g}$, 代入前面的分解：
 
 $$
 n_g
