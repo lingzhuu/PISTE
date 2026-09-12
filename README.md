@@ -17,7 +17,7 @@ Simulation: 并与GSDensity/STPathway/naïve analysis比较。
 
 ## Results 
 ### Method overview
-PathwayLGM uses a Gaussian linear mixed model (LMM) for normalized expression data and a negative binomial generalized linear mixed model (GLMM) for raw UMI counts. 两者都包含随机效应。Gaussian 版本用正态误差描述观测波动, SCT/normalized read counts 已经校正 library size，因此默认 additive offset 为 0；不再次加入 log library size；NB 版本通过负二项分布描述计数波动，通常不再另加一个 Gaussian 观测误差项 \(\epsilon_{ig}\).
+PathwayLGM uses a Gaussian linear mixed model (LMM) for normalized expression data and a negative binomial generalized linear mixed model (GLMM) for raw UMI counts. 两者都包含随机效应。Gaussian 版本用正态误差描述观测波动, SCT/normalized read counts 已经校正 library size，因此默认 additive offset 为 0；不再次加入 log library size；NB 版本通过负二项分布描述计数波动，通常不再另加一个 Gaussian 观测误差项 $\epsilon_{ig}$.
 
 Gaussian / Normalized reads：
 设 $i$ 表示 spot, $g$ 表示基因, $r(i)$ 表示 spot 所属的区域。对于一条 pathway，代码拟合：
@@ -81,7 +81,7 @@ $$
 所以，它利用其他基因的信息，减少单个基因估计过于不稳定的问题。收缩的参照与平均表达水平有关，并不是把所有基因都拉向同一个 dispersion。
 整个数据集只做一次 DESeq2 预处理，保存每个基因的 \(\alpha_g^{rel}\)。分析不同通路时，取出对应基因的相对值重复使用。
 
-进入通路模型后，只估计 \(\alpha_0\), 每条通路可以估计自己的 $\alpha_0$ 和 \(\theta_{NB}\)在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
+进入通路模型后，只估计 \(\alpha_0\), 每条通路可以估计自己的 $\alpha_0$ 和 $\theta_{NB}$在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
 INLA 使用\(n_g=\frac{1}{\alpha_g}\), 代入前面的分解：
 
 $$
