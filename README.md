@@ -110,7 +110,7 @@ $$
 因此自由 hyperparameter 数量为 $R+2$: $R$ regional variances、a spatial variance，and a Gaussian residual variance or a NB calibration parameter.
 
 ### Whole Mouse brain
-Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. Han et al.](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
+Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
 
 Using single-nucleus RNA sequencing (snRNA-seq) and Stereo-seq, genome-wide coverage. 
 > Coronal sections (10-μm thick) of the left hemisphere were prepared at 100-μm intervals, producing 123 sections (after quality control) with expression profiles for 29,655 genes, covering 95.5% of annotated protein-coding and non-coding genes. We defined the boundary of each cell based on the image of single-stranded DNA (ssDNA). A total of 4,229,623 cells were characterized in one mouse brain, with an average of 1,267 molecular identifiers (MIDs) and 668 detected genes per cell. Moreover, we manually segmented the brain areas for each section based on cytoarchitectural pattern and brain region delineation in ABA common coordinate framework (CCFv3)27.
@@ -149,8 +149,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 ## Methods
 
-### Data prepration
-QC, SCTransform
+### Model detail
 
 
 
