@@ -127,7 +127,8 @@ The author has performed quality control steps, including:
 - 使用检测基因数 100、线粒体比例 15% 两个阈值进行筛选，去除 20,019 个细胞，保留 4,209,604 个高质量细胞
 - Bin100: 过滤低基因数、高线粒体比例的 bin，然后进行 SCTransform
 
-Since the data were normalized using SCTransform, we model the transformed expression values using a Gaussian distribution. 
+For the normalized data using SCTransform, we model the transformed expression values using a Gaussian distribution. For the rae data, use a NB distribution.
+
 
 ### Tumor microenvironment
 Data: 
@@ -162,6 +163,8 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 ## Methods
 
 ### Model detail
+
+
 
 
 
