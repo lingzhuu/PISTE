@@ -84,16 +84,31 @@ $$
 进入通路模型后，只估计 $\alpha_0$, pathway-level overall dispersion scale. 每条通路可以估计自己的 $\alpha_0$ 和 $\theta_{NB}$在该通路内共同使用。Therefore每个 pathway 的 INLA 模型只估计一个全局 NB calibration parameter。
 INLA 使用 $n_g=\frac{1}{\alpha_g}$, 代入前面的分解：
 
-$$
-n_g
-=\frac{1}{\alpha_0\alpha_g^{rel}}
-=\underbrace{\frac{1}{\alpha_g^{rel}}}_{S_g}
-\underbrace{\frac{1}{\alpha_0}}_{\exp(\theta_{NB})}
-$$
+Gene-specific overdispersion was modeled using a reduced-parameter negative-binomial formulation,
 
 $$
-\boxed{\alpha_0=\exp(-\theta_{NB})}
+\alpha_g=\alpha_0\alpha_g^{\mathrm{rel}},
 $$
+
+where $\alpha_g^{\mathrm{rel}}$ denotes the pre-estimated relative dispersion of gene $g$, and $\alpha_0$ is a pathway-specific calibration factor shared across genes. Under the parameterization $\alpha_g=1/n_g$, we define
+
+$$
+S_g=\frac{1}{\alpha_g^{\mathrm{rel}}}
+$$
+
+and write
+
+$$
+\alpha_0=\exp(-\theta_{\mathrm{NB}}),
+$$
+
+which gives
+
+$$
+n_g=S_g\exp(\theta_{\mathrm{NB}}).
+$$
+
+Thus, gene-to-gene differences in dispersion are fixed by the pre-estimated relative factors $S_g$, while the pathway model estimates only the single global calibration parameter $\theta_{\mathrm{NB}}$.
 
 Spatial hierarchy:
 
