@@ -136,9 +136,7 @@ ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Vis
 2. 另有 sample 多的：[Spatial transcriptomics reveals substantial heterogeneity in triple-negative breast cancer with potential clinical implications. (Wang et al.)](https://www.nature.com/articles/s41467-024-54145-w)
 
    > In this retrospective study, 94 early-stage TNBC patients treated at the Institut Jules Bordet (Brussels, Belgium) with standard-of-care therapies between 2000 and 2016 were included. TNBC patients were selected based on their negative status for estrogen (ER) and progesterone (PR) receptors and the absence of HER2 amplification.
-   >
    > Information regarding germline mutations in BRCA1 and BRCA2 genes was extracted from the patients’ medical records. All patients underwent initial surgery, followed by adjuvant chemotherapy and/or radiotherapy.
-   >
    > Each TNBC sample was profiled for ST as triplicates consisting of three consecutive sections (16 μm-thick). As such, a 3D-stack of spatial gene expression could be obtained for each sample after image alignment.
 
 
