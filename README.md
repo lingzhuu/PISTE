@@ -39,7 +39,7 @@ $$
 
 NB / Raw reads：
 每个基因有自己的偏离，但这些偏离共享一个分布，其离散程度由 $\tau_r^2$ 控制。
-$\tau_r^2$ 小：gene expression比较接近通路共同水平。$\tau_r^2$ 大：更分散。
+Small $\tau_r^2$：gene expression比较接近通路共同水平。Large $\tau_r^2$：更分散。
 数据较少、噪声较大的基因，其 $b_{gr}$ 会更多地被shrinkage向 0。
 
 $$
