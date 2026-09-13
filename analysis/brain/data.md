@@ -25,7 +25,6 @@ The author has performed quality control steps, including:
 发育系列的切片，出生后第 14 天的小鼠单张矢状切面。矢状切面在一个平面内同时切到了大部分主要脑区（嗅球、皮层、海马、丘脑、小脑、脑干都在里面）。未标准化。
 - P14_bin100_cluster.h5ad
 上述切片bin100后+聚类结果
-![P14 一张整脑矢状切面](image-2.png)
 - total_gene_T239_mouse_f001_2D_mouse1-20230119.txt.gz
 单张嗅球切片，gene / x / y / umi_count / cell_label / gene_area / rx / ry
   - cell_label：0 = 胞外背景，1–3,587 = 分割出的细胞。只有 8.4 M UMI（26%）落在细胞内，其余 23.6 M 是背景/游离 RNA。
@@ -33,6 +32,5 @@ The author has performed quality control steps, including:
   - rx, ry：配准后坐标，用于把切面对齐到统一解剖框架。
 - T239_T248_SCT_merge_bayes_anno.rds
 名字写着叫SCT，其实是raw counts (不懂何意味..)。对应T239–T248 十张连续嗅球切面。
-![T239–T248 十张连续嗅球切面](image-3.png)
 
 大量胞外游离RNA (Fig.1c)来源是 Stereo-seq 的固有特性：pepsin 透化时释放的 RNA 在被 DNB 阵列捕获前会侧向扩散，加上全芯片的环境 RNA 背景。This prevents the library-size exposure $L_i$ from being inflated by ambient RNA outside the segmented cells.
