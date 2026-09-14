@@ -13,6 +13,7 @@ The content of the files are:
 `images.pdf` - pdf detailing the H&E and annotation images.
 
 #### Data organization
+```
 filtered_count_matrices.tar.gz
 └─ filtered_count_matrices/CID4535_filtered_count_matrix/
    ├─ matrix.mtx.gz       表达计数矩阵：gene × spot
@@ -29,3 +30,4 @@ spatial.tar.gz
    ├─ scalefactors_json.json      图像坐标缩放系数
    ├─ tissue_hires_image.png      H&E 图像
    └─ tissue_lowres_image.png     低分辨率 H&E 图像
+```
