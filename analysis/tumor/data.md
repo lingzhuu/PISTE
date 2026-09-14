@@ -4,7 +4,13 @@
 
 [data](https://zenodo.org/records/4739739)
 
-ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Visium，spot 直径约 55 μm。有独立的病理区域标注, 例如，可以把标注映射成肿瘤区、基质区、淋巴细胞富集区，再研究这些区域的通路差异，但是sample少。
+Processed count matrices, brightfield HE-images (plain and annotated) and meta-data (containing clinical information and spot pathological details) for 6 primary breast cancers profiled using the Visium assay (10X Genomics).
+The content of the files are:
+`raw_count_matrices.tar.gz` - spaceranger processed raw count matrices.
+`spatial.tar.gz` - spaceranger processed spatial files (images, scalefactors, aligned fiducials, position lists)
+`filtered_count_matrices.tar.gz` - filtered count matrices.
+`metadata.tar.gz` - metadata for tissues and spots of filtered count matrices, including clinical subtype and pathological annotation of each spot.
+`images.pdf` - pdf detailing the H&E and annotation images.
 
 #### Data organization
 filtered_count_matrices.tar.gz
