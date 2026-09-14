@@ -136,8 +136,7 @@ For the normalized data using SCTransform, we model the transformed expression v
 ### Tumor microenvironment
 Data: 
 1. [A single-cell and spatially resolved atlas of human breast cancers. (Wu et al.)](https://www.nature.com/articles/s41588-021-00911-1)
-   [data](https://zenodo.org/records/4739739)
-ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Visium，spot 直径约 55 μm。有独立的病理区域标注, 例如，可以把标注映射成肿瘤区、基质区、淋巴细胞富集区，再研究这些区域的通路差异，但是sample少。
+ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Visium，spot 直径约 55 μm。有独立的病理区域标注, 例如，可以把标注映射成肿瘤区、基质区、淋巴细胞富集区，再研究这些区域的通路差异，但是sample少。[data](https://zenodo.org/records/4739739)
 3. 另有 sample 多的：[Spatial transcriptomics reveals substantial heterogeneity in triple-negative breast cancer with potential clinical implications. (Wang et al.)](https://www.nature.com/articles/s41467-024-54145-w)
 
    > In this retrospective study, 94 early-stage TNBC patients treated at the Institut Jules Bordet (Brussels, Belgium) with standard-of-care therapies between 2000 and 2016 were included. TNBC patients were selected based on their negative status for estrogen (ER) and progesterone (PR) receptors and the absence of HER2 amplification.
