@@ -126,6 +126,7 @@ To generate simulated data, we referred to the spatial structure of pancreatic d
 $$
 \mathrm{SVG\ expression} = \mathrm{scale}\times \mathrm{expression}_{st} + (1-\mathrm{scale})\times \mathrm{expression}_{rand}
 $$
+
 In our experiments, we created twenty pathways, each comprising one hundred genes. To mimic a more realistic pathway, we included fifty non-SVG genes and fifty SVG genes with scale values between 0.1 and 0.2 in each pathway. 
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
