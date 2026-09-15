@@ -186,7 +186,7 @@ $$Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad \mathrm{Var}(Y_{ig}) = \mu
 
 with mean structure
 
-$$\mu_{ig} = s_i\, m_g\, \bigl(1 + d_g\, b_g\, H_{ig}\bigr),$$
+$$\mu_{ig} = s_i m_g \bigl(1 + d_g\, b_g\, H_{ig}\bigr),$$
 
 where $m_g > 0$ is the gene-specific baseline expression level, $s_i$ the location-specific sequencing-depth factor (fixed at 1 throughout), $\theta_g$ the gene-specific overdispersion parameter, and $b_g \in (0,1)$ the spatial effect magnitude. Baseline expression levels $m_g$ and dispersions $\theta_g$ were sampled from empirical gene-level distributions estimated from reference spatial transcriptomic data, and spatial effect magnitudes for responsive genes were drawn from $b_g \sim \mathrm{Beta}(\alpha_b, \beta_b)$.
 
