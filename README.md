@@ -115,6 +115,12 @@ $$
 ### Benchmark
 simulation result
 
+- GSVA etc single cell pathway method in ST data
+- STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
+  > employing the Brownian distance correlation (dCor) test in a novel set-up to evaluate the dependency of two random vectors with different dimensionality.
+
+Simulation step:
+> To generate simulated data, we referred to the spatial structure of pancreatic ductal adenocarcinoma (PDAC) [24] and intentionally set the cancer region to have higher spatial expression features when generating spatial patterns. We set the number of genes to be 3000, with half of them being non-spatially variable genes (non-SVG) and the others being SVGs. For each non-SVG, we generated the gene expression values from a normal distribution with a mean of one and a standard deviation of one. For spatial variable genes, we used a combination of two components for the expression values. The first component was generated using a multivariate normal distribution, with mean values specified to reflect the spatial structure. In the cancer region, we set the means between 2 and 5, while for other regions, the means ranged from zero to two, highlighting the elevated expression in the cancer area. Covariance values were randomly assigned between 0 and 1, and we also ensured that the matrix diagonal elements were set to 1. The second component was derived from a random uniform distribution, producing expression values between 1 and 5 across the entire region. The final SVG expression was computed as a weighted sum of these two components, with the formula: $$\mathrm{SVG\ expression}=\mathrm{scale}\times \mathrm{expression}_{st}+(1-\mathrm{scale})\times \mathrm{expression}_{rand}$$
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
 
