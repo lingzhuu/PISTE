@@ -194,7 +194,7 @@ where $m_g > 0$ is the gene-specific baseline expression level, $s_i$ the locati
 
 To emulate expression measurements on a transformed, approximately Gaussian scale, we generated
 
-$$X_{ig} \sim \mathcal{N}\!\left(a_g + d_g\, \delta_g\, H_{ig},\; \sigma_g^2\right),$$
+$$X_{ig} \sim \mathcal{N}\left(a_g + d_g\, \delta_g\, H_{ig},\; \sigma_g^2\right),$$
 
 where $a_g$ is the baseline expression level, $\sigma_g^2$ the residual variance, and $\delta_g > 0$ the absolute spatial effect magnitude; $a_g$ and $\sigma_g^2$ were likewise sampled from empirical reference distributions. To place effect strength on a common scale across genes, we defined the standardized spatial effect $r_g = \delta_g / \sigma_g$ and drew $r_g \sim \mathrm{Beta}(\alpha_r, \beta_r)$.
 
