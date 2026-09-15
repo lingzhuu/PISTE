@@ -119,15 +119,6 @@ simulation result
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
   > employing the Brownian distance correlation (dCor) test in a novel set-up to evaluate the dependency of two random vectors with different dimensionality.
 
-Simulation step:
-
-To generate simulated data, we referred to the spatial structure of pancreatic ductal adenocarcinoma (PDAC) and intentionally set the cancer region to have higher spatial expression features when generating spatial patterns. We set the number of genes to be 3000, with half of them being non-spatially variable genes (non-SVG) and the others being SVGs. For each non-SVG, we generated the gene expression values from a normal distribution with a mean of one and a standard deviation of one. For spatial variable genes, we used a combination of two components for the expression values. The first component was generated using a multivariate normal distribution, with mean values specified to reflect the spatial structure. In the cancer region, we set the means between 2 and 5, while for other regions, the means ranged from zero to two, highlighting the elevated expression in the cancer area. Covariance values were randomly assigned between 0 and 1, and we also ensured that the matrix diagonal elements were set to 1. The second component was derived from a random uniform distribution, producing expression values between 1 and 5 across the entire region. The final SVG expression was computed as a weighted sum of these two components, with the formula:
-
-$$
-\mathrm{SVG\ expression} = \mathrm{scale}\times \mathrm{expression}_{st} + (1-\mathrm{scale})\times \mathrm{expression}_{rand}
-$$
-
-In our experiments, we created twenty pathways, each comprising one hundred genes. To mimic a more realistic pathway, we included fifty non-SVG genes and fifty SVG genes with scale values between 0.1 and 0.2 in each pathway. 
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
 
@@ -177,6 +168,145 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 - future work
 
 ## Methods
+
+
+### Simulation design
+
+We simulated datasets containing **10,000 genes** and defined **20 non-overlapping test pathways**, each comprising 100 genes. The remaining 8,000 genes formed a background pool containing both non-spatially variable genes (non-SVGs) and spatially variable genes (SVGs). Background SVGs were assigned spatial maps generated independently of the test-pathway maps. Additional simulations with 5,000 and 20,000 genes assessed sensitivity to the size of the gene universe.
+
+The test pathways represented three patterns of spatial responses:
+
+1. **Spatially coherent pathways ($n=10$).** A specified proportion of genes responded in the same direction to a shared pathway-level spatial map. The remaining genes had no spatial effect.
+2. **Fully null pathways ($n=5$).** All genes lacked spatial effects.
+3. **Directionally balanced pathways ($n=5$).** Responding genes shared a spatial map but were divided equally into upregulated and downregulated pairs. Paired genes had identical baseline expression and equal absolute changes in expected expression, resulting in no net spatial change in the expected pathway mean.
+
+For each coherent or balanced pathway $p$, we defined a ground-truth activity map $A_{ip}\in[0,1]$, where $i$ indexed spatial locations. Four spatial configurations were evaluated:
+
+* **Regional:** activity was equal to one within a designated region and zero elsewhere.
+* **Gradient:** activity varied continuously along a spatial direction.
+* **Boundary:** activity was highest near the tumor-stroma interface and decreased with distance.
+* **Multi-hotspot:** elevated activity occurred in several disconnected regions.
+
+Coherent and balanced pathways were matched in their spatial maps, proportions of responding genes, baseline expression, absolute response magnitudes, and noise parameters. Their principal difference was whether responding genes changed in the same or opposite directions.
+
+#### Raw-count simulations
+
+Raw counts were generated from a negative binomial distribution:
+
+$$
+Y_{ig}\sim\operatorname{NB}(\mu_{ig},\theta_g),
+$$
+
+with expected expression
+
+$$
+\mu_{ig}
+=
+s_i m_g
+\left[
+1+z_g(F_g-1)H_{ig}
+\right],
+$$
+
+and variance
+
+$$
+\operatorname{Var}(Y_{ig})
+=
+\mu_{ig}
++
+\frac{\mu_{ig}^{2}}{\theta_g}.
+$$
+
+Here, $m_g>0$ denoted baseline expression, $s_i$ was a sequencing-depth factor, and $\theta_g$ controlled overdispersion.
+
+For responding genes in test pathway $p$,
+
+$$
+H_{ig}=A_{ip}.
+$$
+
+Background SVGs were assigned independently generated spatial maps,
+
+$$
+H_{ig}=B_{ig}.
+$$
+
+The indicator $z_g$ specified the response direction:
+
+$$
+z_g=
+\begin{cases}
++1, & \text{responding genes in coherent pathways},\\
+0, & \text{genes without spatial effects},\\
++1\ \text{or}\ -1, & \text{responding genes in balanced pathways}.
+\end{cases}
+$$
+
+Response strength was controlled by $F_g$, defined as the fold change for an upregulated gene between maximally active and inactive locations at equal sequencing depth:
+
+$$
+FC_g=
+\begin{cases}
+F_g, & z_g=+1,\\
+1, & z_g=0,\\
+2-F_g, & z_g=-1.
+\end{cases}
+$$
+
+We constrained
+
+$$
+1<F_g<2
+$$
+
+to ensure positive expected counts for downregulated genes.
+
+Within each balanced pair, genes shared the same $m_g$ and $F_g$. For example,
+
+$$
+F_g=1.5
+$$
+
+produced expression ratios of 1.5 and 0.5 for the upregulated and downregulated genes, respectively. Their combined expected expression therefore remained constant across the activity map after accounting for sequencing depth.
+
+Sequencing-depth factors were fixed at one in the baseline simulations.
+
+#### Gaussian simulations
+
+For simulations representing approximately Gaussian expression on a suitably transformed and normalized scale, expression was generated as
+
+$$
+X_{ig}
+\sim
+N\left(
+a_g+z_g\delta_gH_{ig},
+\,\sigma_g^2
+\right),
+$$
+
+where $a_g$ denoted baseline expression, $\delta_g\geq0$ controlled the additive response magnitude, and $\sigma_g^2$ was the residual variance.
+
+Response strength was expressed as the standardized effect size
+
+$$
+\frac{\delta_g}{\sigma_g}.
+$$
+
+Balanced pairs had equal absolute additive effects with opposite signs, ensuring cancellation in the expected pathway mean on the simulated Gaussian scale.
+
+In both simulation models, SVGs and non-SVGs shared the same observation model and baseline parameter distributions, differing only in their spatial effects. Observations were sampled independently across locations conditional on the specified parameters and spatial maps. Thus, spatial structure entered through expected expression without additional spatially correlated residual noise.
+
+#### Performance evaluation
+
+The proportion of responding genes and their response strengths were varied independently to separate the effects of signal prevalence and signal magnitude.
+
+The proportion of background SVGs was also varied to assess robustness to spatial signals outside the test pathways.
+
+Detection power was evaluated using coherent pathways, whereas false-positive rates were evaluated using fully null pathways.
+
+Directionally balanced pathways were assessed separately to characterize sensitivity to opposing gene-level spatial responses. These pathways retained gene-level spatial structure despite cancellation of the expected pathway mean and were therefore not treated as universally null across methods.
+
 
 ### Model detail
 
