@@ -172,7 +172,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 ### Simulation design
 
-We simulated datasets containing **10,000 genes** and defined **20 non-overlapping test pathways**, each comprising 100 genes. The remaining 8,000 genes formed a background pool containing both non-spatially variable genes (non-SVGs) and spatially variable genes (SVGs). Background SVGs were assigned spatial maps generated independently of the test-pathway maps. Additional simulations with 5,000 and 20,000 genes were used to assess sensitivity to the size of the gene universe.
+We simulated datasets containing 10,000 genes and defined 20 non-overlapping test pathways, each comprising 100 genes. The remaining 8,000 genes formed a background pool containing both non-spatially variable genes (non-SVGs) and spatially variable genes (SVGs). Background SVGs were assigned spatial maps generated independently of the test-pathway maps. Additional simulations with 5,000 and 20,000 genes were used to assess sensitivity to the size of the gene universe.
 
 The test pathways represented three patterns of spatial responses:
 
@@ -182,18 +182,14 @@ The test pathways represented three patterns of spatial responses:
 
 3. Directionally balanced pathways ($n=5$). Responding genes shared a common spatial map but were divided equally into upregulated and downregulated pairs. Paired genes had identical baseline expression and equal absolute changes in expected expression, resulting in no net spatial change in the expected pathway mean.
 
-For each coherent or balanced pathway $p$, we defined a ground-truth spatial activity map
-
-$$A_{ip}\in[0,1]$$
-
-where $i$ indexed spatial locations.
+For each coherent or balanced pathway $p$, we defined a ground-truth spatial activity map$A_{ip}\in[0,1]$, where $i$ indexed spatial locations.
 
 Four spatial configurations were considered:
 
-- **Regional:** activity was equal to one within a designated region and zero elsewhere.
-- **Gradient:** activity varied continuously along a spatial direction.
-- **Boundary:** activity was highest near the tumor-stroma interface and decreased with distance from the interface.
-- **Multi-hotspot:** elevated activity occurred in several disconnected spatial regions.
+- Regional: activity was equal to one within a designated region and zero elsewhere.
+- Gradient: activity varied continuously along a spatial direction.
+- Boundary: activity was highest near the tumor-stroma interface and decreased with distance from the interface.
+- Multi-hotspot: elevated activity occurred in several disconnected spatial regions.
 
 Coherent and balanced pathways were matched in their spatial maps, proportions of responding genes, baseline expression, absolute response magnitudes, and noise parameters. Their principal difference was whether responding genes changed in the same or opposite directions.
 
@@ -213,39 +209,17 @@ $$\mathrm{Var}(Y_{ig})=\mu_{ig}+\frac{\mu_{ig}^{2}}{\theta_g}$$
 
 where $m_g>0$ denoted baseline expression, $s_i$ was a sequencing-depth factor, and $\theta_g$ controlled overdispersion.
 
-For responding genes belonging to test pathway $p$,
-
-$$H_{ig}=A_{ip}$$
-
-whereas background SVGs were assigned independently generated spatial maps,
-
-$$H_{ig}=B_{ig}$$
-
-The indicator $z_g$ specified the response direction:
-
-$$z_g=\begin{cases}+1, & \text{responding genes in coherent pathways},\\0, & \text{genes without spatial effects},\\+1\text{ or }-1, & \text{responding genes in balanced pathways}.\end{cases}$$
+For responding genes belonging to test pathway $p$,$H_{ig}=A_{ip}$.
+whereas background SVGs were assigned independently generated spatial maps $H_{ig}=B_{ig}$
+The indicator $z_g$ specified the response direction: $z_g=+1$ for responding genes in coherent pathways, equal numbers of $z_g=+1$ and $z_g=-1$ for responding genes in balanced pathways, and $z_g=0$ for all genes without spatial effects.
 
 Response strength was controlled by $F_g$, defined as the fold change for an upregulated gene between maximally active and inactive locations at equal sequencing depth:
 
 $$FC_g=\begin{cases}F_g, & z_g=+1,\\1, & z_g=0,\\2-F_g, & z_g=-1.\end{cases}$$
 
-We constrained
+We constrained $1<F_g<2$ to ensure positive expected counts for downregulated genes. Within each balanced pair, genes shared the same baseline expression $m_g$ and response magnitude $F_g$.
 
-$$1<F_g<2$$
-
-to ensure positive expected counts for downregulated genes.
-
-Within each balanced pair, genes shared the same baseline expression $m_g$ and response magnitude $F_g$.
-
-For example, when
-
-$$F_g=1.5$$
-
-the upregulated gene had an active-to-inactive expression ratio of 1.5, whereas the downregulated gene had a ratio of 0.5. Their combined expected expression therefore remained constant across the spatial activity map after accounting for sequencing depth.
-
-Sequencing-depth factors were fixed at one in the baseline simulations:
-
-$$s_i=1$$
+For example, $F_g=1.5$ produced expression ratios of 1.5 and 0.5 for the upregulated and downregulated genes, respectively. Their combined expected expression therefore remained constant across the activity map after accounting for sequencing depth. Sequencing-depth factors were fixed at one in the baseline simulations.
 
 #### Gaussian simulations
 
@@ -254,28 +228,13 @@ For simulations representing approximately Gaussian expression on a suitably tra
 $$X_{ig}\sim N\left(a_g+z_g\delta_gH_{ig},\sigma_g^2\right)$$
 
 where $a_g$ denoted baseline expression, $\delta_g\geq0$ controlled the additive response magnitude, and $\sigma_g^2$ represented residual variance.
+Response strength was expressed as the standardized effect size $\delta_g/\sigma_g$. Balanced pairs had equal absolute additive effects with opposite signs, ensuring cancellation in the expected pathway mean on the simulated Gaussian scale.
 
-Response strength was expressed using the standardized effect size
-
-$$\frac{\delta_g}{\sigma_g}$$
-
-Within directionally balanced pathways, paired genes had equal absolute additive effects with opposite signs. This construction ensured cancellation of the expected pathway mean on the simulated Gaussian scale.
-
-In both simulation models, SVGs and non-SVGs shared the same observation model and baseline parameter distributions. They differed only in whether a spatial effect was present.
-
-Conditional on the specified model parameters and spatial maps, observations were generated independently across spatial locations. Therefore, spatial structure entered the simulations through the expected expression rather than through an additional spatially correlated residual process.
+In both simulation models, SVGs and non-SVGs shared the same observation model and baseline parameter distributions, differing only in their spatial effects. Observations were sampled independently across locations conditional on the specified parameters and spatial maps. Thus, spatial structure entered through expected expression without additional spatially correlated residual noise.
 
 #### Performance evaluation
 
-The proportion of responding genes and the response strength were varied independently to distinguish the effects of signal prevalence and signal magnitude.
-
-The proportion of background SVGs was also varied to evaluate robustness to spatial signals outside the test pathways.
-
-Spatially coherent pathways were used to evaluate detection power.
-
-Fully null pathways were used to evaluate false-positive rates.
-
-Directionally balanced pathways were analyzed separately to characterize sensitivity to opposing gene-level spatial responses. Although their expected pathway mean contained no net spatial change, the individual responding genes retained genuine spatial structure. These pathways were therefore not treated as universally null across methods.
+The proportion of responding genes and their response strengths were varied independently to separate the effects of signal prevalence and magnitude. The proportion of background SVGs was also varied to assess robustness to spatial signals outside the test pathways. Detection power was evaluated using coherent pathways, and false-positive rates were evaluated using fully null pathways. Directionally balanced pathways were assessed separately to characterize sensitivity to opposing gene-level responses. These pathways retained gene-level spatial structure despite cancellation of the expected pathway mean and were therefore not treated as universally null across methods.
 
 ### Model detail
 
