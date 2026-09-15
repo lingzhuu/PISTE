@@ -176,17 +176,15 @@ We simulated datasets containing **10,000 genes** and defined **20 non-overlappi
 
 The test pathways represented three patterns of spatial responses:
 
-1. **Spatially coherent pathways ($n=10$).** A specified proportion of genes responded in the same direction to a shared pathway-level spatial map. The remaining genes had no spatial effect.
+1. Spatially coherent pathways ($n=10$). A specified proportion of genes responded in the same direction to a shared pathway-level spatial map. The remaining genes had no spatial effect.
 
-2. **Fully null pathways ($n=5$).** All genes lacked spatial effects.
+2. Null pathways ($n=5$). All genes lacked spatial effects.
 
-3. **Directionally balanced pathways ($n=5$).** Responding genes shared a common spatial map but were divided equally into upregulated and downregulated pairs. Paired genes had identical baseline expression and equal absolute changes in expected expression, resulting in no net spatial change in the expected pathway mean.
+3. Directionally balanced pathways ($n=5$). Responding genes shared a common spatial map but were divided equally into upregulated and downregulated pairs. Paired genes had identical baseline expression and equal absolute changes in expected expression, resulting in no net spatial change in the expected pathway mean.
 
 For each coherent or balanced pathway $p$, we defined a ground-truth spatial activity map
 
-$$
-A_{ip}\in[0,1]
-$$
+$$A_{ip}\in[0,1]$$
 
 where $i$ indexed spatial locations.
 
@@ -203,72 +201,37 @@ Coherent and balanced pathways were matched in their spatial maps, proportions o
 
 Raw counts were generated from a negative binomial distribution:
 
-$$
-Y_{ig}\sim\mathrm{NB}(\mu_{ig},\theta_g)
-$$
+$$Y_{ig}\sim\mathrm{NB}(\mu_{ig},\theta_g)$$
 
 with expected expression
 
-$$
-\mu_{ig}
-=
-s_i m_g
-\left[
-1+z_g(F_g-1)H_{ig}
-\right]
-$$
+$$\mu_{ig}=s_i m_g\left[1+z_g(F_g-1)H_{ig}\right]$$
 
 and variance
 
-$$
-\mathrm{Var}(Y_{ig})
-=
-\mu_{ig}
-+
-\frac{\mu_{ig}^{2}}{\theta_g}
-$$
+$$\mathrm{Var}(Y_{ig})=\mu_{ig}+\frac{\mu_{ig}^{2}}{\theta_g}$$
 
 where $m_g>0$ denoted baseline expression, $s_i$ was a sequencing-depth factor, and $\theta_g$ controlled overdispersion.
 
 For responding genes belonging to test pathway $p$,
 
-$$
-H_{ig}=A_{ip}
-$$
+$$H_{ig}=A_{ip}$$
 
 whereas background SVGs were assigned independently generated spatial maps,
 
-$$
-H_{ig}=B_{ig}.
-$$
+$$H_{ig}=B_{ig}$$
 
 The indicator $z_g$ specified the response direction:
 
-$$
-z_g=
-\begin{cases}
-+1, & \text{responding genes in coherent pathways},\\
-0, & \text{genes without spatial effects},\\
-+1 \text{ or } -1, & \text{responding genes in balanced pathways}.
-\end{cases}
-$$
+$$z_g=\begin{cases}+1, & \text{responding genes in coherent pathways},\\0, & \text{genes without spatial effects},\\+1\text{ or }-1, & \text{responding genes in balanced pathways}.\end{cases}$$
 
 Response strength was controlled by $F_g$, defined as the fold change for an upregulated gene between maximally active and inactive locations at equal sequencing depth:
 
-$$
-FC_g=
-\begin{cases}
-F_g, & z_g=+1,\\
-1, & z_g=0,\\
-2-F_g, & z_g=-1.
-\end{cases}
-$$
+$$FC_g=\begin{cases}F_g, & z_g=+1,\\1, & z_g=0,\\2-F_g, & z_g=-1.\end{cases}$$
 
 We constrained
 
-$$
-1<F_g<2
-$$
+$$1<F_g<2$$
 
 to ensure positive expected counts for downregulated genes.
 
@@ -276,39 +239,25 @@ Within each balanced pair, genes shared the same baseline expression $m_g$ and r
 
 For example, when
 
-$$
-F_g=1.5
-$$
+$$F_g=1.5$$
 
 the upregulated gene had an active-to-inactive expression ratio of 1.5, whereas the downregulated gene had a ratio of 0.5. Their combined expected expression therefore remained constant across the spatial activity map after accounting for sequencing depth.
 
 Sequencing-depth factors were fixed at one in the baseline simulations:
 
-$$
-s_i=1.
-$$
+$$s_i=1$$
 
 #### Gaussian simulations
 
 For simulations representing approximately Gaussian expression on a suitably transformed and normalized scale, expression was generated as
 
-$$
-X_{ig}
-\sim
-N
-\left(
-a_g+z_g\delta_gH_{ig},
-\sigma_g^2
-\right)
-$$
+$$X_{ig}\sim N\left(a_g+z_g\delta_gH_{ig},\sigma_g^2\right)$$
 
 where $a_g$ denoted baseline expression, $\delta_g\geq0$ controlled the additive response magnitude, and $\sigma_g^2$ represented residual variance.
 
 Response strength was expressed using the standardized effect size
 
-$$
-\frac{\delta_g}{\sigma_g}.
-$$
+$$\frac{\delta_g}{\sigma_g}$$
 
 Within directionally balanced pathways, paired genes had equal absolute additive effects with opposite signs. This construction ensured cancellation of the expected pathway mean on the simulated Gaussian scale.
 
@@ -327,7 +276,6 @@ Spatially coherent pathways were used to evaluate detection power.
 Fully null pathways were used to evaluate false-positive rates.
 
 Directionally balanced pathways were analyzed separately to characterize sensitivity to opposing gene-level spatial responses. Although their expected pathway mean contained no net spatial change, the individual responding genes retained genuine spatial structure. These pathways were therefore not treated as universally null across methods.
-
 
 ### Model detail
 
