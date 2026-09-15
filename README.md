@@ -209,13 +209,20 @@ $$\mathrm{Var}(Y_{ig})=\mu_{ig}+\frac{\mu_{ig}^{2}}{\theta_g}$$
 
 where $m_g>0$ denoted baseline expression, $s_i$ was a sequencing-depth factor, and $\theta_g$ controlled overdispersion.
 
-For responding genes belonging to test pathway $p$,$H_{ig}=A_{ip}$.
+For responding genes belonging to test pathway $p$, $H_{ig}=A_{ip}$.
 whereas background SVGs were assigned independently generated spatial maps $H_{ig}=B_{ig}$
 The indicator $z_g$ specified the response direction: $z_g=+1$ for responding genes in coherent pathways, equal numbers of $z_g=+1$ and $z_g=-1$ for responding genes in balanced pathways, and $z_g=0$ for all genes without spatial effects.
 
 Response strength was controlled by $F_g$, defined as the fold change for an upregulated gene between maximally active and inactive locations at equal sequencing depth:
 
-$$FC_g=\begin{cases}F_g, & z_g=+1,\\1, & z_g=0,\\2-F_g, & z_g=-1.\end{cases}$$
+$$
+FC_g =
+\begin{cases}
+F_g, & z_g = +1, \\
+1, & z_g = 0, \\
+2 - F_g, & z_g = -1.
+\end{cases}
+$$
 
 We constrained $1<F_g<2$ to ensure positive expected counts for downregulated genes. Within each balanced pair, genes shared the same baseline expression $m_g$ and response magnitude $F_g$.
 
