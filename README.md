@@ -198,6 +198,7 @@ $$
 
 evaluated the field at each spatial location to obtain $\eta_i = \eta(\mathbf{s}_i)$, and replaced the baseline mean by
 
+$$
 \mu_{ig}\exp\left(\sigma_\eta \eta_i\right),
 $$
 
