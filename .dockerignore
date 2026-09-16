@@ -1,0 +1,8 @@
+# keep big data / results out of the build context
+output/
+data/
+*.tar.gz
+*.log
+*.txt
+!Dockerfile
+__pycache__/
