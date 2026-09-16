@@ -190,6 +190,19 @@ $$\mu_{ig} = s_i m_g \bigl(1 + d_g b_g H_{ig}\bigr),$$
 
 where $m_g > 0$ is the gene-specific baseline expression level, $s_i$ the location-specific sequencing-depth factor (fixed at 1 throughout), $\theta_g$ the gene-specific overdispersion parameter, and $b_g \in (0,1)$ the spatial effect magnitude. Baseline expression levels $m_g$ and dispersions $\theta_g$ were sampled from empirical gene-level distributions estimated from reference spatial transcriptomic data, and spatial effect magnitudes for responsive genes were drawn from $b_g \sim \mathrm{Beta}(\alpha_b, \beta_b)$.
 
+To evaluate robustness to unmodeled spatial heterogeneity, we additionally considered simulations in which the mean expression was perturbed by a spatially correlated multiplicative noise field. Specifically, we generated
+
+$$
+\eta(\mathbf{s}) \sim \mathrm{GP}\bigl(0, K_{\mathrm{Mat\acute ern}}\bigr),
+$$
+
+evaluated the field at each spatial location to obtain $\eta_i = \eta(\mathbf{s}_i)$, and replaced the baseline mean by
+
+\mu_{ig}\exp\left(\sigma_\eta \eta_i\right),
+$$
+
+where $\sigma_\eta \geq 0$ controls the magnitude of the additional spatial heterogeneity. The Matérn covariance range parameter was varied across simulation settings to generate spatial nuisance structure at different characteristic length scales. This multiplicative field was shared across genes at a given spatial location and was generated independently of all pathway-specific activity maps, thereby representing spatially structured variation unrelated to the true pathway signal.
+
 #### Gaussian simulations
 
 To emulate expression measurements on a transformed, approximately Gaussian scale, we generated
@@ -198,7 +211,23 @@ $$X_{ig} \sim \mathcal{N}\left(a_g + d_g \delta_g H_{ig}\; \sigma_g^2\right),$$
 
 where $a_g$ is the baseline expression level, $\sigma_g^2$ the residual variance, and $\delta_g > 0$ the absolute spatial effect magnitude; $a_g$ and $\sigma_g^2$ were likewise sampled from empirical reference distributions. To place effect strength on a common scale across genes, we defined the standardized spatial effect $r_g = \delta_g / \sigma_g$ and drew $r_g \sim \mathrm{Beta}(\alpha_r, \beta_r)$.
 
+For the Gaussian robustness scenario, the same spatial nuisance field was introduced additively on the transformed scale,
 
+$$
+X_{ig}
+\sim
+\mathcal{N}\left(
+a_g
++
+d_g \delta_g H_{ig}
++
+\sigma_\eta \eta_i,
+;
+\sigma_g^2
+\right),
+$$
+
+with $\eta(\mathbf{s})$ generated from the same class of Matérn Gaussian processes and independently of the pathway-specific spatial activity maps. This setting introduced residual spatial correlation that was not explicitly included in the fitted analysis model.
 
 ### Model detail
 
