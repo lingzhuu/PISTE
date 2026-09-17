@@ -182,25 +182,11 @@ For each of the 16 non-null test pathways $p$, we defined a ground-truth spatial
 
 Raw counts $Y_{ig}$ for gene $g$ at spatial location $i$ were drawn from a negative binomial distribution,
 
-$$
-Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g),
-\qquad
-\mathrm{Var}(Y_{ig})
-=
-\mu_{ig}
-+
-\frac{\mu_{ig}^2}{\theta_g},
-$$
+$$Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad \mathrm{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g}.$$
 
 with mean structure
 
-$$
-\mu_{ig}
-=
-s_i m_g
-\bigl(1 + d_g b_g H_{ig}\bigr)
-\exp\left(\sigma_\eta \eta_i\right),
-$$
+$$\mu_{ig} = s_i m_g (1 + d_g b_g H_{ig}) \exp(\sigma_\eta \eta_i).$$
 
 where $m_g > 0$ is the gene-specific baseline expression level, $s_i$ the location-specific sequencing-depth factor, $\theta_g$ the gene-specific overdispersion parameter, $b_g \in (0,1)$ the pathway-associated spatial effect magnitude, and $\eta_i = \eta(\mathbf{s}_i)$ a spatial nuisance effect at location $i$. Baseline expression levels $m_g$ and dispersions $\theta_g$ were sampled from empirical gene-level distributions estimated from reference spatial transcriptomic data, while spatial effect magnitudes for responsive genes were drawn from
 
