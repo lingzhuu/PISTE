@@ -226,19 +226,7 @@ where $a_g$ is the baseline expression level, $\sigma_g^2$ the residual variance
 
 To place effect strength on a common scale across genes, we defined the standardized spatial effect
 
-$$
-r_g
-=
-\frac{\delta_g}{\sigma_g},
-$$
-
-and drew
-
-$$
-r_g
-\sim
-\mathrm{Beta}(\alpha_r, \beta_r).
-$$
+$$r_g = \frac{\delta_g}{\sigma_g}, \qquad r_g \sim \mathrm{Beta}(\alpha_r, \beta_r).$$
 
 As in the raw-count simulations, the spatial nuisance field was generated from a Matérn Gaussian process,
 
