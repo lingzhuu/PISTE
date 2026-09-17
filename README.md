@@ -113,7 +113,7 @@ $$
 因此自由 hyperparameter 数量为 $R+2$: $R$ regional variances、a spatial variance，and a Gaussian residual variance or a NB calibration parameter.
 
 ### Benchmark
-simulation result
+Simulation result
 
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
@@ -155,7 +155,7 @@ ST 部分包含 6 个原发乳腺癌样本：4 个 TNBC、2 个 ER+，使用 Vis
 
 
 ## Discussion
-#### summary
+#### Summary
 SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 #### 和现有方法区别
 #### Biology insight 
