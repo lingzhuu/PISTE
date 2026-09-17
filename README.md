@@ -228,15 +228,7 @@ To place effect strength on a common scale across genes, we defined the standard
 
 $$r_g = \frac{\delta_g}{\sigma_g}, \qquad r_g \sim \mathrm{Beta}(\alpha_r, \beta_r).$$
 
-As in the raw-count simulations, the spatial nuisance field was generated from a Matérn Gaussian process,
-
-$$
-\eta(\mathbf{s})
-\sim
-\mathrm{GP}\bigl(0, K_{\mathrm{Mat\acute ern}}\bigr),
-$$
-
-independently of the pathway-specific spatial activity maps. The term $\sigma_\eta \eta_i$ therefore introduced additive spatially structured background variation on the transformed scale, with $\sigma_\eta \geq 0$ controlling its magnitude. The Matérn covariance range parameter was varied across simulation settings to represent nuisance spatial structure at different characteristic length scales.
+As in the raw-count simulations, the spatial nuisance field was generated independently of the pathway-specific activity maps from the same class of Matérn Gaussian processes and entered additively on the transformed scale through the term $\sigma_\eta \eta_i$.
 
 ### Model detail
 
