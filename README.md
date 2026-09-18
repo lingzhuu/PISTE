@@ -216,7 +216,7 @@ a_g
 +
 d_g \delta_g H_{ig}
 +
-\sigma_\eta \eta_i,
+\sigma_\eta \eta_i
 \;
 \sigma_g^2
 \right),
