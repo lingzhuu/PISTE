@@ -211,64 +211,94 @@ where $r$ controls the width of the interface-associated region and $\lambda$ co
 *(vi) Spatial-null controls.* Null pathways were matched to non-null pathways in marginal expression level and variance but lacked pathway-coherent spatial structure, providing negative controls for false-positive evaluation. 
 ### Directional heterogeneity
 
-For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map, $H_{ig}=A_i^{(p)},$ but could differ in response direction, $d_g \in \lbrace -1, +1 \rbrace$.$
+For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map, $H_{ig}=A_i^{(p)},$ but could differ in response direction, $d_g \in \lbrace -1, +1 \rbrace$.
 
 Positive-to-negative response ratios were set to $50{:}50$, $60{:}40$, or $75{:}25$ to represent increasing directional coherence within a pathway.
 
+### Raw-count simulations
 
-
-
-#### Raw-count simulations
-
-Raw counts $Y_{ig}$ for gene $g$ at spatial location $i$ were drawn from a negative binomial distribution,
-
-$$Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad \mathrm{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g}.$$
-
-with mean structure
-
-$$\mu_{ig} = s_i m_g (1 + d_g b_g H_{ig}) \exp(\sigma_\eta \eta_i).$$
-
-where $m_g > 0$ is the gene-specific baseline expression level, $s_i$ the location-specific sequencing-depth factor, $\theta_g$ the gene-specific overdispersion parameter, $b_g \in (0,1)$ the pathway-associated spatial effect magnitude, and $\eta_i = \eta(\mathbf{s}_i)$ a spatial nuisance effect at location $i$. Baseline expression levels $m_g$ and dispersions $\theta_g$ were sampled from empirical gene-level distributions estimated from reference spatial transcriptomic data, while spatial effect magnitudes for responsive genes were drawn from
+Raw counts $Y_{ig}$ were generated from a negative binomial distribution,
 
 $$
-b_g \sim \mathrm{Beta}(\alpha_b, \beta_b).
+Y_{ig}\sim \mathrm{NB}(\mu_{ig},\theta_g),
+\qquad
+\mathrm{Var}(Y_{ig})=
+\mu_{ig}+\frac{\mu_{ig}^2}{\theta_g},
 $$
 
-The spatial nuisance field was generated from a Matérn Gaussian process,
+with mean
+
+with mean
 
 $$
-\eta(\mathbf{s})
-\sim
-\mathrm{GP}\bigl(0, K_{\mathrm{Mat\acute ern}}\bigr),
+\mu_{ig} = c_i m_g (1 + d_g b_g H_{ig}) \exp(\lambda_g \sigma_{\eta,\mathrm{NB}} \eta_i),
 $$
 
-independently of all pathway-specific activity maps. The multiplicative factor $\exp(\sigma_\eta \eta_i)$ introduced spatially structured background variation shared across genes at a given location, with $\sigma_\eta \geq 0$ controlling its magnitude. The Matérn covariance range parameter was varied across simulation settings to represent nuisance spatial structure at different characteristic length scales.
+Here, $m_g>0$ is the gene-specific baseline expression level, $c_i>0$ is the location-specific sequencing-depth factor, $\theta_g$ is the gene-specific dispersion parameter, and $b_g\in(0,1)$ is the pathway-associated spatial effect magnitude. For responsive pathway genes, $H_{ig}=A_i^{(p)}$; for background SVGs, $H_{ig}$ was generated independently of the test-pathway maps; and for nonresponsive genes and background non-SVGs, the pathway-specific effect was set to zero. Response direction was encoded by $d_g \in \lbrace -1,+1 \rbrace.$
 
-#### Gaussian simulations
+Because $H_{ig}\in[0,1]$ and $b_g\in(0,1)$, the factor $1+d_gb_gH_{ig}$ remains positive for both response directions.
+
+Gene-specific baseline means and dispersion parameters were jointly sampled from empirical $(m_g,\theta_g)$ pairs estimated from reference spatial transcriptomic data. Spatial effect magnitudes were drawn from $b_g\sim\mathrm{Beta}(\alpha_b,\beta_b)$.
+
+The spatial nuisance field was generated as
+
+$$
+\eta(s)\sim\mathrm{GP}\left(0,K_{\mathrm{Mat\acute ern}}\right),
+\qquad
+\mathrm{Var}\left[\eta(s_i)\right]=1,
+$$
+
+independently of all pathway-specific activity maps. The term
+
+$$
+\exp\left(\lambda_g\sigma_{\eta,\mathrm{NB}}\eta_i\right)
+$$
+
+introduces spatially correlated background variation, where $\sigma_{\eta,\mathrm{NB}}$ controls its overall magnitude and $\lambda_g$ allows genes to differ in their sensitivity to the shared spatial field. The Matérn range parameter was varied across simulation settings.
+
+### Gaussian simulations
 
 To emulate expression measurements on a transformed, approximately Gaussian scale, we generated
 
 $$
-X_{ig}
-\sim
-\mathcal{N}\left(
-a_g
-+
-d_g \delta_g H_{ig}
-+
-\sigma_\eta \eta_i
-\;
-\sigma_g^2
-\right),
+X_{ig} = a_g + d_g \delta_g H_{ig} + \sigma_g \sigma_{\eta,\mathrm{G}} \lambda_g \eta_i + \epsilon_{ig},
 $$
 
-where $a_g$ is the baseline expression level, $\sigma_g^2$ the residual variance, $\delta_g > 0$ the pathway-associated spatial effect magnitude, and $\eta_i = \eta(\mathbf{s}_i)$ the spatial nuisance effect. The parameters $a_g$ and $\sigma_g^2$ were sampled from empirical reference distributions.
+with
 
-To place effect strength on a common scale across genes, we defined the standardized spatial effect
+$$
+\epsilon_{ig}\sim\mathcal N(0,\sigma_g^2).
+$$
 
-$$r_g = \frac{\delta_g}{\sigma_g}, \qquad r_g \sim \mathrm{Beta}(\alpha_r, \beta_r).$$
+Equivalently,
 
-As in the raw-count simulations, the spatial nuisance field was generated independently of the pathway-specific activity maps from the same class of Matérn Gaussian processes and entered additively on the transformed scale through the term $\sigma_\eta \eta_i$.
+$$
+X_{ig}\sim
+\mathcal N\left(
+a_g+d_g\delta_gH_{ig}
++\sigma_g\sigma_{\eta,\mathrm{G}}\lambda_g\eta_i,
+\,
+\sigma_g^2
+\right).
+$$
+
+Here, $a_g$ is the gene-specific baseline level, $\sigma_g^2$ is the residual variance, and $\delta_g>0$ is the pathway-associated spatial effect magnitude. Baseline levels and residual variances were sampled from empirical reference distributions.
+
+To standardize effect strength across genes, we defined
+
+$$
+r_g=\frac{\delta_g}{\sigma_g},
+\qquad
+r_g\sim\mathrm{Beta}(\alpha_r,\beta_r),
+$$
+
+so that
+
+$$
+\delta_g=r_g\sigma_g.
+$$
+
+The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. The parameter $\sigma_{\eta,\mathrm{G}}$ controls nuisance strength relative to each gene's residual standard deviation, while $\lambda_g$ allows gene-specific sensitivity to the shared spatial field.
 
 ### Model detail
 
