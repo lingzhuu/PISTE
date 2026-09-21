@@ -246,13 +246,7 @@ $$
 \mathrm{Var}\left[\eta(s_i)\right]=1,
 $$
 
-independently of all pathway-specific activity maps. The term
-
-$$
-\exp\left(\lambda_g\sigma_{\eta,\mathrm{NB}}\eta_i\right)
-$$
-
-introduces spatially correlated background variation, where $\sigma_{\eta,\mathrm{NB}}$ controls its overall magnitude and $\lambda_g$ allows genes to differ in their sensitivity to the shared spatial field. The Matérn range parameter was varied across simulation settings.
+independently of all pathway-specific activity maps. The term $\exp\left(\lambda_g\sigma_{\eta,\mathrm{NB}}\eta_i\right)$ introduces spatially correlated background variation, where $\sigma_{\eta,\mathrm{NB}}$ controls its overall magnitude and $\lambda_g$ allows genes to differ in their sensitivity to the shared spatial field. The Matérn range parameter was varied across simulation settings.
 
 ### Gaussian simulations
 
