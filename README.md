@@ -198,23 +198,20 @@ where $s_0$ denotes a niche center and $f$ followed a linear, exponential, or po
 
 *(iv) Localized hotspots.* Activity was restricted to one or more small spatial regions, representing focal structures such as immune-cell aggregates or tertiary lymphoid structures. Hotspot number, radius, and intensity were varied.
 
-*(v) Interface-specific patterns.* Activity was concentrated near tissue interfaces, such as the tumor-stroma boundary or invasive front. Let $b_i$ denote the distance from location $i$ to the nearest domain boundary. Activity was defined as $A_i = \mathbb{1}(b_i \leq r) \exp\left(-\frac{b_i}{\lambda}\right),$
+*(v) Interface-specific patterns.* Activity was concentrated near tissue interfaces, such as the tumor-stroma boundary or invasive front. Let $b_i$ denote the distance from location $i$ to the nearest domain boundary. Activity was defined as 
+
+$$
+A_i =
+\mathbb{1}(b_i \leq r)
+\exp\left(-\frac{b_i}{\lambda}\right),
+$$
+
 where $r$ controls the width of the interface-associated region and $\lambda$ controls the rate of decay away from the boundary.
 
 *(vi) Spatial-null controls.* Null pathways were matched to non-null pathways in marginal expression level and variance but lacked pathway-coherent spatial structure, providing negative controls for false-positive evaluation. 
 ### Directional heterogeneity
 
-For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map,
-
-$$
-H_{ig}=A_i^{(p)},
-$$
-
-but could differ in response direction,
-
-$$
-d_g \in \lbrace -1, +1 \rbrace.
-$$
+For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map, $H_{ig}=A_i^{(p)},$ but could differ in response direction, $d_g \in \lbrace -1, +1 \rbrace$.$
 
 Positive-to-negative response ratios were set to $50{:}50$, $60{:}40$, or $75{:}25$ to represent increasing directional coherence within a pathway.
 
