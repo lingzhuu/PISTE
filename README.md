@@ -179,11 +179,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 We simulated expression data for 10,000 genes, organized into 50 non-overlapping test pathways of 100 genes each; the remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs, with the spatial patterns of background SVGs generated independently of the test pathways. To assess the sensitivity of each method to the size of the gene universe, we additionally simulated datasets comprising 8,000 and 20,000 genes.
 
-For each of the non-null test pathways $p$, we defined a ground-truth spatial activity map $A_i^p \in [0,1]$, denoting the relative activity of pathway $p$ at spatial location $i$. We considered four canonical spatial patterns: regional, in which activity is elevated within a defined region; gradient, in which activity varies continuously along a spatial axis; boundary, in which activity peaks at the interface between two regions and decays with distance; and multi-hotspot, in which activity is elevated in multiple disconnected regions. Each responsive gene $g$ in pathway $p$ inherited the shared spatial map, $H_{ig} = A_i^p$, whereas background SVGs were assigned independently generated patterns $H_{ig}$ unrelated to the test pathways. The response direction of gene $g$ was encoded as $d_g \in \lbrace -1, +1 \rbrace$.
-
-### Spatial generative processes
-
-We defined six parameterized classes of spatial generative processes, each motivated by a distinct form of spatial organization observed in tissues.
+We also defined six parameterized classes of spatial generative processes, each motivated by a distinct form of spatial organization observed in tissues.
 
 **(i) Discrete domains.** Activity was piecewise constant across $K$ spatial regions, representing compartmentalized tissue organization such as tumor, stroma, immune-rich regions, or anatomical subregions. We varied the number of domains, boundary complexity, and boundary sharpness.
 
@@ -211,21 +207,11 @@ where $D_i$ denotes the underlying domain field and $\tau$ is the activation thr
 
 **(vi) Spatial-null controls.** Null genes were matched to responsive genes in marginal expression level and variance but lacked pathway-coherent spatial structure, providing a negative control for false-positive evaluation.
 
-For each non-null pathway $p$, all responsive genes shared a pathway-level spatial activity map,
-
-$$
-H_{ig} = A_i^{(p)},
-$$
+For each non-null pathway $p$, all responsive genes shared a pathway-level spatial activity map, $H_{ig} = A_i^{(p)},$
 
 where $A_i^{(p)}$ was drawn from classes (i)–(v). Background SVGs were assigned independently generated spatial patterns unrelated to the test pathways.
-
 To model directional heterogeneity, responsive genes shared the same spatial activity map but were assigned opposite response directions,
-
-$$
-d_g \in \{-1,+1\},
-$$
-
-with positive-to-negative ratios of $50{:}50$, $60{:}40$, or $75{:}25$.
+$d_g \in \lbrace -1, +1 \rbrace$ with positive-to-negative ratios of $50{:}50$, $60{:}40$, or $75{:}25$.
 
 
 
