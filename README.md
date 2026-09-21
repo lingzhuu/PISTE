@@ -253,18 +253,6 @@ independently of all pathway-specific activity maps. The term $\exp\left(\lambda
 To emulate expression measurements on a transformed, approximately Gaussian scale, we generated
 
 $$
-X_{ig} = a_g + d_g \delta_g H_{ig} + \sigma_g \sigma_{\eta,\mathrm{G}} \lambda_g \eta_i + \epsilon_{ig},
-$$
-
-with
-
-$$
-\epsilon_{ig}\sim\mathcal N(0,\sigma_g^2).
-$$
-
-Equivalently,
-
-$$
 X_{ig}\sim
 \mathcal N\left(
 a_g+d_g\delta_gH_{ig}
