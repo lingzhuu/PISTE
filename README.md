@@ -174,7 +174,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 ### Simulation design
 
-We simulated expression data for 10,000 genes, organized into 50 non-overlapping test pathways of 100 genes each; the remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs, with the spatial patterns of background SVGs generated independently of the test pathways. To assess the sensitivity of each method to the size of the gene universe, we additionally simulated datasets comprising 5,000 and 20,000 genes.
+We simulated expression data for 10,000 genes, organized into 50 non-overlapping test pathways of 100 genes each; the remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs, with the spatial patterns of background SVGs generated independently of the test pathways. To assess the sensitivity of each method to the size of the gene universe, we additionally simulated datasets comprising 8,000 and 20,000 genes.
 
 The 50 test pathways fell into three categories: (i) spatially coherent pathways, in which a specified proportion of responsive genes shared a common pathway-level spatial activity map and a common response direction; (ii) directionally heterogeneous pathways, in which responsive genes shared the same spatial activity map but were assigned opposing response directions, with the proportion of genes in each direction set to 50:50, 60:40, or 75:25 (two pathways per ratio); and (iii) null pathways that carried no pathway-specific spatial signal and served as negative controls. 
 
