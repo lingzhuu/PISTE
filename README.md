@@ -228,8 +228,6 @@ $$
 
 with mean
 
-with mean
-
 $$
 \mu_{ig} = c_i m_g (1 + d_g b_g H_{ig}) \exp(\lambda_g \sigma_{\eta,\mathrm{NB}} \eta_i),
 $$
