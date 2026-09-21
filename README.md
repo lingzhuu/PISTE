@@ -173,6 +173,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 - future work
 
 ## Methods
+### Simulation framework
 
 We simulated spatial transcriptomic data at $n$ spatial locations ${s_i}_{i=1}^n$ [specify the number and source of spatial coordinates]. Gene expression was simulated for 10,000 genes, including 50 non-overlapping test pathways of 100 genes each. The remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs. Background SVGs were assigned independently generated spatial patterns unrelated to the test-pathway activity maps. To assess sensitivity to gene-universe size, we additionally simulated datasets containing 8,000 and 20,000 genes in total.
 
@@ -180,7 +181,7 @@ Of the 50 test pathways, $N$ were designated as non-null and $M=50-N$ as spatial
 
 All activity maps were min-max normalized to $[0,1]$ before expression was generated, providing a comparable activity scale across spatial classes.
 
-### Spatial generative process classes
+### Spatial classes generative process
 
 We defined six parameterized classes of spatial generative processes, each motivated by a distinct form of spatial organization observed in tissues.
 
