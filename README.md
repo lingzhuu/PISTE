@@ -269,13 +269,7 @@ To standardize effect strength across genes, we defined
 $$
 r_g=\frac{\delta_g}{\sigma_g},
 \qquad
-r_g\sim\mathrm{Beta}(\alpha_r,\beta_r),
-$$
-
-so that
-
-$$
-\delta_g=r_g\sigma_g.
+r_g\sim\mathrm{Beta}(\alpha_r,\beta_r).
 $$
 
 The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. The parameter $\sigma_{\eta,\mathrm{G}}$ controls nuisance strength relative to each gene's residual standard deviation, while $\lambda_g$ allows gene-specific sensitivity to the shared spatial field.
