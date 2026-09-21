@@ -207,11 +207,9 @@ where $D_i$ denotes the underlying domain field and $\tau$ is the activation thr
 
 **(vi) Spatial-null controls.** Null genes were matched to responsive genes in marginal expression level and variance but lacked pathway-coherent spatial structure, providing a negative control for false-positive evaluation.
 
-For each non-null pathway $p$, all responsive genes shared a pathway-level spatial activity map, $H_{ig} = A_i^{(p)},$
+For each non-null pathway $p$, all responsive genes shared a pathway-level spatial activity map, $H_{ig} = A_i^{(p)},$ where $A_i^{(p)}$ was drawn from classes (i)–(v). 
 
-where $A_i^{(p)}$ was drawn from classes (i)–(v). Background SVGs were assigned independently generated spatial patterns unrelated to the test pathways.
-To model directional heterogeneity, responsive genes shared the same spatial activity map but were assigned opposite response directions,
-$d_g \in \lbrace -1, +1 \rbrace$ with positive-to-negative ratios of $50{:}50$, $60{:}40$, or $75{:}25$.
+Background SVGs were assigned independently generated spatial patterns unrelated to the test pathways. To model directional heterogeneity, responsive genes shared the same spatial activity map but were assigned opposite response directions, $d_g \in \lbrace -1, +1 \rbrace$ with positive-to-negative ratios of $50{:}50$, $60{:}40$, or $75{:}25$.
 
 
 
