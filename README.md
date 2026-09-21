@@ -223,15 +223,15 @@ Raw counts $Y_{ig}$ were generated from a negative binomial distribution,
 $$
 Y_{ig}\sim \mathrm{NB}(\mu_{ig},\theta_g),
 \qquad
+\mu_{ig} = c_i m_g (1 + d_g b_g H_{ig}) \exp(\lambda_g \sigma_{\eta,\mathrm{NB}} \eta_i),
+\qquad
 \mathrm{Var}(Y_{ig})=
 \mu_{ig}+\frac{\mu_{ig}^2}{\theta_g},
 $$
 
-with mean
 
-$$
 \mu_{ig} = c_i m_g (1 + d_g b_g H_{ig}) \exp(\lambda_g \sigma_{\eta,\mathrm{NB}} \eta_i),
-$$
+
 
 Here, $m_g>0$ is the gene-specific baseline expression level, $c_i>0$ is the location-specific sequencing-depth factor, $\theta_g$ is the gene-specific dispersion parameter, and $b_g\in(0,1)$ is the pathway-associated spatial effect magnitude. For responsive pathway genes, $H_{ig}=A_i^{(p)}$; for background SVGs, $H_{ig}$ was generated independently of the test-pathway maps; and for nonresponsive genes and background non-SVGs, the pathway-specific effect was set to zero. Response direction was encoded by $d_g \in \lbrace -1,+1 \rbrace.$
 
