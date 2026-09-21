@@ -120,6 +120,9 @@ Simulation result
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
   > employing the Brownian distance correlation (dCor) test in a novel set-up to evaluate the dependency of two random vectors with different dimensionality.
+  
+
+
 
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
@@ -176,9 +179,55 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 We simulated expression data for 10,000 genes, organized into 50 non-overlapping test pathways of 100 genes each; the remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs, with the spatial patterns of background SVGs generated independently of the test pathways. To assess the sensitivity of each method to the size of the gene universe, we additionally simulated datasets comprising 8,000 and 20,000 genes.
 
-The 50 test pathways fell into three categories: (i) spatially coherent pathways, in which a specified proportion of responsive genes shared a common pathway-level spatial activity map and a common response direction; (ii) directionally heterogeneous pathways, in which responsive genes shared the same spatial activity map but were assigned opposing response directions, with the proportion of genes in each direction set to 50:50, 60:40, or 75:25; and (iii) null pathways that carried no pathway-specific spatial signal and served as negative controls. 
-
 For each of the non-null test pathways $p$, we defined a ground-truth spatial activity map $A_i^p \in [0,1]$, denoting the relative activity of pathway $p$ at spatial location $i$. We considered four canonical spatial patterns: regional, in which activity is elevated within a defined region; gradient, in which activity varies continuously along a spatial axis; boundary, in which activity peaks at the interface between two regions and decays with distance; and multi-hotspot, in which activity is elevated in multiple disconnected regions. Each responsive gene $g$ in pathway $p$ inherited the shared spatial map, $H_{ig} = A_i^p$, whereas background SVGs were assigned independently generated patterns $H_{ig}$ unrelated to the test pathways. The response direction of gene $g$ was encoded as $d_g \in \lbrace -1, +1 \rbrace$.
+
+### Spatial generative processes
+
+We defined six parameterized classes of spatial generative processes, each motivated by a distinct form of spatial organization observed in tissues.
+
+**(i) Discrete domains.** Activity was piecewise constant across $K$ spatial regions, representing compartmentalized tissue organization such as tumor, stroma, immune-rich regions, or anatomical subregions. We varied the number of domains, boundary complexity, and boundary sharpness.
+
+**(ii) Smooth gradients.** Activity varied continuously across space, representing processes such as oxygen, nutrient, metabolic, or inflammatory gradients. Spatial variation was generated from a Gaussian process with a Matérn or RBF kernel, or from a smooth function along a spatial axis. The correlation length $\ell$ controlled the spatial scale.
+
+**(iii) Radial or niche-centered patterns.** Activity was organized around one or more local structures, such as blood vessels, ducts, or other anatomical niches, and depended on distance from the niche center,
+
+$$
+A_i = f\left(\lVert s_i - s_0 \rVert\right),
+$$
+
+where $f$ followed a linear, exponential, or power-law decay. Seed location, number of niches, and decay rate were varied.
+
+**(iv) Localized hotspots.** Activity was restricted to one or more small spatial regions, representing focal structures such as immune-cell aggregates, tertiary lymphoid structures, or localized inflammatory responses. Hotspot number, radius, and intensity were varied.
+
+**(v) Interface-specific patterns.** Activity was concentrated near tissue interfaces such as the tumor-stroma boundary or invasive front, where interacting cell populations on both sides of the interface may exhibit distinct response programs. Activity was generated around domain boundaries as
+
+$$
+A_i =
+\mathbf{1}\left(\lVert \nabla D_i \rVert > \tau\right)
+g\left(\lVert \nabla D_i \rVert\right),
+$$
+
+where $D_i$ denotes the underlying domain field and $\tau$ is the activation threshold.
+
+**(vi) Spatial-null controls.** Null genes were matched to responsive genes in marginal expression level and variance but lacked pathway-coherent spatial structure, providing a negative control for false-positive evaluation.
+
+For each non-null pathway $p$, all responsive genes shared a pathway-level spatial activity map,
+
+$$
+H_{ig} = A_i^{(p)},
+$$
+
+where $A_i^{(p)}$ was drawn from classes (i)–(v). Background SVGs were assigned independently generated spatial patterns unrelated to the test pathways.
+
+To model directional heterogeneity, responsive genes shared the same spatial activity map but were assigned opposite response directions,
+
+$$
+d_g \in \{-1,+1\},
+$$
+
+with positive-to-negative ratios of $50{:}50$, $60{:}40$, or $75{:}25$.
+
+
 
 #### Raw-count simulations
 
