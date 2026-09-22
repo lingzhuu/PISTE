@@ -120,6 +120,8 @@ Simulation result
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
   > employing the Brownian distance correlation (dCor) test in a novel set-up to evaluate the dependency of two random vectors with different dimensionality.
+- GSDensity [paper](https://www.nature.com/articles/s41467-023-44206-x)
+  > Here, we present GSDensity, a graph-modeling approach that allows users to obtain pathway-centric interpretation and dissection of single-cell and spatial transcriptomics (ST) data without performing clustering. Using pathway gene sets, we show that GSDensity can accurately detect biologically distinct cells and reveal novel cell-pathway associations ignored by existing methods. 
   
 
 
@@ -187,7 +189,7 @@ We defined six parameterized classes of spatial generative processes, each motiv
 
 *(i) Discrete domains.* Activity was piecewise constant across $K$ spatial regions, representing compartmentalized tissue organization such as tumor, stroma, or immune-rich regions. The number of domains, boundary complexity, and boundary sharpness were varied across simulation settings.
 
-*(ii) Smooth gradients.* Activity varied continuously across space, representing processes such as oxygen, nutrient, metabolic, or inflammatory gradients. Spatial variation was generated from a Gaussian process with a Matérn or RBF kernel, or from a smooth function along a spatial axis. The correlation length $\ell$ controlled the spatial scale of variation.
+*(ii) Smooth gradients.* Activity varied continuously across space, representing processes such as oxygen, nutrient, metabolic, or inflammatory gradients. Spatial variation was generated from a Gaussian process with a Matérn kernel, or from a smooth function along a spatial axis. The correlation length $\ell$ controlled the spatial scale of variation.
 
 *(iii) Radial or niche-centered patterns.* Activity was organized around one or more local anatomical structures, such as blood vessels or ducts,
 
