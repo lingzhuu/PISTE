@@ -237,7 +237,7 @@ Here, $m_g>0$ is the gene-specific baseline expression level, $c_i>0$ is the loc
 
 Gene-specific baseline means and dispersion parameters were jointly sampled from empirical $(m_g,\theta_g)$ pairs estimated from reference spatial transcriptomic data. Spatial effect magnitudes were drawn from $b_g\sim\mathrm{Beta}(\alpha_b,\beta_b)$.
 
-The spatial nuisance field was generated as $\eta(s)\sim\mathrm{GP}\left(0,K_{\mathrm{Mat\acute ern}}\right)$ independently of all pathway-specific activity maps. $\exp\left(\lambda_g\sigma_{\eta,\mathrm{NB}}\eta_i\right)$ introduces spatially correlated background variation, where $\sigma_{\eta,\mathrm{NB}}$ controls its overall magnitude and $\lambda_g$ allows genes to differ in their sensitivity to the shared spatial field. The Matérn range parameter was varied across simulation settings.
+The spatial nuisance field was generated as $\eta(s)\sim\mathrm{GP}\left(0,K_{\mathrm{Mat\acute ern}}\right)$ independently of all pathway-specific activity maps. Spatially correlated background variation was introduced through $\lambda_g\sigma_{\eta,\mathrm{NB}}\eta_i$, where $\sigma_{\eta,\mathrm{NB}}$ controls the overall magnitude and $\lambda_g$ allows genes to differ in their sensitivity to the shared spatial field. The Matérn range parameter was varied across simulation settings.
 <!-- \mathrm{Var}\left[\eta(s_i)\right]=1 -->
 
 ### Gaussian simulations
