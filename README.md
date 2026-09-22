@@ -235,8 +235,6 @@ $$
 
 Here, $m_g>0$ is the gene-specific baseline expression level, $c_i>0$ is the location-specific sequencing-depth factor, $\theta_g$ is the gene-specific dispersion parameter, and $b_g\in(0,1)$ is the pathway-associated spatial effect magnitude. For responsive pathway genes, $H_{ig}=A_i^{(p)}$; for background SVGs, $H_{ig}$ was generated independently of the test-pathway maps; and for nonresponsive genes and background non-SVGs, the pathway-specific effect was set to zero. Response direction was encoded by $d_g \in \lbrace -1,+1 \rbrace.$
 
-Because $H_{ig}\in[0,1]$ and $b_g\in(0,1)$, the factor $1+d_gb_gH_{ig}$ remains positive for both response directions.
-
 Gene-specific baseline means and dispersion parameters were jointly sampled from empirical $(m_g,\theta_g)$ pairs estimated from reference spatial transcriptomic data. Spatial effect magnitudes were drawn from $b_g\sim\mathrm{Beta}(\alpha_b,\beta_b)$.
 
 The spatial nuisance field was generated as
