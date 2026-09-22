@@ -227,7 +227,7 @@ Y_{ig}\sim \mathrm{NB}(\mu_{ig},\theta_g),
 $$
 
 $$
-\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \lambda_g \sigma_{\eta,\mathrm{NB}} \eta_i,
+\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \sigma_{\eta,\mathrm{NB}} \eta_i,
 \qquad
 \mathrm{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g}.
 $$
