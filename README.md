@@ -253,7 +253,7 @@ $$
 X_{ig}\sim
 \mathcal N\left(
 a_g+d_g\delta_gH_{ig}
-+\sigma_g\sigma_{\eta,\mathrm{G}}\lambda_g\eta_i,
++\sigma_g\sigma_{\eta,\mathrm{G}}\lambda_g\eta_i
 \,
 \sigma_g^2
 \right).
