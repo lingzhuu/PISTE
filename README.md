@@ -248,7 +248,7 @@ $$
 X_{ig}\sim
 \mathcal N\left(
 a_g+d_g\delta_gH_{ig}
-+\sigma_g\sigma_{\eta,\mathrm{G}}\lambda_g\eta_i
++\sigma_g\sigma_{\eta,\mathrm{G}}\eta_i
 \,
 \sigma_g^2
 \right).
@@ -264,7 +264,7 @@ r_g=\frac{\delta_g}{\sigma_g},
 r_g\sim\mathrm{Beta}(\alpha_r,\beta_r).
 $$
 
-The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. The parameter $\sigma_{\eta,\mathrm{G}}$ controls nuisance strength relative to each gene's residual standard deviation, while $\lambda_g$ allows gene-specific sensitivity to the shared spatial field.
+The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. The parameter $\sigma_{\eta,\mathrm{G}}$ controls nuisance strength relative to each gene's residual standard deviation.
 
 ### Model detail
 
