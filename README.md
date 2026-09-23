@@ -248,7 +248,7 @@ $$
 X_{ig} \sim N\left(a_g + d_g\delta_gH_{ig} + \sigma_{\eta,\mathrm{G}}\eta_i,\sigma_g^2\right).
 $$
 
-Here, $a_g$ is the gene-specific baseline level, $\sigma_g^2$ is the gene-specific residual variance, and $\delta_g>0$ is the pathway-associated spatial effect magnitude. Gene-specific baseline levels and residual variances were sampled from empirical reference distributions, while pathway effect magnitudes were scaled relative to $\sigma_g$ as described below.
+Here, $a_g$ is the gene-specific baseline level, $\sigma_g^2$ is the gene-specific residual variance, and $\delta_g>0$ is the pathway-associated spatial effect magnitude. Gene-specific baseline levels and residual variances were sampled from empirical reference distributions.
 
 To standardize effect strength across genes, we defined
 
@@ -257,6 +257,7 @@ r_g = \frac{\delta_g}{\sigma_g}, \qquad r_g \sim \mathrm{Beta}(\alpha_r,\beta_r)
 $$
 
 The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. Spatially correlated background variation was modeled as $\sigma_{\eta,\mathrm{G}}\eta_i$, with $\sigma_{\eta,\mathrm{G}}$ controlling its overall strength.
+
 ### Model detail
 
 
