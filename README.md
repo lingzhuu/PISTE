@@ -223,7 +223,7 @@ Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad
 $$
 
 $$
-\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \sigma_{\eta}\eta_i.
+\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig}.
 $$
 
 Here $c_i$ is the spot-specific depth factor and $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair. 
