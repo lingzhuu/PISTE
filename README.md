@@ -114,6 +114,22 @@ $$
 
 因此自由 hyperparameter 数量为 $R+2$: $R$ regional variances、a spatial variance，and a Gaussian residual variance or a NB calibration parameter.
 
+For region $r$ and $$ s$, 定义随机 pathway states：
+
+$$
+Z_r\sim N(\mu_r,\tau_r^2),
+\qquad
+Z_s\sim N(\mu_s,\tau_s^2),
+$$
+
+以及：
+
+$$
+\pi_{rs}=P(|Z_r|>|Z_s|\mid\mu_r,\tau_r^2,\mu_s,\tau_s^2).
+$$
+
+
+
 ### Benchmark
 Simulation result
 
