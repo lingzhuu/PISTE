@@ -233,7 +233,7 @@ where $r$ controls the width of the interface-associated region and $\lambda$ co
 For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map, $H_{ig}=A_i^{(p)},$ but could differ in response direction, $d_g \in \lbrace -1, +1 \rbrace$.
 
 Positive-to-negative response ratios were set to $50{:}50$, $60{:}40$, or $75{:}25$ to represent increasing directional coherence within a pathway.
-
+![Simulation](simulation/simulation_data.jpg)
 ### Raw-count simulations
 
 Raw counts $Y_{ig}$ were generated from a negative binomial distribution,
