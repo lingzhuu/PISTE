@@ -205,14 +205,14 @@ $$
 
 where $h_i$ is the distance to the relevant boundary.
 
-For each responsive gene, $L_g&gt;0$ denotes the absolute target-versus-rest expected log2 fold change, after correcting for spot depth. We examine two distributions:
+For each responsive gene, $L_g>0$ denotes the absolute target-versus-rest expected log2 fold change, after correcting for spot depth. We examine two distributions:
 
 $$
-L_g \sim
-\begin{cases}
-\mathrm{Lognormal}(\text{shape}=0.3,\ \text{scale}=0.4), & \text{broad \& weak},\\
-\mathrm{Lognormal}(\text{shape}=0.4,\ \text{scale}=0.9), & \text{narrow \& strong}.
-\end{cases}
+L_g \sim \mathrm{Lognormal}(\text{shape}=0.3,\text{ scale}=0.4),\quad \text{broad and weak},
+$$
+
+$$
+L_g \sim \mathrm{Lognormal}(\text{shape}=0.4,\text{ scale}=0.9),\quad \text{narrow and strong}.
 $$
 
 Response direction is assigned before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. $L_g$ specifies the effect of an individual responsive gene; it does not guarantee that the mean of all 100 pathway genes is higher in the target, particularly when $K_p$ is small or some responsive genes are downregulated.
