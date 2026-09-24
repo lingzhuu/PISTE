@@ -193,87 +193,46 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 ## Methods
 ### Simulation framework
 
-We simulated spatial transcriptomic data at $n$ spatial locations ${s_i}_{i=1}^n$ [specify the number and source of spatial coordinates]. Gene expression was simulated for 10,000 genes, including 50 non-overlapping test pathways of 100 genes each. The remaining 5,000 genes formed a background pool containing both spatially variable genes (SVGs) and non-SVGs. Background SVGs were assigned independently generated spatial patterns unrelated to the test-pathway activity maps. To assess sensitivity to gene-universe size, we additionally simulated datasets containing 8,000 and 20,000 genes in total.
+We will simulate raw spatial transcriptomic counts at the 3,639 tissue spots of the spatialLIBD DLPFC 151673 section, using its observed spot coordinates. The primary dataset will contain 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs), and 4,000 background genes without an assigned spatial effect. Background SVGs will receive independently generated spatial activity maps unrelated to the test-pathway maps.
 
-Of the 50 test pathways, $N$ were designated as non-null and $M=50-N$ as spatial-null controls. Each non-null pathway was assigned a pathway-level spatial activity map $A_i^{(p)}$ generated from one of five spatial classes described below. Within each non-null pathway, a fraction $\pi_p$ of genes was designated as responsive to the pathway activity map, while the remaining genes served as within-pathway noise genes [specify values of $\pi_p$]. Non-null pathways were distributed [evenly/randomly] across the five spatial classes.
+The 50 pathways will cover every combination of five response-size groups, five spatial pattern classes, and two effect-size distributions. For each pathway $p$, the number $K_p$ of responsive genes will be sampled from a discrete uniform distribution on one of five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100. Its remaining $100-K_p$ members will have no pathway-associated effect. 
 
-All activity maps were min-max normalized to $[0,1]$ before expression was generated, providing a comparable activity scale across spatial classes.
-
-### Spatial classes generative process
-
-We defined six parameterized classes of spatial generative processes, each motivated by a distinct form of spatial organization observed in tissues.
-
-*(i) Discrete domains.* Activity was piecewise constant across $K$ spatial regions, representing compartmentalized tissue organization such as tumor, stroma, or immune-rich regions. The number of domains, boundary complexity, and boundary sharpness were varied across simulation settings.
-
-*(ii) Smooth gradients.* Activity varied continuously across space, representing processes such as oxygen, nutrient, metabolic, or inflammatory gradients. Spatial variation was generated from a Gaussian process with a Matérn kernel, or from a smooth function along a spatial axis. The correlation length $\ell$ controlled the spatial scale of variation.
-
-*(iii) Radial or niche-centered patterns.* Activity was organized around one or more local anatomical structures, such as blood vessels or ducts,
+Each pathway will receive an activity map $A_i^{(p)}$, normalized to $[0,1]$, from one of five classes: discrete domains, smooth gradients, radial or niche-centered patterns, localized hotspots, or interface-specific patterns. Domain activity will be piecewise constant across $D_p$ spatial regions. Gradients will vary smoothly across the tissue; radial activity will decay with distance from a niche center; hotspot activity will be localized; and interface activity will follow
 
 $$
-A_i = f\left(\lVert s_i-s_0\rVert\right),
+A_i^{(p)} = \mathbb{1}(h_i \leq r)\exp(-h_i/\lambda),
 $$
 
-where $s_0$ denotes a niche center and $f$ followed a linear, exponential, or power-law decay. Seed location, number of niches, and decay rate were varied.
+where $h_i$ is the distance to the relevant boundary.
 
-*(iv) Localized hotspots.* Activity was restricted to one or more small spatial regions, representing focal structures such as immune-cell aggregates or tertiary lymphoid structures. Hotspot number, radius, and intensity were varied.
-
-*(v) Interface-specific patterns.* Activity was concentrated near tissue interfaces, such as the tumor-stroma boundary or invasive front. Let $b_i$ denote the distance from location $i$ to the nearest domain boundary. Activity was defined as 
+For each responsive gene, $L_g&gt;0$ will denote the absolute target-versus-rest expected log2 fold change for that gene, after correcting for spot depth. We will examine two distributions specified for the primary simulation:
 
 $$
-A_i =
-\mathbb{1}(b_i \leq r)
-\exp\left(-\frac{b_i}{\lambda}\right),
+L_g \sim
+\begin{cases}
+\operatorname{Lognormal}(\text{shape}=0.3,\ \text{scale}=0.4), & \text{broad \& weak},\\\\[4pt]
+\operatorname{Lognormal}(\text{shape}=0.4,\ \text{scale}=0.9), & \text{narrow \& strong}.
+\end{cases}
 $$
 
-where $r$ controls the width of the interface-associated region and $\lambda$ controls the rate of decay away from the boundary.
+Response direction will be assigned before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. The drawn directions will be retained: we will not redraw them after checking the aggregate target-versus-rest expression. Consequently, $L_g$ specifies the effect of an individual responsive gene; it does not guarantee that the mean of all 100 pathway genes is higher in target, particularly when $K_p$ is small or some responsive genes are downregulated.
 
-*(vi) Spatial-null controls.* Null pathways were matched to non-null pathways in marginal expression level and variance but lacked pathway-coherent spatial structure, providing negative controls for false-positive evaluation. 
-
-<img src="simulation/simulation_data.jpg" width="600" alt="Simulation">
-
-### Directional heterogeneity
-
-For each non-null pathway $p$, all responsive genes shared the same pathway-level spatial activity map, $H_{ig}=A_i^{(p)},$ but could differ in response direction, $d_g \in \lbrace -1, +1 \rbrace$.
-Positive-to-negative response ratios were set to $50{:}50$, $60{:}40$, or $75{:}25$ to represent increasing directional coherence within a pathway.
-### Raw-count simulations
-
-Raw counts $Y_{ig}$ were generated from a negative binomial distribution,
+Counts will be generated from
 
 $$
-Y_{ig}\sim \mathrm{NB}(\mu_{ig},\theta_g),
+Y_{ig} \sim \operatorname{NB}(\mu_{ig}, \theta_g), \qquad
+\operatorname{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g},
 $$
 
 $$
-\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \sigma_{\eta,\mathrm{NB}} \eta_i,
-\qquad
-\mathrm{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g}.
+\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \sigma_\eta \eta_i.
 $$
 
+Here $c_i$ is the spot-specific depth factor; $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair; and $H_{ig}=A_i^{(p)}$ for a responsive pathway gene. Nonresponsive genes have zero pathway-associated effect. Background SVGs use activity maps independent of the test pathways. For each responsive gene, $b_g$ will be calibrated so that its expected depth-corrected count mean has target-versus-rest log2 fold change $d_gL_g$. Accordingly, the former restriction $b_g\in(0,1)$ and the former Beta distribution for $b_g$ are removed.
 
-Here, $m_g>0$ is the gene-specific baseline expression level, $c_i>0$ is the location-specific sequencing-depth factor, $\theta_g$ is the gene-specific dispersion parameter, and $b_g\in(0,1)$ is the pathway-associated spatial effect magnitude. For responsive pathway genes, $H_{ig}=A_i^{(p)}$; for background SVGs, $H_{ig}$ was generated independently of the test-pathway maps; and for nonresponsive genes and background non-SVGs, the pathway-specific effect was set to zero. Response direction was encoded by $d_g \in \lbrace -1,+1 \rbrace.$
+The primary run will set the shared spatial nuisance strength to $\sigma_\eta=0$. A nonzero independent Matérn nuisance field can be examined later as a sensitivity analysis. We will not generate a separate Gaussian dataset: SCTransform will instead be applied once to all genes in each simulated raw-count dataset.
 
-Gene-specific baseline means and dispersion parameters were jointly sampled from empirical $(m_g,\theta_g)$ pairs estimated from reference spatial transcriptomic data. Spatial effect magnitudes were drawn from $b_g\sim\mathrm{Beta}(\alpha_b,\beta_b)$.
-
-The spatial nuisance field was generated as $\eta(s)\sim\mathrm{GP}(0,K_{\mathrm{Mat\acute ern}})$ independently of all pathway-specific activity maps, where $\eta_i=\eta(s_i)$ denotes the standardized nuisance value at spatial location $i$. Spatially correlated background variation was modeled as $\sigma_{\eta,\mathrm{NB}}\eta_i$, with $\sigma_{\eta,\mathrm{NB}}$ determining its overall strength.
-<!-- \mathrm{Var}\left[\eta(s_i)\right]=1 -->
-
-### Gaussian simulations
-
-To emulate expression measurements on a transformed, approximately Gaussian scale, we generated
-
-$$
-X_{ig} \sim N\left(a_g + d_g\delta_gH_{ig} + \sigma_{\eta,\mathrm{G}}\eta_i,\sigma_g^2\right).
-$$
-
-Here, $a_g$ is the gene-specific baseline level, $\sigma_g^2$ is the gene-specific residual variance, and $\delta_g>0$ is the pathway-associated spatial effect magnitude. Gene-specific baseline levels and residual variances were sampled from empirical reference distributions.
-
-To standardize effect strength across genes, we defined
-
-$$
-r_g = \frac{\delta_g}{\sigma_g}, \qquad r_g \sim \mathrm{Beta}(\alpha_r,\beta_r).
-$$
-
-The same standardized Matérn field $\eta_i=\eta(s_i)$ was used to generate spatial nuisance variation independently of the pathway-specific activity maps. Spatially correlated background variation was modeled as $\sigma_{\eta,\mathrm{G}}\eta_i$, with $\sigma_{\eta,\mathrm{G}}$ controlling its overall strength.
+PathwayLGM NB will receive raw counts and depth factors. GSDensity will receive a Seurat object built from raw counts and will use the author function's internal NormalizeData() step. PathwayLGM Gaussian and STpathway will receive the SCTransform Pearson residuals from those same raw counts. For PathwayLGM's oracle-region analysis, target will be defined from the generated activity map and compared with rest; the other two methods will not receive that target label.
 
 ### Model detail
 
