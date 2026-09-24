@@ -192,30 +192,27 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 ## Methods
 ### Simulation framework
-
 We simulate raw spatial transcriptomic counts at the 3,639 tissue spots of the spatialLIBD DLPFC 151673 section, using its observed spot coordinates. The primary dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs), and 4,000 background genes without a spatial effect. Background SVGs receive independently generated spatial activity maps unrelated to the test-pathway maps.
 
-The 50 pathways cover every combination of five response-size groups, five spatial pattern classes, and two effect-size distributions. For each pathway $p$, the number of responsive genes $K_p$ is sampled from a discrete uniform distribution on one of five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100. The remaining $100-K_p$ members have no pathway-associated effect. Two independent simulation seeds give two pathways per combination.
+The 50 pathways cover every combination of five response-size groups, five spatial pattern classes, and two effect-size distributions; two independent simulation seeds give two pathways per combination. For each pathway $p$, $K_p$ is the number of the 100 members that genuinely respond to the activity map, sampled from a discrete uniform distribution on one of five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100; the remaining $100-K_p$ members carry no pathway-associated effect. For each responsive gene, $L_g>0$ denotes the absolute target-versus-rest expected log2 fold change (after correcting for spot depth):
 
-Each pathway receives an activity map $A_i^{(p)}$, normalized to $[0,1]$, from one of five classes: discrete domains, smooth gradients, radial or niche-centered patterns, localized hotspots, or interface-specific patterns. Domain activity is piecewise constant across $D_p$ spatial regions. Gradients vary smoothly across the tissue; radial activity decays with distance from a niche center; hotspot activity is localized; and interface activity follows
+$$
+L_g \sim
+\begin{cases}
+\mathrm{Lognormal}(\text{s}=0.3,\text{ scale}=0.4), & \text{(broad and weak)},\\
+\mathrm{Lognormal}(\text{s}=0.4,\text{ scale}=0.9), & \text{(narrow and strong)}.
+\end{cases}
+$$
+
+Response direction is drawn before count generation: $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. The reversal probability decreases with the response-size group: roughly 30–50% of genes in the weakest groups (0–4, 5–10) are reversed, 15–30% in the medium group (11–30), and no more than about 10–15% in the strong groups (31–60, 61–100). $L_g$ specifies the effect of an individual responsive gene and does not guarantee that the mean of all 100 pathway genes is higher in the target.
+
+Each pathway is assigned an activity map $A_i^{(p)}$, normalized to $[0,1]$, from one of five classes: discrete domains, smooth gradients, radial or niche-centered patterns, localized hotspots, or interface-specific patterns. Domain activity is piecewise constant across $D_p$ spatial regions; gradients vary smoothly across the tissue; radial activity decays with distance from a niche center; hotspot activity is localized; and interface activity follows
 
 $$
 A_i^{(p)} = \mathbb{1}(h_i \leq r)\exp(-h_i/\lambda),
 $$
 
-where $h_i$ is the distance to the relevant boundary.
-
-For each responsive gene, $L_g>0$ denotes the absolute target-versus-rest expected log2 fold change, after correcting for spot depth. We examine two distributions:
-
-$$
-L_g \sim \mathrm{Lognormal}(\text{shape}=0.3,\text{ scale}=0.4),\quad \text{broad and weak},
-$$
-
-$$
-L_g \sim \mathrm{Lognormal}(\text{shape}=0.4,\text{ scale}=0.9),\quad \text{narrow and strong}.
-$$
-
-Response direction is assigned before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. $L_g$ specifies the effect of an individual responsive gene; it does not guarantee that the mean of all 100 pathway genes is higher in the target, particularly when $K_p$ is small or some responsive genes are downregulated.
+where $h_i$ is the distance to the relevant boundary. Responsive genes receive their pathway's activity map through $H_{ig}=A_i^{(p)}$.
 
 Counts are generated from
 
@@ -228,7 +225,7 @@ $$
 \log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + \sigma_{\eta}\eta_i.
 $$
 
-Here $c_i$ is the spot-specific depth factor; $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair; and $H_{ig}=A_i^{(p)}$ for a responsive pathway gene. Nonresponsive genes have zero pathway-associated effect, and background SVGs use activity maps independent of the test pathways. For each responsive gene, $b_g$ is calibrated so that its expected depth-corrected count mean has a target-versus-rest log2 fold change of $d_gL_g$.
+Here $c_i$ is the spot-specific depth factor and $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair. For each responsive gene, $b_g$ is calibrated so that its expected depth-corrected count mean has a target-versus-rest log2 fold change of $d_gL_g$.
 
 The primary run sets the shared spatial nuisance strength to $\sigma_\eta=0$. SCTransform is applied once to all genes in each simulated raw-count dataset.
 
