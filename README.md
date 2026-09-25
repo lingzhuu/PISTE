@@ -125,7 +125,7 @@ $$
 以及：
 
 $$
-\pi_{rs}=P(|Z_r|>|Z_s|\mid\mu_r,\tau_r^2,\mu_s,\tau_s^2).
+\pi_{rs}=P( Z_r > Z_s\mid\mu_r,\tau_r^2,\mu_s,\tau_s^2).
 $$
 
 
