@@ -195,7 +195,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 We simulate raw spatial transcriptomic counts at the 3,639 tissue spots of the spatialLIBD DLPFC 151673 section, using its observed spot coordinates. The primary dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs), and 4,000 background genes without a spatial effect. Background SVGs receive independently generated spatial activity maps unrelated to the test-pathway maps.
 
-The 50 pathways cover every combination of five response-size groups, five spatial pattern classes, and two effect-size distributions. For each responsive gene, $E_g>0$ denotes the absolute target-versus-rest expected log2 fold change (after correcting for spot depth):
+We designed 50 pathways spanning five response-size groups, five spatial pattern classes, and two effect-size distributions. For each responsive gene, $E_g>0$ denotes the absolute target-versus-rest expected log2 fold change (after correcting for spot depth):
 
 $$
 E_g \sim
@@ -205,15 +205,10 @@ E_g \sim
 \end{cases}
 $$
 
-For each pathway $p$, $K_p$ is the number of the 100 members that respond to the activity map, sampled from a discrete uniform distribution on one of five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100; the remaining $100-K_p$ members carry no pathway-associated effect. Response direction is drawn before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. The reversal probability decreases with the response-size group: 30–50% of genes in the weakest groups are reversed, 15–30% in the medium group, and 10–15% in the strong groups. $E_g$ specifies the effect of an individual responsive gene.
+For each pathway $p$, $K_p$ is the number of the responsive members among the 100 genes, sampled from five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100; the remaining $100-K_p$ members are not responsive. Response direction is drawn before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. Genes in weaker response group are more likely to have their direction reversed, with reversal probabilities of 30–50%, 15–30%, and 10–15% in the weak, medium, anad strong groups, respectively. $E_g$ denotes the effect size of an individual responsive gene.
 
 Each pathway is assigned an activity map $A_i^{(p)}$, normalized to $[0,1]$, from one of five classes: discrete domains, smooth gradients, radial or niche-centered patterns, localized hotspots, or interface-specific patterns. Domain activity is piecewise constant across $D_p$ spatial regions; gradients vary smoothly across the tissue; radial activity decays with distance from a niche center; hotspot activity is localized; and interface activity follows
-
-$$
-A_i^{(p)} = \mathbb{1}(h_i \leq r)\exp(-h_i/\lambda),
-$$
-
-where $h_i$ is the distance to the relevant boundary. Responsive genes receive their pathway's activity map through $H_{ig}=A_i^{(p)}$.
+$A_i^{(p)} = \mathbb{1}(h_i \leq r)\exp(-h_i/\lambda)$, where $h_i$ is the distance to the relevant boundary. Responsive genes receive their pathway's activity map through $H_{ig}=A_i^{(p)}$.
 
 Counts are generated from
 
