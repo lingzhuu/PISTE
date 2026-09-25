@@ -200,8 +200,8 @@ The 50 pathways cover every combination of five response-size groups, five spati
 $$
 E_g \sim
 \begin{cases}
-\mathrm{Lognormal}(\text{s}=0.3,\text{ scale}=0.4), & \text{(broad and weak)},\\
-\mathrm{Lognormal}(\text{s}=0.4,\text{ scale}=0.9), & \text{(narrow and strong)}.
+\mathrm{Lognormal}(\text{s}=0.3,\text{ scale}=0.4), & \text{broad and weak},\\
+\mathrm{Lognormal}(\text{s}=0.4,\text{ scale}=0.9), & \text{narrow and strong}.
 \end{cases}
 $$
 
