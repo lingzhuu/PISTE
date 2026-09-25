@@ -6,7 +6,7 @@ out_dir <- file.path(work_dir, "GSVA")
 
 x <- readRDS(file.path(data_dir, "processed_data.rds"))
 
-gmt <- strsplit(readLines(file.path(data_dir, "brain_and_reference.gmt")),"\t")
+gmt <- strsplit(readLines(file.path(data_dir, "DLPFC_brain_and_reference.gmt")),"\t")
 
 # Keep gene IDs after the first two fields; name each gene list using the first field.
 pathways <- setNames(
