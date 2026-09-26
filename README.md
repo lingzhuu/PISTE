@@ -130,8 +130,7 @@ $$
 
 
 
-### Benchmark
-Simulation result
+### Benchmarking on simulated spatial data
 
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
@@ -139,6 +138,13 @@ Simulation result
 - GSDensity [paper](https://www.nature.com/articles/s41467-023-44206-x)
   > Here, we present GSDensity, a graph-modeling approach that allows users to obtain pathway-centric interpretation and dissection of single-cell and spatial transcriptomics (ST) data without performing clustering. Using pathway gene sets, we show that GSDensity can accurately detect biologically distinct cells and reveal novel cell-pathway associations ignored by existing methods. 
   
+We generated two simulated datasets with different random seeds to benchmark PathwayLGM against three representative pathway-analysis workflows: GSVA, the gene-set scoring approach popularized in single-cell RNA sequencing, tested here with a spatial block bootstrap region test; STpathway, a distance-correlation (dCor) test for region-associated pathways; and GSDensity, evaluated by its published region enrichment test on dichotomized spot activity. Each dataset was built on the real spot coordinates of DLPFC section 151673 and comprised 50 non-overlapping 100-gene sets spanning five spatial activity patterns, with the number K of genes responding to the activity map prespecified for each gene set (Methods).
+
+Across the ten groups defined by K and effect distribution, the existing methods did not provide discriminative region-level evidence. GSDensity's region test reflected strong simulated pathway activity: as activity increased, the difference in high-activity spot proportions between target and rest increased "whereas the region p-value decreased. However, it could not discriminate activity strength among weakly responsive pathways: in the narrow, strong-effect setting, the K = 5 to 10 group had a median p of 0.034, whereas the more active K = 11 to 30 group had a median p of 0.397. Moreover, in the high-K groups of the narrow, strong-effect setting, fewer than 1% of spots were labeled highly active in either target or rest, and the region p-value was therefore not meaningful. STpathway's region dCor decreased with increasing K, indicating that it can reflect strong regional differences. However, its group medians spanned only 0.94 to 0.98, with an overall range of 0.87 to 0.99, offering limited discrimination of pathway activity. GSVA's region score difference increased with K, and its spatial block bootstrap test gave BH-adjusted median q-values below 0.05 in all groups with K of 11 or more, but it failed to discriminate activity strength among weakly responsive pathways. Furthermore, under the domain and interface patterns, the two pattern types with the largest target regions (924 to 1,919 spots), the test returned extremely small p-values even when the prespecified pathway activity was low or absent: the K = 0 domain pathways attained p = 0.0005 and remained significant after BH correction in the datasets from both random seeds. This indicates that under these spatial patterns the test yields strong significance regardless of the prespecified activity level and cannot separate pattern-driven structure from true pathway responses.
+
+PathwayLGM's posterior evidence instead increased monotonically as the prespecified pathway activity increased. For the Gaussian model, the median pai rose from 0.37 in the K = 0 to 4 group to 0.81 in the K = 61 to 100 group in the broad, weak-effect setting, and from 0.40 to 0.75 in the narrow, strong-effect setting. Posterior evidence reached about 0.98 already in the K = 11 to 30 group and was close to 1 in the highest-K groups. Importantly, pai and evidence also recovered the relative activity strength among weak pathways, where the existing methods could not: between the K = 0 to 4 and K = 5 to 10 groups, the median pai of the Gaussian model rose from 0.37 to 0.48 in the broad, weak-effect setting and from 0.40 to 0.51 in the narrow, strong-effect setting, and the median evidence rose from 0.15 to 0.39 and from 0.24 to 0.60, respectively. Thus, pathways with little or no prespecified activity received weak posterior support, yet the ordering of their activity levels was preserved. \[NB 的结果虽然也递增，但是在设定的弱活性通路下 evidence 约 0.6，原因待查\] This pattern was consistent across all five spatial activity patterns. 
+
+### Layer-resolved pathway activity in the human DLPFC
 
 
 
