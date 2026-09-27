@@ -239,7 +239,7 @@ $$
 
 Here $c_i$ is the spot-specific depth factor and $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair. 
 
-PathwayLGM NB receives raw counts and depth factors. GSDensity receives a Seurat object built from raw counts and uses the author function's internal NormalizeData() step. PathwayLGM Gaussian and STpathway receive the SCTransform Pearson residuals.
+SpaPath NB receives raw counts and depth factors. GSDensity receives a Seurat object built from raw counts and uses the author function's internal NormalizeData() step. SpaPath Gaussian and STpathway receive the SCTransform Pearson residuals.
 ### Model detail
 
 
