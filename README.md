@@ -147,6 +147,7 @@ STpathway's region dCor decreased with increasing K, indicating that it can refl
 PathwayLGM's posterior evidence instead increased monotonically as the prespecified pathway activity increased. For the Gaussian model, the median pai rose from 0.37 in the K = 0 to 4 group to 0.81 in the K = 61 to 100 group in the broad, weak-effect setting, and from 0.40 to 0.75 in the narrow, strong-effect setting. Posterior evidence reached about 0.98 already in the K = 11 to 30 group and was close to 1 in the highest-K groups. Importantly, pai and evidence also recovered the relative activity strength among weak pathways, where the existing methods could not: between the K = 0 to 4 and K = 5 to 10 groups, the median pai of the Gaussian model rose from 0.37 to 0.48 in the broad, weak-effect setting and from 0.40 to 0.51 in the narrow, strong-effect setting, and the median evidence rose from 0.15 to 0.39 and from 0.24 to 0.60, respectively. Thus, pathways with little or no prespecified activity received weak posterior support, yet the ordering of their activity levels was preserved. \[NB 的结果虽然也递增，但是在设定的弱活性通路下 evidence 约 0.6，原因待查\] This pattern was consistent across all five spatial activity patterns. 
 
 [Table.1](./data/results.xlsx)
+
 [Supplementary Table.1](./data/results.xlsx)
 ### Layer-resolved pathway activity in the human DLPFC
 
