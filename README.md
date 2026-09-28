@@ -243,18 +243,17 @@ SpaPath NB receives raw counts and depth factors. GSDensity receives a Seurat ob
 ### Model detail
 
 
-
-**Spatial hierarchical model.** We model the spatial variation of gene expression through a stochastic partial differential equation (SPDE) framework, implemented in INLA. For each gene $g = 1, \ldots, K$, the spatial effect is modeled as an independent Gaussian process
+**Spatial hierarchical model.** We model spatial variation in gene expression with a replicated stochastic partial differential equation (SPDE) framework, fitted via INLA. Each gene $g = 1, \ldots, K$ has an independent spatial field
 
 $$w_g(\cdot) \sim_{iid} \mathrm{GP}\left(0,\; \sigma_s^2 C_{\kappa_0}\right),$$
 
-where all genes share a common triangulation mesh and a fixed spatial scale parameter $\kappa_0$, as well as a single global spatial variance $\sigma_s^2$ governing the amplitude of spatial autocorrelation. Importantly, each spatial field spans the entire tissue domain and is not re-initialized at region boundaries; within each biological region the field is therefore a restriction of one continuous tissue-wide process. Under this specification, the latent field for the full dataset is constructed by replicating a single SPDE model $K$ times (one replicate per gene), which avoids the need to fit a separate mesh or covariance structure per gene. We deliberately do not impose a shared spatial field $w(s)$ across genes (which would induce a single common spatial pattern) and we do not estimate gene-specific spatial variances, so that spatial structure is gene-specific in pattern but common in scale.
+where all genes share one triangulation mesh, a fixed range parameter $\kappa_0$, and a single global spatial variance $\sigma_s^2$. Each field spans the entire tissue and is not re-initialized at region boundaries. We deliberately avoid a shared field $w(s)$ across genes and gene-specific spatial variances, so that spatial structure is gene-specific in pattern but common in scale.
 
-For region $r$ (and analogously region $s$), we further introduce a random pathway state
+**Regional layer.** Each region $r$ carries a latent pathway state
 
 $$Z_r \sim \mathcal{N}\left(\mu_r,\; \tau_r^2\right),$$
 
-representing the latent regional activity level, with region-specific mean $\mu_r$ and variance $\tau_r^2$. These regional states capture gene-independent (or pathway-level) spatial organization complementary to the gene-specific fields. Under this construction the model contains exactly $R + 2$ free hyperparameters: $R$ regional variances $\{\tau_r^2\}_{r=1}^R$, one global spatial variance $\sigma_s^2$, and one gene-level residual dispersion parameter—either a Gaussian residual variance or, under a negative binomial likelihood, a calibration (overdispersion) parameter.
+capturing region-level activity complementary to the gene-specific fields. The full model thus has exactly $R + 2$ hyperparameters: $R$ regional variances, one spatial variance, and one residual dispersion parameter (a Gaussian residual variance, or a negative binomial overdispersion parameter).
 
 
 
