@@ -247,13 +247,14 @@ SpaPath NB receives raw counts and depth factors. GSDensity receives a Seurat ob
 
 $$w_g(\cdot) \sim_{iid} \mathrm{GP}\left(0,\; \sigma_s^2 C_{\kappa_0}\right),$$
 
-where all genes share one triangulation mesh, a fixed range parameter $\kappa_0$, and a single global spatial variance $\sigma_s^2$. Each field spans the entire tissue and is not re-initialized at region boundaries. We deliberately avoid a shared field $w(s)$ across genes and gene-specific spatial variances, so that spatial structure is gene-specific in pattern but common in scale.
+where all genes share one triangulation mesh, a fixed range parameter $\kappa_0$, and a single global spatial variance $\sigma_s^2$. Each field spans the entire tissue and is not re-initialized at region boundaries. We specify gene-specific spatial fields rather than a shared field $w(s)$ across genes, and assume a single global spatial variance $\sigma_s^2$, so that spatial structure is gene-specific in pattern but common in scale.
 
-**Regional layer.** Each region $r$ carries a latent pathway state
+Each region $r$ carries a latent pathway state
 
 $$Z_r \sim \mathcal{N}\left(\mu_r,\; \tau_r^2\right),$$
 
-capturing region-level activity complementary to the gene-specific fields. The full model thus has exactly $R + 2$ hyperparameters: $R$ regional variances, one spatial variance, and one residual dispersion parameter (a Gaussian residual variance, or a negative binomial overdispersion parameter).
+capturing region-level activity complementary to the gene-specific fields. 
+The full model thus has exactly $R + 2$ hyperparameters: $R$ regional variances, one spatial variance, and one residual dispersion parameter (a Gaussian residual variance, or a negative binomial overdispersion parameter).
 
 
 
