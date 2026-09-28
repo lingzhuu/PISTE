@@ -254,8 +254,7 @@ Each region $r$ carries a latent pathway state
 $$Z_r \sim \mathcal{N}\left(\mu_r,\; \tau_r^2\right),$$
 
 capturing region-level activity complementary to the gene-specific fields. 
-The full model thus has exactly $R + 2$ hyperparameters: $R$ regional variances, one spatial variance, and one residual dispersion parameter (a Gaussian residual variance, or a negative binomial overdispersion parameter).
-
+Notably, all variance components are shared across genes, so the number of hyperparameters in the INLA formulation grows only with the number of regions $R$ and is independent of the number of genes $K$.
 
 
 
