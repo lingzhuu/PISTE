@@ -156,6 +156,8 @@ To evaluate the performance of these methods on real data, we analyzed a human d
 [Supplementary Table 2. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_30.xlsx)
 
 We compared the layer-versus-rest results of the four methods. 
+[Figure 1. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_30.xlsx)
+[Supplementary Figure 1. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_30.xlsx)
 
 ### Whole Mouse brain
 Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
