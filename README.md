@@ -19,9 +19,7 @@ Simulation: 并与GSDensity/STPathway/naïve analysis比较。
 
 ## Results 
 ### Method overview
-SpaPath uses a Gaussian linear mixed model (LMM) for normalized expression data and a negative binomial generalized linear mixed model (GLMM) for raw UMI counts. 两者都包含随机效应。Gaussian 版本用正态误差描述观测波动, SCT/normalized read counts 已经校正 library size，因此默认 additive offset 为 0；不再次加入 log library size；NB 版本通过负二项分布描述计数波动，通常不再另加一个 Gaussian 观测误差项 $\epsilon_{ig}$.
-
-Gaussian / Normalized reads：
+SpaPath uses a Gaussian linear mixed model (LMM) for normalized expression data, 正态误差描述观测波动.
 设 $i$ 表示 spot, $g$ 表示基因, $r(i)$ 表示 spot 所属的区域。对于一条 pathway，代码拟合：
 
 $$
