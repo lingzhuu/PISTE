@@ -121,7 +121,21 @@ where $\beta$ are covariate effects shared by all genes and $\mu_r$ is the mean 
 
 #### Adjustment for cell composition
 
-In the composition-adjusted mode, let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The log expression expected from composition alone, $o_{ig}=\log(\sum_k\omega_{ik}\nu_{kg}+c_{\mathrm{ref}})$ with a pseudo-count $c_{\mathrm{ref}}$ on the scale of $\nu_{kg}$, is centered within each gene, $\tilde o_{ig}=o_{ig}-N^{-1}\sum_{i'}o_{i'g}$, and the model gains the term $\lambda_g\tilde o_{ig}$. The coefficient $\lambda_g$ is estimated separately for each gene, since the reference and the spatial data differ in scale and platform. Because centering leaves each gene's overall level in $b_{gr}$, the composition term changes only how regional differences are attributed: the observed mode reports the total regional signal, whereas the adjusted mode reports the part not explained by composition. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region.
+In the composition-adjusted mode, let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The log expression expected from composition alone and its within-gene centered version are
+
+$$
+o_{ig}=\log\Big(\sum_k\omega_{ik}\nu_{kg}+c_{\mathrm{ref}}\Big),
+\qquad
+\tilde o_{ig}=o_{ig}-\frac{1}{N}\sum_{i'=1}^{N}o_{i'g},
+$$
+
+where $c_{\mathrm{ref}}$ is a pseudo-count on the scale of $\nu_{kg}$. The model then becomes
+
+$$
+Y_{ig}=X_i^T\beta+\mu_{r(i)}+b_{g,r(i)}+\lambda_g\tilde o_{ig}+w_g(s_i)+\epsilon_{ig},
+$$
+
+with all other terms as above. The coefficient $\lambda_g$ is estimated separately for each gene, since the reference and the spatial data differ in scale and platform. Because centering leaves each gene's overall level in $b_{gr}$, the composition term changes only how regional differences are attributed. The observed mode reports the total regional signal, whereas the adjusted mode reports the part not explained by composition. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region.
 
 #### Priors and posterior inference
 
