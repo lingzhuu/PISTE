@@ -20,37 +20,11 @@ Simulation: 并与GSDensity/STPathway/naïve analysis比较。
 ## Results 
 ### Method overview
 
-SpaPath quantifies how the activity of a gene set (pathway) differs between tissue regions in spatial transcriptomics data. It takes a normalized expression matrix (for example, SCTransform Pearson residuals), spot coordinates, region labels and a gene set, and fits one Gaussian linear mixed model jointly to all genes of the pathway and all regions.
+The central question addressed by SpaPath is whether a pathway is more active in one tissue region than in another, given that its genes may respond with different magnitudes or in opposite directions and that spatial transcriptomics measurements are spatially autocorrelated (Fig. X). SpaPath takes as input normalized expression, spot coordinates, region labels and a gene set, and fits a single Gaussian linear mixed model jointly to all genes of the pathway across all regions (Methods). In this model, each region is described by a mean pathway level and by the spread of its genes around that level, whereas a gene-specific spatial random field, which spans the whole tissue, absorbs smooth spatial trends so that they are not mistaken for regional differences. Because all variance components are shared across genes, the number of hyperparameters grows only with the number of regions, and the model is fitted efficiently with INLA.
 
-Let $i=1,\ldots,N$ index spots, $g=1,\ldots,K$ the genes of the pathway, and $r(i)\in\{1,\ldots,R\}$ the region of spot $i$. For one pathway, SpaPath fits
+From the fitted model, SpaPath summarizes each region by the state of a randomly chosen pathway gene and defines the directional score $\pi_{rs}$ as the probability that this state in region $r$ exceeds that in region $s$. A pathway whose genes shift consistently in one direction therefore receives a score near 0 or 1, whereas one whose genes move in opposite directions receives a score near 0.5. SpaPath reports the posterior mean of this score, the π score, together with the posterior evidence that the pathway is more active in region $r$ than in region $s$, and it compares a region with the rest of the tissue by averaging over the other regions weighted by their numbers of spots.
 
-$$
-Y_{ig}=X_i^T\beta+\mu_{r(i)}+b_{g,r(i)}+w_g(s_i)+\epsilon_{ig},
-\qquad
-b_{gr}\mid\tau_r^2\sim N(0,\tau_r^2),
-\qquad
-\epsilon_{ig}\sim N(0,\sigma_\epsilon^2).
-$$
-
-Here $X_i$ are spot-level covariates such as batch, and their coefficients $\beta$ are shared by all genes. The regional mean $\mu_r$ gives the typical pathway level in region $r$, while $b_{gr}$ describes how far gene $g$ departs from that level, so that $\tau_r^2$ measures how widely the pathway's genes spread within region $r$. Beyond these regional terms, $w_g(s_i)$ is a smooth spatial field for gene $g$ evaluated at the location $s_i$ of spot $i$, and $\epsilon_{ig}$ is the remaining measurement noise. The spatial fields are independent across genes but share one covariance function,
-
-$$
-w_g(\cdot)\overset{iid}{\sim}\mathrm{GP}(0,\sigma_s^2C_{\kappa_0}),
-\qquad g=1,\ldots,K,
-$$
-
-so that each gene has its own spatial pattern on a common scale. Because these fields span the whole tissue and do not restart at region boundaries, they absorb smooth spatial trends rather than regional differences. As a result, the model has only $R+2$ free hyperparameters, namely $\tau_1^2,\ldots,\tau_R^2$, $\sigma_s^2$ and $\sigma_\epsilon^2$, and this number does not depend on the number of genes.
-
-To turn the fitted model into a statement about pathway activity, we summarize each region by the state of a randomly chosen pathway gene once covariate and spatial effects are removed, $Z_r\sim N(\mu_r,\tau_r^2)$. For two regions $r$ and $s$, the directional score
-
-$$
-\pi_{rs}=P(Z_r>Z_s\mid\mu_r,\tau_r^2,\mu_s,\tau_s^2)
-=\Phi\!\left(\frac{\mu_r-\mu_s}{\sqrt{\tau_r^2+\tau_s^2}}\right)
-$$
-
-is then the probability that the pathway state in region $r$ exceeds that in region $s$. Since $\pi_{rs}$ depends on unknown parameters, SpaPath summarizes its posterior in two complementary ways. The π score $\bar\pi_{rs}=E(\pi_{rs}\mid Y)$ describes the expected direction and size of the difference, whereas the posterior evidence $P(\pi_{rs}>0.5\mid Y)$ gives the posterior probability that the pathway is more active in region $r$ than in region $s$. When one region is compared with the rest of the tissue, the pairwise scores are averaged over the other regions with weights proportional to their numbers of spots, $\pi_{r,\mathrm{rest}}=\sum_{s\neq r}a_{rs}\pi_{rs}$ with $a_{rs}\propto n_s$, and the π score and evidence of this average are reported in the same way. Regional mean differences and variance components, in contrast, are reported only as diagnostics.
-
-Regional differences in pathway activity can arise either because regions contain different cell types or because the same cell types behave differently across regions. SpaPath therefore offers two analysis modes, and the user chooses between them. By default, the observed mode fits the model above and reports the total regional signal, including the part driven by cell composition. Alternatively, the composition-adjusted mode adds a term $\lambda_g\tilde o_{ig}$, in which $\tilde o_{ig}$ is the expression of gene $g$ expected in spot $i$ from its deconvolved cell-type composition (Methods), so that the regional effects describe pathway differences beyond those predicted by cell composition. Because the two modes share all other parameters, their π scores and evidence can be compared directly.
+Finally, because regional differences can arise either from differences in cell-type composition or from changes within the same cell types, SpaPath offers two modes. The observed mode reports the total regional signal, whereas the composition-adjusted mode additionally accounts for the expression expected from each spot's deconvolved cell-type composition and thus reports the signal beyond composition (Methods). Since both modes share all other parameters, their results can be compared directly.
 
 ### Benchmarking on simulated spatial data
 
