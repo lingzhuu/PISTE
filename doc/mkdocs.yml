@@ -18,11 +18,7 @@ markdown_extensions:
   - pymdownx.superfences
 
 nav:
-  - Home: index.md
   - Installation: installation.md
-  - Quick start: quickstart.md
-  - Preparing input: input.md
-  - Options: options.md
-  - Output: output.md
-  - Function reference: reference.md
-  - Troubleshooting: troubleshooting.md
+  - Tutorials: tutorials.md
+  - Example usages: examples.md
+  - About: about.md
