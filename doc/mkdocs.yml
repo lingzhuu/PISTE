@@ -1,8 +1,8 @@
 site_name: SpaPath
 site_description: Spatial pathway inference for spatial transcriptomics with INLA
 repo_url: https://github.com/lingzhuu/pathwayLGM
-edit_uri: edit/dev/doc/
-docs_dir: doc
+edit_uri: edit/dev/doc/source/
+docs_dir: source
 
 theme:
   name: material
