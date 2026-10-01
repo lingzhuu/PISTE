@@ -20,11 +20,11 @@ Simulation: 并与GSDensity/STPathway/naïve analysis比较。
 ## Results 
 ### Method overview
 
-SpaPath is designed to evaluate whether a pathway is more active in one tissue region than in another. Because the genes of a pathway can respond with different magnitudes and even in opposite directions, SpaPath models all genes of the pathway jointly and describes each region by the distribution of its gene-level expression states. Spatial transcriptomics data are also spatially autocorrelated, so SpaPath assigns each gene a smooth spatial random field that captures the dependence among neighbouring spots. SpaPath models the expression of each gene in each spot as the sum of a regional pathway level shared by all genes in that region, a gene-specific deviation from this level whose spread may differ between regions, the gene-specific spatial field, and measurement noise, which yields a Bayesian hierarchical model, specifically a latent Gaussian model (Methods). The model is fitted with integrated nested Laplace approximation (INLA) (REF), and its posterior is converted into a directional score with an accompanying posterior evidence. As input, SpaPath requires normalized expression, spot coordinates, region labels and a gene set, and it optionally accepts deconvolved cell-type proportions together with a single-cell or single-nucleus RNA-seq reference.
+SpaPath is designed to evaluate whether a pathway is more active in one tissue region than in another. Because the genes of a pathway can respond with different magnitudes and even in opposite directions, SpaPath models all genes of the pathway jointly and describes each region by the distribution of its gene-level expression states. Spatial transcriptomics data are also spatially autocorrelated, so SpaPath assigns each gene a smooth spatial random field that captures the dependence among neighbouring spots. SpaPath describes the expression of each gene in each spot through a regional pathway level shared by all genes in that region, a gene-specific deviation from this level whose spread may differ between regions, and the gene-specific spatial field. These components form a Bayesian hierarchical model, specifically a latent Gaussian model (Methods). The model is fitted with integrated nested Laplace approximation (INLA) (REF), and its posterior is converted into a directional score with an accompanying posterior evidence. As input, SpaPath requires spot coordinates, region labels and a gene set, together with normalized expression in the observed mode, or raw counts, deconvolved cell-type proportions and a single-cell or single-nucleus RNA-seq reference in the composition-adjusted mode.
 
 SpaPath compares two regions $r$ and $s$ through the directional score $\pi_{rs}$, defined as the probability that a gene of the pathway is expressed at a higher level in region $r$ than in region $s$, given the regional pathway levels and the variability among genes. Its posterior mean, which we term the π score, lies between 0 and 1. Values near 1 indicate that the pathway is consistently more active in region $r$, values near 0 indicate the opposite, and values near 0.5 indicate no consistent direction, as happens when the genes of a pathway change in opposite directions. SpaPath also reports the posterior evidence $P(\pi_{rs}>0.5)$, the posterior probability that the pathway is more active in region $r$ than in region $s$. A region can be compared with the rest of the tissue in the same way.
 
-SpaPath can be run in two modes. The observed mode quantifies the total difference in pathway activity between regions, including differences that arise because the regions contain different cell types. The composition-adjusted mode accounts for the expression of each gene predicted from the cell-type proportions of each spot, so that the regional difference it reports is the part that cannot be explained by cell composition. We recommend running both modes, because together they distinguish pathways whose regional differences are driven by cell composition, which are supported only in the observed mode, from pathways that change within cell types, which remain supported after adjustment.
+SpaPath can be run in two modes. The observed mode fits a Gaussian model to normalized expression and quantifies the total difference in pathway activity between regions, including differences that arise because the regions contain different cell types. The composition-adjusted mode fits a negative binomial model to raw counts. It includes the expression of each gene predicted from the cell-type proportions of each spot as an offset, so that the regional difference it reports is the part that cannot be explained by cell composition. We recommend running both modes, because together they distinguish pathways whose regional differences are driven by cell composition, which are supported only in the observed mode, from pathways that change within cell types, which remain supported after adjustment.
 
 ### Benchmarking on simulated spatial data
 
@@ -103,11 +103,11 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 #### Data input
 
-SpaPath requires the expression of the pathway's genes in each spot, spot coordinates and region labels, and spot-level covariates such as batch are optional. The expression input must be normalized beforehand, and we recommend SCTransform (REF) for this purpose. The composition-adjusted mode additionally requires deconvolved cell-type proportions for each spot and a single-cell or single-nucleus RNA-seq reference of cell-type mean expression.
+SpaPath requires the expression of the pathway's genes in each spot, spot coordinates and region labels, and spot-level covariates such as batch are optional. In the observed mode the expression input must be normalized beforehand, and we recommend SCTransform (REF) for this purpose. The composition-adjusted mode instead takes raw counts and additionally requires deconvolved cell-type proportions for each spot and a single-cell or single-nucleus RNA-seq reference of cell-type mean expression.
 
-#### Model specification
+#### Gaussian model for the observed mode
 
-For spot $i=1,\ldots,N$, gene $g=1,\ldots,K$ and region $r(i)\in\{1,\ldots,R\}$, SpaPath fits
+In the observed mode, SpaPath fits a Gaussian model to the normalized expression $Y_{ig}$. For spot $i=1,\ldots,N$, gene $g=1,\ldots,K$ and region $r(i)\in\{1,\ldots,R\}$,
 
 $$
 Y_{ig}=X_i^T\beta+\mu_{r(i)}+b_{g,r(i)}+w_g(s_i)+\epsilon_{ig},
@@ -119,31 +119,33 @@ $$
 
 where $\beta$ are covariate effects shared by all genes and $\mu_r$ is the mean pathway level in region $r$. The gene effects $b_{gr}$ are conditionally independent across genes, and each region has its own variance $\tau_r^2$, which measures how consistently the pathway's genes behave in that region. Each gene has an independent Matérn field $w_g(\cdot)\overset{iid}{\sim}\mathrm{GP}(0,\sigma_s^2C_{\kappa_0})$, represented through a replicated stochastic partial differential equation (SPDE) on a shared mesh (REF). All fields share the scale $\kappa_0=\sqrt8/\rho_0$, where $\rho_0$ is a user-specified practical range at which the spatial correlation drops to about 0.1; fixing it rather than estimating it keeps the number of hyperparameters small. The fields also share a single variance $\sigma_s^2$, so spatial structure is gene-specific in pattern but common in scale. Furthermore, the fields span the whole tissue and do not restart at region boundaries. The model thus has $R+2$ hyperparameters regardless of the number of genes.
 
-#### Adjustment for cell composition
+#### Negative binomial model for the composition-adjusted mode
 
-In the composition-adjusted mode, let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The log expression expected from composition alone and its within-gene centered version are
+In the composition-adjusted mode, SpaPath models the raw counts $C_{ig}$. Let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The log expression expected from composition alone and its within-gene centered version are
 
 $$
-o_{ig}=\log\Big(\sum_k\omega_{ik}\nu_{kg}+c_{\mathrm{ref}}\Big),
+o_{ig}=\log\Big(\sum_k\omega_{ik}\nu_{kg}+\varepsilon\Big),
 \qquad
 \tilde o_{ig}=o_{ig}-\frac{1}{N}\sum_{i'=1}^{N}o_{i'g},
 $$
 
-where $c_{\mathrm{ref}}$ is a pseudo-count on the scale of $\nu_{kg}$. The model then becomes
+where $\varepsilon$ is a small constant that keeps the logarithm finite for genes not detected in the reference. SpaPath then fits
 
 $$
-Y_{ig}=X_i^T\beta+\mu_{r(i)}+b_{g,r(i)}+\lambda_g\tilde o_{ig}+w_g(s_i)+\epsilon_{ig},
+C_{ig}\sim\mathrm{NB}(\eta_{ig},\phi),
+\qquad
+\log\eta_{ig}=\log d_i+\tilde o_{ig}+X_i^T\beta+a_g+\mu_{r(i)}+b_{g,r(i)}+w_g(s_i),
 $$
 
-with all other terms as above. The coefficient $\lambda_g$ is estimated separately for each gene, since the reference and the spatial data differ in scale and platform. Because centering leaves each gene's overall level in $b_{gr}$, the composition term changes only how regional differences are attributed. The observed mode reports the total regional signal, whereas the adjusted mode reports the part not explained by composition. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region.
+where $\eta_{ig}$ is the expected count, $d_i$ is the total count of spot $i$, $\phi$ is an overdispersion parameter shared by all genes and $a_g$ is a gene intercept, with all other terms as in the Gaussian model. Because composition determines expression on the count scale, it enters the log link exactly, and both $\log d_i$ and $\tilde o_{ig}$ are offsets with coefficients fixed at 1. A gene-specific difference in scale between the reference and the spatial data multiplies the expected count by a constant and is absorbed by $a_g$, which also removes each gene's baseline level, so that $b_{gr}$ describes deviations from the regional level rather than overall abundance. The regional means $\mu_r$ thus describe the regional difference that composition does not explain. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region. Like the Gaussian model, it has $R+2$ hyperparameters.
 
 #### Priors and posterior inference
 
-Fixed effects, including the regional means, have $N(0,10^2)$ priors, and $\lambda_g\overset{iid}{\sim}N(0,10^2)$ with a fixed variance, so the composition term adds no hyperparameters. The regional log precisions follow $\log(1/\tau_r^2)\sim N(0,3^2)$, the residual precision has a penalized-complexity prior with $P(\sigma_\epsilon>2)=0.05$, and $\log\sigma_s\sim N(0,1)$. INLA integrates over the hyperparameters with the central composite design (CCD) (REF); because the number of design points grows quickly with the number of hyperparameters, SpaPath warns when it exceeds a user-set limit (10 by default). For each design point $k$ with normalized weight $q_k$, INLA gives a Gaussian posterior $N(m_k,\Sigma_k)$ for the regional means together with the variances $\tau_{r,k}^2$, and the joint posterior of the regional means is approximated by the mixture of these Gaussians.
+Fixed effects, including the regional means and the gene intercepts, have $N(0,10^2)$ priors. The regional log precisions follow $\log(1/\tau_r^2)\sim N(0,3^2)$ and $\log\sigma_s\sim N(0,1)$ in both models, and the residual precision of the Gaussian model has a penalized-complexity prior with $P(\sigma_\epsilon>2)=0.05$. INLA integrates over the hyperparameters with the central composite design (CCD) (REF); because the number of design points grows quickly with the number of hyperparameters, SpaPath warns when it exceeds a user-set limit (10 by default). For each design point $k$ with normalized weight $q_k$, INLA gives a Gaussian posterior $N(m_k,\Sigma_k)$ for the regional means together with the variances $\tau_{r,k}^2$, and the joint posterior of the regional means is approximated by the mixture of these Gaussians.
 
 #### Directional pathway score and posterior evidence
 
-The expression levels of the pathway's genes in region $r$ follow $Z_r\sim N(\mu_r,\tau_r^2)$, centered on the regional mean and spread by the gene-to-gene variance, and the directional score $\pi_{rs}=P(Z_r>Z_s)=\Phi\{(\mu_r-\mu_s)/(\tau_r^2+\tau_s^2)^{1/2}\}$ is the probability that a gene of the pathway is expressed at a higher level in region $r$ than a gene of the pathway in region $s$. We report its posterior mean, the π score, which has the closed form
+The expression levels of the pathway's genes in region $r$, on the scale of the normalized expression in the Gaussian model and of the log expected count in the negative binomial model, follow $Z_r\sim N(\mu_r,\tau_r^2)$, centered on the regional mean and spread by the gene-to-gene variance, and the directional score $\pi_{rs}=P(Z_r>Z_s)=\Phi\{(\mu_r-\mu_s)/(\tau_r^2+\tau_s^2)^{1/2}\}$ is the probability that a gene of the pathway is expressed at a higher level in region $r$ than a gene of the pathway in region $s$. We report its posterior mean, the π score, which has the closed form
 
 $$
 \bar\pi_{rs}=\sum_k q_k\,\Phi\!\left(\frac{m_{k,r}-m_{k,s}}{\sqrt{\tau_{r,k}^2+\tau_{s,k}^2+\Sigma_{k,rr}+\Sigma_{k,ss}-2\Sigma_{k,rs}}}\right),
