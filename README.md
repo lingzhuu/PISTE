@@ -133,7 +133,7 @@ Fixed effects, including the regional means, have $N(0,10^2)$ priors, and $\lamb
 
 #### Directional pathway score and posterior evidence
 
-The expression levels of the pathway's genes in region $r$ follow $Z_r\sim N(\mu_r,\tau_r^2)$, centered on the regional mean and spread by the gene-to-gene variance, and the directional score $\pi_{rs}=P(Z_r>Z_s)=\Phi\{(\mu_r-\mu_s)/(\tau_r^2+\tau_s^2)^{1/2}\}$ is the probability that the pathway state in region $r$ exceeds that in region $s$. We report its posterior mean, the π score, which has the closed form
+The expression levels of the pathway's genes in region $r$ follow $Z_r\sim N(\mu_r,\tau_r^2)$, centered on the regional mean and spread by the gene-to-gene variance, and the directional score $\pi_{rs}=P(Z_r>Z_s)=\Phi\{(\mu_r-\mu_s)/(\tau_r^2+\tau_s^2)^{1/2}\}$ is the probability that a gene of the pathway is expressed at a higher level in region $r$ than a gene of the pathway in region $s$. We report its posterior mean, the π score, which has the closed form
 
 $$
 \bar\pi_{rs}=\sum_k q_k\,\Phi\!\left(\frac{m_{k,r}-m_{k,s}}{\sqrt{\tau_{r,k}^2+\tau_{s,k}^2+\Sigma_{k,rr}+\Sigma_{k,ss}-2\Sigma_{k,rs}}}\right),
