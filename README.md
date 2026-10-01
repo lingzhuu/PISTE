@@ -103,7 +103,7 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 
 #### Data input
 
-SpaPath requires normalized expression of the pathway's genes, spot coordinates, region labels and a triangulation mesh of the tissue; spot-level covariates such as batch are optional. Normalization and quality control are performed beforehand, and in this study we used SCTransform Pearson residuals. The composition-adjusted mode additionally requires deconvolved cell-type proportions for each spot and a single-cell or single-nucleus RNA-seq reference of cell-type mean expression.
+SpaPath requires the expression of the pathway's genes in each spot, spot coordinates and region labels, and spot-level covariates such as batch are optional. The expression input must be normalized beforehand, and we recommend SCTransform (REF) for this purpose. The composition-adjusted mode additionally requires deconvolved cell-type proportions for each spot and a single-cell or single-nucleus RNA-seq reference of cell-type mean expression.
 
 #### Model specification
 
