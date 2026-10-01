@@ -1,0 +1,14 @@
+# Hand-maintained NAMESPACE for PathwayLGM.
+
+import(INLA)
+import(Matrix)
+
+importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx)
+importFrom(utils, modifyList, packageVersion, write.csv, combn,
+           flush.console, object.size)
+
+export(screen_joint_fit)
+export(screen_summarize)
+export(screen_write)
+export(pathway_pi)
+export(pathway_pi_integrate)
