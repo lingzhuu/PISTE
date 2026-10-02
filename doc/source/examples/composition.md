@@ -6,8 +6,10 @@ models raw counts and uses, for each spot, the expression predicted from its
 deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
 
 This example uses the same Visium section 151673 as the
-[observed mode](observed.md), deconvolved with cell2location using the LIBD
-DLPFC snRNA-seq reference (Huuki-Myers et al., 2024).
+[observed mode](observed.md) and the LIBD DLPFC snRNA-seq reference
+(Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
+chosen here because it is fast. cell2location is described as an
+[alternative](#alternative-cell2location) below.
 
 !!! note
     The composition-adjusted model is not yet included in the released
@@ -19,7 +21,6 @@ DLPFC snRNA-seq reference (Huuki-Myers et al., 2024).
 ```r
 library(spatialLIBD)
 library(SpatialExperiment)
-library(zellkonverter)
 
 spe <- fetch_data(type = "spe")
 spe <- spe[, spe$sample_id == "151673"]
@@ -31,6 +32,7 @@ unzip(sce_zip, exdir = tempdir())
 sce <- HDF5Array::loadHDF5SummarizedExperiment(
   file.path(tempdir(), "sce_DLPFC_annotated")
 )
+sce <- sce[, !is.na(sce$cellType_broad_hc)]
 table(sce$cellType_broad_hc)
 ```
 
@@ -38,22 +40,57 @@ The reference has seven broad cell types: Astro, EndoMural, Micro, Oligo, OPC,
 Excit and Inhib. Check `colnames(colData(sce))` if the cell-type column has a
 different name in your version.
 
-Export both objects with raw counts for cell2location:
+## 2. Deconvolve with RCTD
+
+RCTD is provided by the spacexr package:
 
 ```r
+remotes::install_github("dmcable/spacexr", build_vignettes = FALSE)
+```
+
+Build the reference and the spatial object from raw counts, then run RCTD in
+full mode, which allows any number of cell types per spot:
+
+```r
+library(spacexr)
+library(Matrix)
+
+ref_counts <- as(counts(sce), "dgCMatrix")
+cell_types <- factor(sce$cellType_broad_hc)
+names(cell_types) <- colnames(sce)
+reference <- Reference(ref_counts, cell_types, nUMI = colSums(ref_counts))
+
+vis_counts <- as(counts(spe), "dgCMatrix")
+coords <- as.data.frame(spatialCoords(spe))
+colnames(coords) <- c("x", "y")
+rownames(coords) <- colnames(spe)
+puck <- SpatialRNA(coords, vis_counts, nUMI = colSums(vis_counts))
+
+rctd <- create.RCTD(puck, reference, max_cores = 8)
+rctd <- run.RCTD(rctd, doublet_mode = "full")
+
+omega <- as.matrix(normalize_weights(rctd@results$weights))   # spots x cell types
+```
+
+Each row of `omega` holds the cell-type proportions of one spot and sums to one.
+
+## Alternative: cell2location
+
+cell2location was more accurate than RCTD in earlier benchmarks (REF), but it
+takes much longer to run, and a GPU is recommended. It is a Python package
+(`pip install cell2location`). Export both datasets with raw counts:
+
+```r
+library(zellkonverter)
+
 spe_out <- SingleCellExperiment(assays = list(counts = counts(spe)),
                                 colData = colData(spe))
 writeH5AD(spe_out, "dlpfc_151673.h5ad", X_name = "counts")
-
-sce <- sce[, !is.na(sce$cellType_broad_hc)]
 writeH5AD(sce, "dlpfc_snrna.h5ad", X_name = "counts")
 ```
 
-## 2. Deconvolve with cell2location
-
-cell2location is a Python package (`pip install cell2location`). First
-estimate the expression signature of each cell type from the reference, then
-the cell-type abundance in each spot.
+Then estimate the cell-type signatures from the reference and the cell-type
+abundance in each spot:
 
 ```python
 import numpy as np
@@ -91,7 +128,7 @@ inf_aver = inf_aver.loc[genes, :]
 cell2location.models.Cell2location.setup_anndata(adata=adata_vis)
 model = cell2location.models.Cell2location(
     adata_vis, cell_state_df=inf_aver,
-    N_cells_per_location=5,   # expected cells per spot; set for your tissue
+    N_cells_per_location=5,   # placeholder: expected cells per spot
     detection_alpha=20,
 )
 model.train(max_epochs=30000, batch_size=None, train_size=1)
@@ -105,6 +142,12 @@ abundance = adata_vis.obsm["q05_cell_abundance_w_sf"]
 abundance.columns = factors
 proportions = abundance.div(abundance.sum(axis=1), axis=0)
 proportions.to_csv("proportions_151673.csv")
+```
+
+Read the proportions back into R and use them as `omega` in the steps below:
+
+```r
+omega <- as.matrix(read.csv("proportions_151673.csv", row.names = 1))
 ```
 
 ## 3. Reference mean expression
@@ -127,13 +170,11 @@ nu <- t(nu)   # cell types x genes
 ## 4. Spot inputs
 
 ```r
-omega  <- as.matrix(read.csv("proportions_151673.csv", row.names = 1))
 C      <- t(as.matrix(counts(spe)))            # spots x genes, raw counts
 xy     <- spatialCoords(spe)
 region <- as.character(spe$layer_guess_reordered)
 
-stopifnot(identical(rownames(omega), rownames(C)))
-omega <- omega[, rownames(nu)]
+omega <- omega[rownames(C), rownames(nu)]
 ```
 
 `omega` holds the cell-type proportions of each spot, `nu` the reference mean
