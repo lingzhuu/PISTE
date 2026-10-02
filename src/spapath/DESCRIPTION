@@ -1,23 +1,27 @@
 Package: PathwayLGM
 Type: Package
-Title: Gaussian Spatial Pathway Inference with INLA
-Version: 0.5.0
+Title: Spatial Pathway Inference with INLA
+Version: 0.6.0
 Authors@R: c(
     person("PathwayLGM research contributors", role = "aut"),
     person("Research handoff maintainer", role = "cre",
            email = "maintainer@example.org"))
-Description: Fits Gaussian spatial pathway models with a shared baseline
-    intercept, relative regional effects, conditionally independent regional
-    gene effects and replicated gene-specific spatial fields. Computes
-    directional pathway probabilities and posterior evidence using compact
-    CCD configuration mixtures. Includes checked positive marginal summaries.
+Description: Fits spatial pathway models with a shared baseline intercept,
+    relative regional effects, conditionally independent regional gene
+    effects and replicated gene-specific spatial fields. The observed mode
+    models normalised expression as Gaussian; the adjusted mode models raw
+    counts as negative binomial with a cell-type composition offset, so that
+    regional differences are adjusted for composition. Computes directional
+    pathway probabilities and posterior evidence using compact CCD
+    configuration mixtures. Includes checked positive marginal summaries.
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, Matrix, stats, utils, qrng
-Suggests: fmesher
+Imports: INLA, Matrix, methods, stats, utils, qrng
+Suggests: fmesher, DESeq2, S4Vectors, SummarizedExperiment
 Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
     'positive_summary.R'
     'pi_engine.R'
     'inla_screen.R'
+    'adjusted_inputs.R'

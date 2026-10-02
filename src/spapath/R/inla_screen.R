@@ -1,10 +1,11 @@
 # =============================================================================
 # inla_screen.R
 #
-# Fit, summarise and export the Gaussian spatial pathway model with INLA, using
-# CCD hyperparameter integration and optional deterministic pi integration.
+# Fit, summarise and export the spatial pathway model with INLA, using CCD
+# hyperparameter integration and optional deterministic pi integration.
+# N spots x K genes; R regions, region 1 = baseline.
 #
-# Model (Gaussian response; N spots x K genes; R regions, region 1 = baseline)
+# Observed mode (Gaussian response, normalised expression)
 #
 #   y[i, g] = x_i' beta          shared covariates, including the baseline
 #                                intercept (mean of region 1)
@@ -14,9 +15,24 @@
 #           + spatial_g(s_i)     replicated per-gene SPDE Matern field
 #           + e[i, g]            Gaussian noise, variance sigma_e2
 #
+# Adjusted mode (negative binomial response, raw counts)
+#
+#   y[i, g] ~ NB(mean L_i exp(eta[i, g]), size nb_size0 * S_g)
+#   eta[i, g] = a_g + x_i' beta + mu_r(i) + gene_r(i)[g] + spatial_g(s_i)
+#             + lambda_g * log m[i, g]
+#
+#   L_i      library size; S_g relative dispersion scale of gene g
+#   m[i, g]  expression predicted from the spot's cell-type composition
+#   a_g      gene intercept, a_g = alpha0 + u_g with alpha0 ~ N(0, 100 (1 - 1/K))
+#            and u_g ~ N(0, 100); x_i' beta holds the other covariates
+#   lambda_g composition slope, lambda_g = 1 + v_g with v_g ~ N(0, 0.25^2)
+#
+# The baseline state is alpha0 + mean(u), and alpha0 + mean(u) + mu_r is the
+# pathway state of region r adjusted for cell-type composition.
+#
 # Free hyperparameters (R + 2): the R gene-effect precisions, one SPDE
 # variance parameter (the range is fixed through h) and the Gaussian
-# observation precision.
+# observation precision (observed) or the NB size nb_size0 (adjusted).
 #
 # Typical workflow
 #   fit     <- screen_joint_fit(Y, xy, region, mesh, h)
@@ -31,7 +47,7 @@
 
 #' Default options for screen_joint_fit()
 #' @noRd
-screen_default_cfg <- function() {
+screen_default_cfg <- function(mode) {
   list(
     # Directional probability (pi) inference
     pi = TRUE,
@@ -42,7 +58,18 @@ screen_default_cfg <- function() {
     # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
     threads = "2:1",
     kappa_h = sqrt(8),
-    strategy = "gaussian",
+    strategy = if (mode == "observed") "gaussian" else "simplified.laplace",
+
+    # Normal prior on the log NB size (adjusted mode)
+    nb_logsize_mean = log(10),
+    nb_logsize_sd = 1.5,
+
+    # INLA run controls: AMD reordering with a small node factor to lower
+    # memory on large gene sets (same model, permuted precision matrix),
+    # starting hyperparameters for a restart, and INLA's verbose log
+    low_memory = FALSE,
+    initial_theta = NULL,
+    verbose = FALSE,
 
     # Prior on the log precision of the regional gene effects
     tau_prior = "normal",
@@ -73,11 +100,14 @@ screen_check_legacy_cfg <- function(cfg) {
 }
 
 
-#' Reject settings that belong to non-Gaussian or non-CCD variants
+#' Reject settings that do not apply to the chosen mode
 #' @noRd
-screen_check_unsupported_cfg <- function(cfg) {
-  if (any(grepl("^nb_", names(cfg)))) {
-    stop("Unsupported configuration in this Gaussian-only package.")
+screen_check_mode_cfg <- function(cfg, mode) {
+  if (mode == "observed" && any(grepl("^nb_", names(cfg)))) {
+    stop("nb_* options apply to the adjusted mode only.")
+  }
+  if (mode == "adjusted" && length(cfg$gene_specific_covariates)) {
+    stop("The adjusted mode does not support gene_specific_covariates.")
   }
 }
 
@@ -227,11 +257,13 @@ screen_tau_hyper <- function(cfg) {
 
 #' Right-hand side of the model formula, as text
 #'
-#' The `f()` terms refer to `iid_hyper`, `slope_hyper`, `spde` and `K`, which
-#' INLA looks up in the environment of the formula, so the formula itself must
-#' be created in `screen_joint_fit()`.
+#' The `f()` terms refer to `iid_hyper`, `slope_hyper`, `gene_intercept_hyper`,
+#' `composition_hyper`, `spde` and `K`, which INLA looks up in the environment
+#' of the formula, so the formula itself must be created in
+#' `screen_joint_fit()`.
 #' @noRd
-screen_formula_text <- function(covariates, offset_names, gene_names) {
+screen_formula_text <- function(covariates, offset_names, gene_names,
+                                adjusted) {
   gene_terms <- paste0('f(', gene_names,
                        ',model="iid",n=K,constr=FALSE,hyper=iid_hyper)')
   slope_terms <- if (length(covariates$gene_specific)) {
@@ -240,10 +272,19 @@ screen_formula_text <- function(covariates, offset_names, gene_names) {
   } else {
     character()
   }
+  # Adjusted mode: auxiliary gene intercepts u_g and composition slopes v_g,
+  # the latter multiplying log m[i, g].
+  composition_terms <- if (adjusted) {
+    c('f(gene_intercept,model="iid",n=K,constr=FALSE,hyper=gene_intercept_hyper)',
+      'f(composition_slope,composition_weight,model="iid",n=K,constr=FALSE,hyper=composition_hyper)')
+  } else {
+    character()
+  }
   spatial_term <- 'f(spatial,model=spde,replicate=spatial.repl,nrep=K,constr=FALSE)'
 
   paste("y ~ -1 +", paste(c(covariates$names[covariates$shared], offset_names,
-                            gene_terms, slope_terms, spatial_term),
+                            gene_terms, slope_terms, composition_terms,
+                            spatial_term),
                           collapse = " + "))
 }
 
@@ -258,13 +299,16 @@ screen_formula_text <- function(covariates, offset_names, gene_names) {
 #'   while mu_r2, ..., mu_rR stay the primary relative coefficients.
 #'
 #' Contrasts are expressed on the relative offsets only (region 1 has offset
-#' zero, so its coefficient is dropped).
+#' zero, so its coefficient is dropped). In adjusted mode (`n_genes` > 0) the
+#' absolute means also include mean(u) of the auxiliary gene intercepts, and
+#' `gene_intercept_g<g>` = intercept + u_g gives each gene intercept a_g.
 #'
+#' @param n_genes Number of auxiliary gene intercepts (0 in observed mode).
 #' @return List with `lincombs`, the full length-R `coefficients` of each
 #'   contrast and the `rest_weights` used for each region.
 #' @noRd
 screen_region_lincombs <- function(counts, other_weights, intercept_name,
-                                   offset_names) {
+                                   offset_names, n_genes = 0L) {
   R <- length(counts)
   lincombs <- list()
   coefficients <- list()
@@ -304,12 +348,22 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
     coefficients[[name]] <- z
   }
 
-  # Absolute regional means: intercept + offset_r.
+  # Absolute regional means: intercept (+ mean(u)) + offset_r.
   for (r in seq_len(R)) {
     z <- c(1, as.numeric(seq.int(2L, R) == r))
     names(z) <- c(intercept_name, offset_names)
-    lincombs <- c(lincombs, setNames(do.call(inla.make.lincomb, as.list(z)),
+    z <- as.list(z)
+    if (n_genes > 0L) z$gene_intercept <- rep(1 / n_genes, n_genes)
+    lincombs <- c(lincombs, setNames(do.call(inla.make.lincomb, z),
                                      paste0("absolute_mu_r", r)))
+  }
+
+  # Gene intercepts a_g = intercept + u_g.
+  for (g in seq_len(n_genes)) {
+    z <- setNames(list(1, as.numeric(seq_len(n_genes) == g)),
+                  c(intercept_name, "gene_intercept"))
+    lincombs <- c(lincombs, setNames(do.call(inla.make.lincomb, z),
+                                     paste0("gene_intercept_g", g)))
   }
 
   list(lincombs = lincombs, coefficients = coefficients,
@@ -318,55 +372,137 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
 
 
 # -----------------------------------------------------------------------------
+# Adjusted-mode inputs
+# -----------------------------------------------------------------------------
+
+#' Validate the count, library size, dispersion and composition inputs
+#' @noRd
+screen_check_adjusted_inputs <- function(Y, library_size, dispersion_scale,
+                                         composition_offset) {
+  if (is.null(rownames(Y)) || is.null(colnames(Y)) ||
+      anyDuplicated(rownames(Y)) || anyDuplicated(colnames(Y))) {
+    stop("The adjusted mode requires unique spot rownames and gene colnames on Y.")
+  }
+  if (any(Y < 0) || any(Y != round(Y))) {
+    stop("The adjusted mode models raw counts: Y must hold non-negative integers.")
+  }
+  if (length(library_size) != nrow(Y) || any(!is.finite(library_size)) ||
+      any(library_size <= 0)) {
+    stop("library_size must be positive and finite, one value per spot.")
+  }
+  if (length(dispersion_scale) != ncol(Y) || any(!is.finite(dispersion_scale)) ||
+      any(dispersion_scale <= 0)) {
+    stop("dispersion_scale must be positive and finite, one value per gene.")
+  }
+  if (!is.null(names(dispersion_scale)) &&
+      !identical(names(dispersion_scale), colnames(Y))) {
+    stop("names(dispersion_scale) must match colnames(Y) in order.")
+  }
+  if (!is.matrix(composition_offset) || !is.numeric(composition_offset) ||
+      !identical(dimnames(composition_offset), dimnames(Y)) ||
+      any(!is.finite(composition_offset))) {
+    stop("composition_offset must be a finite matrix with the dimnames of Y.")
+  }
+}
+
+
+#' Per-gene diagnostics of the composition offset
+#'
+#' `within_region_sd` is the standard deviation of log m[i, g] after removing
+#' the covariates and region means. Small values mean lambda_g is identified
+#' mainly by its prior.
+#' @noRd
+screen_composition_diagnostics <- function(composition_offset, X, region_index) {
+  region_indicators <- outer(region_index, seq.int(2L, max(region_index)), "==") * 1
+  design <- qr(cbind(X, region_indicators))
+  if (design$rank < ncol(design$qr)) {
+    stop("X is rank deficient with the intercept/region indicators; remove duplicate region or constant columns.")
+  }
+  data.frame(gene = colnames(composition_offset),
+             within_region_sd = apply(qr.resid(design, composition_offset), 2,
+                                      stats::sd),
+             mean_log_offset = colMeans(composition_offset),
+             row.names = NULL)
+}
+
+
+# -----------------------------------------------------------------------------
 # Model fitting
 # -----------------------------------------------------------------------------
 
-#' Fit the joint Gaussian spatial pathway model with INLA
+#' Fit the joint spatial pathway model with INLA
 #'
-#' @param Y Numeric N x K matrix of normalised expression (spots x genes),
-#'   K >= 2.
+#' @param Y N x K matrix (spots x genes), K >= 2. Normalised expression in
+#'   observed mode; raw integer counts with unique spot and gene names in
+#'   adjusted mode.
 #' @param xy N x 2 matrix of spot coordinates.
 #' @param region Length-N vector of region labels (at least two regions).
 #' @param mesh `fmesher`/INLA mesh for the SPDE field.
 #' @param h Spatial length scale; the SPDE parameter kappa is fixed at
 #'   `cfg$kappa_h / h`.
-#' @param family Only `"gaussian"` is supported.
+#' @param mode `"observed"` (Gaussian model of normalised expression) or
+#'   `"adjusted"` (negative binomial model of raw counts, adjusted for
+#'   cell-type composition).
 #' @param X Optional N x p covariate matrix with unique column names. An
 #'   `intercept` column is added if absent; it represents the baseline
 #'   regional mean.
 #' @param offset Optional known additive offset of length N.
+#' @param library_size Adjusted mode: length-N library sizes, e.g. total UMI
+#'   counts per spot. Only their ratios matter; they are rescaled to a
+#'   geometric mean of one.
+#' @param dispersion_scale Adjusted mode: length-K relative dispersion scales
+#'   S_g from [estimate_dispersion_scale()]; gene g has NB size
+#'   `nb_size0 * S_g`.
+#' @param composition_offset Adjusted mode: N x K matrix of log predicted
+#'   expression log m[i, g] from [composition_offset()], with the dimnames of
+#'   `Y`.
 #' @param cfg List of options overriding the defaults:
 #'   * `pi` (TRUE), `pi_nodes`, `pi_max_nodes`, `pi_tolerance`: directional
 #'     probability inference, see [pathway_pi_integrate()].
-#'   * `threads` ("2:1"), `strategy` ("gaussian"): INLA settings.
+#'   * `threads` ("2:1"), `strategy` ("gaussian" in observed mode,
+#'     "simplified.laplace" in adjusted mode): INLA settings.
 #'   * `kappa_h` (`sqrt(8)`): kappa * h, must lie in \[2.3, 3.2\].
 #'   * `tau_prior`: prior on the gene-effect log precisions, one of
 #'     `"normal"` (default; `tau_logprecision_mean`, `tau_logprecision_sd`),
 #'     `"inla_default"`, `"pc"` (`tau_pc_u`, `tau_pc_alpha`) or `"flat"`.
+#'   * `nb_logsize_mean` (`log(10)`), `nb_logsize_sd` (1.5): Normal prior on
+#'     log nb_size0, adjusted mode only.
 #'   * `other_weights`: weights of the non-baseline regions in the
 #'     "region 1 vs rest" contrast (default: proportional to spot counts).
 #'   * `gene_specific_covariates`, `gene_covariate_prior_sd` (10): columns of
-#'     `X` that get independent per-gene slopes with a fixed Normal prior.
+#'     `X` that get independent per-gene slopes with a fixed Normal prior
+#'     (observed mode only).
 #'   * `baseline_region`: label of the baseline region (default: the first
 #'     label found in `region`).
+#'   * `low_memory` (FALSE): AMD reordering with a small global node factor;
+#'     the same model with lower memory use for large gene sets.
+#'   * `initial_theta` (NULL): starting hyperparameters (length R + 2), e.g.
+#'     `fit$fit$mode$theta` of an earlier run.
+#'   * `verbose` (FALSE): print INLA's log.
 #' @param .fixed_theta Internal structural test hook: fix the hyperparameters.
 #' @param .int_strategy INLA integration strategy, `"ccd"` or `"eb"`.
 #' @return A list with the INLA `fit` (configurations removed), the extracted
 #'   `joint` mixture used by [pathway_pi_integrate()] (NULL when `cfg$pi` is
 #'   FALSE) and a `metadata` list.
 #' @export
-screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
+screen_joint_fit <- function(Y, xy, region, mesh, h,
+                             mode = c("observed", "adjusted"),
                              X = NULL, offset = NULL,
+                             library_size = NULL, dispersion_scale = NULL,
+                             composition_offset = NULL,
                              cfg = list(), .fixed_theta = NULL,
                              .int_strategy = "ccd") {
   # --- Configuration ---------------------------------------------------------
+  mode <- match.arg(mode)
+  adjusted <- mode == "adjusted"
+  family <- if (adjusted) "nbinomial" else "gaussian"
+
   screen_check_legacy_cfg(cfg)
-  family <- match.arg(family, "gaussian")
-  screen_check_unsupported_cfg(cfg)
+  screen_check_mode_cfg(cfg, mode)
   stopifnot(.int_strategy %in% c("ccd", "eb"))
   screen_check_integration_cfg(cfg)
 
-  cfg <- modifyList(screen_default_cfg(), cfg)
+  cfg <- modifyList(screen_default_cfg(mode), cfg)
   if (isTRUE(cfg$pi) && (.int_strategy != "ccd" || !is.null(.fixed_theta))) {
     stop("Pi inference requires unfixed CCD hyperparameter integration.")
   }
@@ -386,13 +522,26 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
             is.finite(cfg$tau_logprecision_mean),
             is.finite(cfg$tau_logprecision_sd),
             cfg$tau_logprecision_sd > 0,
-            cfg$tau_prior %in% c("normal", "inla_default", "pc", "flat"))
+            cfg$tau_prior %in% c("normal", "inla_default", "pc", "flat"),
+            is.null(cfg$initial_theta) ||
+              (length(cfg$initial_theta) == R + 2L &&
+                 all(is.finite(cfg$initial_theta))))
 
   covariates <- screen_prepare_covariates(X, N, cfg)
   X <- covariates$X
 
   if (is.null(offset)) offset <- rep(0, N)
   stopifnot(length(offset) == N, all(is.finite(offset)))
+
+  composition <- NULL
+  if (adjusted) {
+    screen_check_adjusted_inputs(Y, library_size, dispersion_scale,
+                                 composition_offset)
+    stopifnot(cfg$nb_logsize_sd > 0)
+    library_size <- library_size / exp(mean(log(library_size)))
+    composition <- screen_composition_diagnostics(composition_offset, X,
+                                                  region_index)
+  }
 
   # --- Spatial field ---------------------------------------------------------
   kappa <- cfg$kappa_h / h
@@ -420,13 +569,28 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
 
   effects <- screen_effects_table(covariates, site, gene, region_long,
                                   offset_names, gene_names)
-  stack <- inla.stack(list(y = as.vector(Y)), A = list(1, A),
-                      effects = list(effects, spatial_index),
-                      compress = FALSE, remove.unused = FALSE)
+  if (adjusted) {
+    # Composition slope lambda_g = 1 + v_g: the fixed part enters through the
+    # INLA offset below, v_g multiplies log m[i, g] here.
+    effects$composition_slope <- gene
+    effects$composition_weight <- as.vector(composition_offset)
+
+    # Auxiliary gene intercepts u_g, one per observation's gene.
+    gene_map <- Matrix::sparseMatrix(i = seq_len(N * K), j = gene, x = 1,
+                                     dims = c(N * K, K))
+    stack <- inla.stack(list(y = as.vector(Y)), A = list(1, gene_map, A),
+                        effects = list(effects, list(gene_intercept = seq_len(K)),
+                                       spatial_index),
+                        compress = FALSE, remove.unused = FALSE)
+  } else {
+    stack <- inla.stack(list(y = as.vector(Y)), A = list(1, A),
+                        effects = list(effects, spatial_index),
+                        compress = FALSE, remove.unused = FALSE)
+  }
 
   # --- Priors and formula ----------------------------------------------------
-  # `iid_hyper`, `slope_hyper`, `spde` and `K` are referenced by name inside
-  # the formula's f() terms.
+  # `iid_hyper`, `slope_hyper`, `gene_intercept_hyper`, `composition_hyper`,
+  # `spde` and `K` are referenced by name inside the formula's f() terms.
   iid_hyper <- screen_tau_hyper(cfg)
 
   # Independent per-gene slopes with a fixed prior precision: no extra
@@ -434,22 +598,33 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
   slope_hyper <- list(prec = list(initial = log(1 / cfg$gene_covariate_prior_sd^2),
                                   fixed = TRUE))
 
+  # u_g ~ N(0, 100) and v_g ~ N(0, 0.25^2), both with fixed precision.
+  gene_intercept_hyper <- list(prec = list(initial = log(.01), fixed = TRUE))
+  composition_hyper <- list(prec = list(initial = log(1 / .25^2), fixed = TRUE))
+
   formula <- as.formula(screen_formula_text(covariates, offset_names,
-                                            gene_names))
+                                            gene_names, adjusted))
 
   # --- Regional contrasts ----------------------------------------------------
   counts <- as.numeric(table(factor(region_index, levels = seq_len(R))))
   contrasts <- screen_region_lincombs(counts, cfg$other_weights,
-                                      intercept_name, offset_names)
+                                      intercept_name, offset_names,
+                                      n_genes = if (adjusted) K else 0L)
 
   # --- Run INLA --------------------------------------------------------------
+  observation_family <- if (adjusted) {
+    list(variant = 2L, hyper = list(theta = list(
+      prior = "normal", param = c(cfg$nb_logsize_mean, 1 / cfg$nb_logsize_sd^2))))
+  } else {
+    list(hyper = list(prec = list(prior = "pc.prec", param = c(2, .05))))
+  }
+
   inla_args <- list(
     formula = formula,
     family = family,
     data = inla.stack.data(stack),
     lincomb = contrasts$lincombs,
-    control.family = list(hyper = list(prec = list(prior = "pc.prec",
-                                                   param = c(2, .05)))),
+    control.family = observation_family,
     control.fixed = list(mean = 0, prec = .01),
     control.predictor = list(A = inla.stack.A(stack), compute = FALSE),
     control.compute = list(config = isTRUE(cfg$pi), dic = FALSE,
@@ -457,25 +632,52 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
     control.inla = list(strategy = cfg$strategy, int.strategy = .int_strategy),
     inla.mode = "experimental",
     num.threads = cfg$threads,
-    verbose = FALSE
+    verbose = isTRUE(cfg$verbose)
   )
-  if (any(offset != 0)) inla_args$offset <- offset[site]
+  if (adjusted) {
+    # alpha0 ~ N(0, 100 (1 - 1/K)), so that alpha0 + mean(u) ~ N(0, 100).
+    inla_args$control.fixed$prec <- c(list(default = .01),
+                                      setNames(list(1 / (100 * (1 - 1 / K))),
+                                               intercept_name))
+    inla_args$E <- library_size[site]
+    inla_args$scale <- as.numeric(dispersion_scale[gene])
+    inla_args$offset <- offset[site] + as.vector(composition_offset)
+  } else if (any(offset != 0)) {
+    inla_args$offset <- offset[site]
+  }
+  if (isTRUE(cfg$low_memory)) {
+    # A permutation of the same precision matrix; no approximation or prior change.
+    inla_args$control.inla$reordering <- "amd"
+    inla_args$control.inla$global.node.factor <- .01
+  }
   if (!is.null(.fixed_theta)) {
     # Structural test hook only: conditions known hyperparameters, no sampling.
     inla_args$control.mode <- list(theta = .fixed_theta, fixed = TRUE,
                                    restart = FALSE)
+  } else if (!is.null(cfg$initial_theta)) {
+    inla_args$control.mode <- list(theta = cfg$initial_theta, restart = TRUE,
+                                   fixed = FALSE)
   }
+
+  # The data and predictor matrix are now in inla_args; free the intermediates
+  # before INLA starts.
+  rm(stack, A, effects, nz, spatial_index)
+  if (adjusted) rm(gene_map)
+  gc(FALSE)
 
   started <- proc.time()[["elapsed"]]
   fit <- do.call(inla, inla_args)
   fit_seconds <- proc.time()[["elapsed"]] - started
+  gc(FALSE)
 
   # --- Extract the low-dimensional joint posterior, then drop configs --------
+  gene_intercept_name <- if (adjusted) "gene_intercept" else NULL
   joint <- NULL
   config_bytes <- 0
   if (isTRUE(cfg$pi)) {
     config_bytes <- as.numeric(object.size(fit$misc$configs))
-    joint <- pi_extract_joint(fit, labels, counts, intercept_name, offset_names)
+    joint <- pi_extract_joint(fit, labels, counts, intercept_name, offset_names,
+                              gene_intercept_name)
     fit$misc$configs <- NULL
   }
 
@@ -490,17 +692,24 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
 
   # --- Result ----------------------------------------------------------------
   is_normal_prior <- cfg$tau_prior == "normal"
-  has_offset <- any(offset != 0)
+  offset_convention <- if (adjusted) {
+    "log library size via INLA exposure E plus lambda_g * log m[i, g]"
+  } else if (any(offset != 0)) {
+    "known Gaussian additive offset"
+  } else {
+    "zero (SCT/normalized Gaussian response)"
+  }
 
   metadata <- list(
     N = N, K = K, R = R,
+    mode = mode,
     region_labels = labels,
     region_spots = counts,
     other_weights = contrasts$rest_weights[[1]],
     rest_weights = contrasts$rest_weights,
     h = h, kappa0 = kappa, rho0 = sqrt(8) / kappa,
     gene_dependence = "conditional_iid",
-    model_version = "0.5.0",
+    model_version = as.character(utils::packageVersion("PathwayLGM")),
     cfg = cfg,
     family = family,
     fit_seconds = fit_seconds,
@@ -512,15 +721,19 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
       sd = if (is_normal_prior) cfg$tau_logprecision_sd else NA_real_,
       parameters = iid_hyper$prec$param
     ),
+    nb_prior = if (adjusted) observation_family$hyper else NULL,
+    dispersion_scale = if (adjusted) dispersion_scale else NULL,
+    composition_diagnostics = composition,
+    composition_slope_prior = if (adjusted) list(mean = 1, sd = .25) else NULL,
     baseline_region = labels[1L],
     intercept_name = intercept_name,
+    gene_intercept_name = gene_intercept_name,
     regional_offset_names = offset_names,
     covariate_names = covariates$names[covariates$shared],
     gene_covariate_names = covariates$slope_names,
     gene_covariate_columns = colnames(X)[covariates$gene_specific],
     gene_labels = colnames(Y),
-    offset_convention = if (has_offset) "known Gaussian additive offset" else
-      "zero (SCT/normalized Gaussian response)",
+    offset_convention = offset_convention,
     integration = .int_strategy,
     config = FALSE,
     fit_config = isTRUE(cfg$pi),
@@ -535,6 +748,8 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
 
   list(fit = fit, joint = joint, metadata = metadata)
 }
+
+
 
 
 # -----------------------------------------------------------------------------
@@ -579,32 +794,45 @@ screen_summary_frame <- function(summary_table) {
 
 #' Fixed effects: baseline intercept, relative offsets, covariates, then the
 #' absolute regional means
+#'
+#' In adjusted mode the baseline intercept is alpha0 + mean(u), taken from
+#' the `absolute_mu_r1` linear combination, and the absolute means are named
+#' `adjusted_state_r<r>`: composition-adjusted states, not expression means.
 #' @noRd
 screen_fixed_effect_table <- function(fit, metadata) {
   intercept_name <- metadata$intercept_name
   offset_names <- metadata$regional_offset_names
+  adjusted <- metadata$mode == "adjusted"
 
   fixed <- fit$summary.fixed[c(intercept_name, offset_names,
                                setdiff(metadata$covariate_names, intercept_name)), ,
                              drop = FALSE]
   table <- screen_summary_frame(fixed)
+  absolute <- screen_summary_frame(fit$summary.lincomb.derived[
+    paste0("absolute_mu_r", seq_len(metadata$R)), , drop = FALSE])
+
+  is_intercept <- table$parameter == intercept_name
+  if (adjusted) table[is_intercept, -1] <- absolute[1, -1]
 
   is_offset <- table$parameter %in% offset_names
-  table$parameter[table$parameter == intercept_name] <- "baseline_intercept"
+  table$parameter[is_intercept] <- "baseline_intercept"
   table$parameter[is_offset] <- paste0("relative_", table$parameter[is_offset])
 
-  absolute <- fit$summary.lincomb.derived[
-    paste0("absolute_mu_r", seq_len(metadata$R)), , drop = FALSE]
-  rbind(table, screen_summary_frame(absolute))
+  if (adjusted) {
+    absolute$parameter <- sub("^absolute_mu_", "adjusted_state_", absolute$parameter)
+  }
+  rbind(table, absolute)
 }
 
 
 #' Variance components on the variance scale
 #'
-#' tau2_r = 1 / precision of gene_r, sigma_s2 = exp(2 * Theta1) for the
-#' spatial field and sigma_e2 = 1 / Gaussian observation precision.
+#' tau2_r = 1 / precision of gene_r and sigma_s2 = exp(2 * Theta1) for the
+#' spatial field; then sigma_e2 = 1 / Gaussian observation precision
+#' (observed mode) or the NB size nb_size0 and its inverse alpha0 (adjusted
+#' mode).
 #' @noRd
-screen_variance_table <- function(fit, n_regions) {
+screen_variance_table <- function(fit, n_regions, family) {
   hyper_names <- c(paste0("Precision for gene_r", seq_len(n_regions)),
                    "Theta1 for spatial")
   names(hyper_names) <- c(paste0("tau2_r", seq_len(n_regions)), "sigma_s2")
@@ -617,6 +845,15 @@ screen_variance_table <- function(fit, n_regions) {
                                        transform, is_precision)
     table <- rbind(table, data.frame(parameter = names(hyper_names)[j],
                                      t(summary), row.names = NULL))
+  }
+
+  if (family == "nbinomial") {
+    size <- fit$marginals.hyperpar[["size for the nbinomial observations (1/overdispersion)"]]
+    stopifnot(!is.null(size))
+    return(rbind(table,
+                 data.frame(parameter = "nb_size0", t(screen_marginal_summary(size))),
+                 data.frame(parameter = "alpha0",
+                            t(screen_marginal_summary(size, function(x) 1 / x, TRUE)))))
   }
 
   noise <- screen_marginal_summary(
@@ -678,17 +915,39 @@ screen_gene_slope_table <- function(result) {
 }
 
 
+#' Gene intercepts a_g and composition slopes lambda_g (adjusted mode only)
+#' @noRd
+screen_gene_coefficient_table <- function(result) {
+  if (result$metadata$mode != "adjusted") return(NULL)
+  fit <- result$fit
+  K <- result$metadata$K
+
+  intercepts <- screen_summary_frame(
+    fit$summary.lincomb.derived[paste0("gene_intercept_g", seq_len(K)), , drop = FALSE])
+  slopes <- screen_summary_frame(fit$summary.random$composition_slope)
+  stopifnot(nrow(slopes) == K)
+  slopes[, -1] <- 1 + slopes[, -1]  # lambda_g = 1 + v_g
+
+  cbind(gene = result$metadata$gene_labels,
+        rbind(transform(intercepts, parameter = "a_g"),
+              transform(slopes, parameter = "lambda_g")))
+}
+
+
 #' Summarise a fit returned by screen_joint_fit()
 #'
 #' @param result Output of [screen_joint_fit()].
 #' @return A list with
 #'   * `pi`: directional scores and evidence from [pathway_pi_integrate()]
 #'     (NULL when pi inference is disabled);
-#'   * `parameters`: fixed effects, absolute regional means and variance
-#'     components (tau2_r, sigma_s2, sigma_e2);
+#'   * `parameters`: fixed effects, absolute regional means (named
+#'     `adjusted_state_r<r>` in adjusted mode) and variance components
+#'     (tau2_r, sigma_s2, and sigma_e2 or nb_size0 and alpha0);
 #'   * `mean_contrasts`: all regional contrasts with `p_gt_zero` and `lfsr`;
 #'   * `domains`: per-region calls from the region-vs-rest contrasts;
 #'   * `gene_covariate_coefficients`: gene-specific slopes (or NULL);
+#'   * `gene_coefficients`: adjusted mode, gene intercepts `a_g` and
+#'     composition slopes `lambda_g` (NULL in observed mode);
 #'   * the raw INLA marginals, `metadata`, INLA `warnings` and timing.
 #' @export
 screen_summarize <- function(result) {
@@ -698,10 +957,17 @@ screen_summarize <- function(result) {
   stopifnot(is.null(fit$misc$configs))
 
   parameters <- rbind(screen_fixed_effect_table(fit, metadata),
-                      screen_variance_table(fit, metadata$R))
+                      screen_variance_table(fit, metadata$R, metadata$family))
   contrasts <- screen_contrast_table(fit, names(metadata$contrast_coefficients))
   domains <- screen_domain_calls(contrasts, metadata$region_labels)
   gene_slopes <- screen_gene_slope_table(result)
+
+  # In adjusted mode the intercept's marginal is that of alpha0 + mean(u).
+  fixed_marginals <- fit$marginals.fixed
+  if (metadata$mode == "adjusted") {
+    fixed_marginals[[metadata$intercept_name]] <-
+      fit$marginals.lincomb.derived[["absolute_mu_r1"]]
+  }
 
   pi_result <- if (!is.null(result$joint)) {
     pathway_pi_integrate(result$joint,
@@ -717,6 +983,7 @@ screen_summarize <- function(result) {
     joint = result$joint,
     parameters = parameters,
     gene_covariate_coefficients = gene_slopes,
+    gene_coefficients = screen_gene_coefficient_table(result),
     mean_contrasts = contrasts,
     domains = domains,
     mean_contrast = contrasts[contrasts$quantity == "dmu_1_vs_rest", , drop = FALSE],
@@ -728,7 +995,7 @@ screen_summarize <- function(result) {
       p_gt_zero = NA_real_,
       status = "not_computed_from_separate_marginals"
     ),
-    fixed_marginals = fit$marginals.fixed,
+    fixed_marginals = fixed_marginals,
     hyper_marginals = fit$marginals.hyperpar,
     contrast_marginals = fit$marginals.lincomb.derived,
     metadata = metadata,
@@ -750,6 +1017,8 @@ screen_summarize <- function(result) {
 #' * when pi inference is enabled: `pairwise_scores.csv`,
 #'   `overall_scores.csv`, `pi_diagnostics.rds`, `pi_refinement.csv` and
 #'   `joint_marginal_diagnostic.csv`;
+#' * in adjusted mode: `gene_coefficients.csv` and
+#'   `composition_diagnostics.csv`;
 #' * `complete.txt`: a short completion marker.
 #'
 #' @param summary Output of [screen_summarize()].
@@ -771,6 +1040,11 @@ screen_write <- function(summary, out) {
   }
 
   write_table(summary$parameters, "parameters.csv")
+  if (!is.null(summary$gene_coefficients)) {
+    write_table(summary$gene_coefficients, "gene_coefficients.csv")
+    write_table(summary$metadata$composition_diagnostics,
+                "composition_diagnostics.csv")
+  }
   write_table(summary$mean_contrasts, "mean_contrasts.csv")
   write_table(summary$domains, "domains.csv")
   write_table(data.frame(step = c("fit", "marginal_summary"),
