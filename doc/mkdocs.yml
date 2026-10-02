@@ -19,6 +19,8 @@ markdown_extensions:
 
 nav:
   - Installation: installation.md
-  - Tutorials: tutorials.md
-  - Example usages: examples.md
+  - API: api.md
+  - Examples:
+      - Observed mode on DLPFC: examples/observed.md
+      - Composition-adjusted mode on DLPFC: examples/composition.md
   - About: about.md

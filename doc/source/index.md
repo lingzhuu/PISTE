@@ -10,6 +10,7 @@ reports a directional score and a posterior evidence.
 SpaPath is distributed as the R package PathwayLGM.
 
 - [Installation](installation.md)
-- [Tutorials](tutorials.md)
-- [Example usages](examples.md)
+- [API](api.md)
+- Examples: [observed mode](examples/observed.md) and
+  [composition-adjusted mode](examples/composition.md)
 - [About](about.md)
