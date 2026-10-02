@@ -8,12 +8,14 @@ deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
 This example uses the same Visium section 151673 as the
 [observed mode](observed.md) and the LIBD DLPFC snRNA-seq reference
 (Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
-chosen here because it is fast.
+chosen here because it is fast. White matter (WM) is tested against all
+other annotated spots.
 
-!!! note
-    The composition-adjusted model is not yet included in the released
-    package. Steps 1 to 4 prepare its inputs; step 5 will be completed when
-    the mode is released.
+Packages used in addition to SpaPath:
+
+```r
+BiocManager::install(c("spatialLIBD", "DESeq2"))
+```
 
 ## 1. Load the Visium data and the snRNA-seq reference
 
@@ -77,35 +79,107 @@ Alternatively, cell2location can be used in place of RCTD; it is more accurate b
 
 ## 3. Reference mean expression
 
-For each cell type, compute the depth-normalized mean expression of each gene
-in the reference, as counts per 10,000:
+For each cell type, pool the raw counts of all its nuclei and scale them to
+counts per 10,000:
 
 ```r
 library(Matrix)
 
 ref_counts <- as(counts(sce), "dgCMatrix")
-ref_norm   <- t(t(ref_counts) / colSums(ref_counts)) * 1e4
+rownames(ref_counts) <- make.unique(rowData(sce)$gene_name)
 cell_type  <- sce$cellType_broad_hc
 
-nu <- sapply(split(seq_along(cell_type), cell_type),
-             function(cells) rowMeans(ref_norm[, cells, drop = FALSE]))
-nu <- t(nu)   # cell types x genes
+pooled <- sapply(split(seq_along(cell_type), cell_type),
+                 function(cells) rowSums(ref_counts[, cells, drop = FALSE]))
+nu <- t(sweep(pooled, 2, colSums(pooled), "/") * 1e4)   # cell types x genes
 ```
 
 ## 4. Spot inputs
 
 ```r
+library(PathwayLGM)
+
 C      <- t(as.matrix(counts(spe)))            # spots x genes, raw counts
-xy     <- spatialCoords(spe)
-region <- as.character(spe$layer_guess_reordered)
+region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
+depth  <- rowSums(C)                           # total UMI over all genes
 
 omega <- omega[rownames(C), rownames(nu)]
 ```
 
 `omega` holds the cell-type proportions of each spot, `nu` the reference mean
-expression of each cell type, and `C` the raw counts. Use the same gene sets
-and mesh as in the [observed mode](observed.md#4-gene-sets).
+expression of each cell type, `C` the raw counts and `depth` the library
+size.
 
-## 5. Run SpaPath
+Estimate the dispersion of every gene once, on the whole transcriptome:
 
-To be added when the composition-adjusted mode is released.
+```r
+dispersion <- estimate_dispersion_scale(C, depth)
+S <- setNames(dispersion$dispersion_scale, dispersion$gene)
+```
+
+Then compute the composition offset log m<sub>ig</sub> for the genes shared
+by the section and the reference:
+
+```r
+shared <- intersect(colnames(C), colnames(nu))
+log_m  <- composition_offset(omega, nu[, shared])
+```
+
+## 5. Coordinates, mesh and gene sets
+
+Coordinates are shifted to start at zero and divided by their largest value,
+so the section fits in the unit square. The mesh and `h` are in these units.
+
+```r
+xy <- spatialCoords(spe)
+xy <- sweep(xy, 2, apply(xy, 2, min))
+xy <- xy / max(xy)
+
+h    <- 0.3
+mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = 0.25, cutoff = 0.08,
+                            offset = c(0.1, 0.2))
+```
+
+Use the gene sets of the [observed mode](observed.md#4-gene-sets).
+
+## 6. Run SpaPath
+
+Keep the pathway genes that pass the dispersion filter and have positive
+predicted expression in every spot, then fit with `mode = "adjusted"`:
+
+```r
+for (set_name in names(gene_sets)) {
+  genes <- intersect(gene_sets[[set_name]], shared)
+  genes <- genes[!is.na(S[genes]) & colSums(!is.finite(log_m[, genes])) == 0]
+
+  fit <- screen_joint_fit(
+    C[, genes], xy, region, mesh, h,
+    mode               = "adjusted",
+    library_size       = depth,
+    dispersion_scale   = S[genes],
+    composition_offset = log_m[, genes],
+    cfg = list(baseline_region = "rest",
+               threads    = if (length(genes) >= 150) "1:1" else "2:1",
+               low_memory = length(genes) >= 150)
+  )
+  res <- screen_summarize(fit)
+  screen_write(res, file.path("results_adjusted", set_name))
+}
+```
+
+Large gene sets use one thread and `low_memory`, which reorders the same
+model to reduce memory.
+
+## 7. Read the results
+
+```r
+res$pi$pairwise[res$pi$pairwise$region == "WM", ]
+res$gene_coefficients
+```
+
+The WM row is read as in the [observed mode](observed.md#7-read-the-results),
+but `score` and `evidence` now describe pathway activity after adjusting for
+cell-type composition. `gene_coefficients` lists each gene's intercept `a_g`
+and composition slope `lambda_g`; `lambda_g` near 1 means the gene follows
+the reference prediction. See [API](../api.md#screen_summarize) for all
+outputs.

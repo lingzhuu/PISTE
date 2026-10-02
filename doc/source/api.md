@@ -11,31 +11,50 @@ library(PathwayLGM)
 | [`screen_write()`](#screen_write) | Write a summary to CSV and RDS files. |
 | [`pathway_pi_integrate()`](#pathway_pi_integrate) | Recompute π scores and evidence from a fit. |
 | [`pathway_pi()`](#pathway_pi) | π for given regional means and variances. |
+| [`composition_offset()`](#composition_offset) | Log expression predicted from cell-type proportions, for the adjusted mode. |
+| [`estimate_dispersion_scale()`](#estimate_dispersion_scale) | Relative negative binomial dispersion of every gene, for the adjusted mode. |
 
 ---
 
 ## screen_joint_fit
 
 ```r
-screen_joint_fit(Y, xy, region, mesh, h, family = "gaussian",
-                 X = NULL, offset = NULL, cfg = list())
+screen_joint_fit(Y, xy, region, mesh, h, mode = c("observed", "adjusted"),
+                 X = NULL, offset = NULL,
+                 library_size = NULL, dispersion_scale = NULL,
+                 composition_offset = NULL, cfg = list())
 ```
 
 Fits the SpaPath model for one gene set with INLA, integrating over the
-hyperparameters with a CCD design.
+hyperparameters with a CCD design. The mode chooses the model:
+
+- `"observed"` fits a Gaussian model to normalized expression and reports the
+  total regional difference in pathway activity.
+- `"adjusted"` fits a negative binomial model to raw counts with a
+  cell-type composition offset and reports the regional difference that
+  composition does not explain. For spot i and gene g,
+  log E[y<sub>ig</sub>] = log L<sub>i</sub> + a<sub>g</sub> + μ<sub>r(i)</sub>
+  + gene effect + spatial field + λ<sub>g</sub> log m<sub>ig</sub>, where
+  L<sub>i</sub> is the library size, m<sub>ig</sub> the expression predicted
+  from the spot's cell-type proportions, a<sub>g</sub> a gene intercept and
+  λ<sub>g</sub> = 1 + v<sub>g</sub> with v<sub>g</sub> ~ N(0, 0.25²). Gene g
+  has NB size `nb_size0` × S<sub>g</sub>.
 
 ### Arguments
 
 | Argument | Description |
 |----------|-------------|
-| `Y` | Numeric matrix of normalized expression, spots x genes, with at least two genes and no missing or infinite values. Column names are used as gene labels. |
+| `Y` | Spots x genes matrix with at least two genes and no missing or infinite values. Normalized expression in observed mode; raw integer counts with unique spot rownames and gene colnames in adjusted mode. Column names are used as gene labels. |
 | `xy` | Numeric matrix of spot coordinates with two columns, in the same spot order as `Y`. |
 | `region` | Region label of each spot, at least two distinct labels, no `NA`. Labels are converted to character and ordered by first appearance. |
 | `mesh` | 2D mesh for the spatial fields, e.g. from `fmesher::fm_mesh_2d_inla()`. |
 | `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. |
-| `family` | Likelihood. Only `"gaussian"` is supported. |
+| `mode` | `"observed"` (default) or `"adjusted"`. |
 | `X` | Optional numeric covariate matrix with N rows and unique column names. An `intercept` column is added if absent, and no other column may be constant one. |
 | `offset` | Optional known additive offset of length N, added to every gene of a spot. |
+| `library_size` | Adjusted mode. Library size of each spot, e.g. total UMI over all genes. Only ratios matter; they are rescaled to a geometric mean of one. |
+| `dispersion_scale` | Adjusted mode. Relative dispersion scale S<sub>g</sub> of each gene in `Y`, from `estimate_dispersion_scale()`. If named, names must match `colnames(Y)`. |
+| `composition_offset` | Adjusted mode. Spots x genes matrix of log m<sub>ig</sub> from `composition_offset()`, finite, with the dimnames of `Y`. |
 | `cfg` | List of options; see below. Entries not given keep their defaults. |
 
 ### Options in `cfg`
@@ -48,15 +67,19 @@ hyperparameters with a CCD design.
 | `pi_max_nodes` | `65536` | Maximum number of quadrature nodes (power of two, ≥ 2 × `pi_nodes`). |
 | `pi_tolerance` | `0.002` | Convergence tolerance between quadrature refinements. |
 | `threads` | `"2:1"` | INLA `num.threads`. |
-| `strategy` | `"gaussian"` | INLA approximation strategy. |
+| `strategy` | `"gaussian"`; `"simplified.laplace"` in adjusted mode | INLA approximation strategy. |
 | `kappa_h` | `sqrt(8)` | SPDE scale times `h`; must lie in [2.3, 3.2]. |
 | `tau_prior` | `"normal"` | Prior on the log precision of the regional gene effects: `"normal"`, `"inla_default"` (log-gamma(1, 5e-5) on the precision), `"pc"` or `"flat"`. |
 | `tau_logprecision_mean` | `0` | Mean of the normal prior. |
 | `tau_logprecision_sd` | `3` | Standard deviation of the normal prior. |
 | `tau_pc_u`, `tau_pc_alpha` | `2`, `0.05` | Parameters of the PC prior. |
 | `other_weights` | spot counts | Weights of the other regions in the mean contrast of the baseline region against the rest. Length R − 1, non-negative. |
-| `gene_specific_covariates` | none | Columns of `X` that get an independent slope for each gene. |
+| `gene_specific_covariates` | none | Columns of `X` that get an independent slope for each gene. Observed mode only. |
 | `gene_covariate_prior_sd` | `10` | Standard deviation of the fixed normal prior on the gene-specific slopes. |
+| `nb_logsize_mean`, `nb_logsize_sd` | `log(10)`, `1.5` | Normal prior on log `nb_size0`. Adjusted mode only. |
+| `low_memory` | `FALSE` | AMD reordering with a small node factor: the same model with less memory, useful for gene sets of 150 genes or more. |
+| `initial_theta` | `NULL` | Starting hyperparameters (length R + 2), e.g. `fit$fit$mode$theta` from an earlier run. |
+| `verbose` | `FALSE` | Print INLA's log. |
 
 ### Value
 
@@ -65,8 +88,12 @@ A list with
 - `fit`: the INLA fit;
 - `joint`: the posterior of the regional means and variances used for π, or
   `NULL` when `cfg$pi = FALSE`;
-- `metadata`: dimensions, region labels (baseline first) and spot counts, `h`,
-  the options used, the INLA version, the model formula and the fit time.
+- `metadata`: dimensions, mode, region labels (baseline first) and spot
+  counts, `h`, the options used, the INLA version, the model formula and the
+  fit time. In adjusted mode also the dispersion scales and
+  `composition_diagnostics`: per gene, the standard deviation of
+  log m<sub>ig</sub> within regions (small values mean λ<sub>g</sub> is
+  informed mainly by its prior) and its mean.
 
 ---
 
@@ -94,13 +121,18 @@ A list with
 - `parameters`: posterior mean, 2.5 %, 50 % and 97.5 % quantiles of
   `baseline_intercept`, `relative_mu_r2`, …, covariate effects `cov_<name>`,
   regional means `absolute_mu_r1`, …, between-gene variances `tau2_r1`, …,
-  spatial variance `sigma_s2` and noise variance `sigma_e2`.
+  spatial variance `sigma_s2` and noise variance `sigma_e2`. In adjusted mode
+  the regional means are composition-adjusted states named
+  `adjusted_state_r1`, …, and `sigma_e2` is replaced by the NB size
+  `nb_size0` and its inverse `alpha0`.
 - `mean_contrasts`: differences of regional means, each region against the
   rest (`dmu_<r>_vs_rest`) and every pair (`dmu_<r>_vs_<s>`), with
   `p_gt_zero` and `lfsr`.
 - `domains`: each region called `"higher"`, `"lower"` or `"undecided"`
   against the rest from `p_gt_zero` ≥ 0.95 or ≤ 0.05 of its mean contrast.
 - `gene_covariate_coefficients`: per-gene slopes, or `NULL`.
+- `gene_coefficients`: adjusted mode only, the gene intercepts `a_g` and
+  composition slopes `lambda_g` of each gene; `NULL` in observed mode.
 - `fixed_marginals`, `hyper_marginals`, `contrast_marginals`, `metadata`,
   `warnings`.
 
@@ -125,7 +157,9 @@ screen_write(summary, out)
 Writes `screen_summary.rds`, `overall_scores.csv`, `pairwise_scores.csv`,
 `parameters.csv`, `mean_contrasts.csv`, `domains.csv`, `runtime.csv`,
 `pi_diagnostics.rds`, `pi_refinement.csv`, `joint_marginal_diagnostic.csv`
-and `complete.txt`. The π files are written only when π was computed.
+and `complete.txt`. The π files are written only when π was computed. In
+adjusted mode `gene_coefficients.csv` and `composition_diagnostics.csv` are
+also written.
 
 ---
 
@@ -164,3 +198,48 @@ pathway_pi(mu_r, mu_s, tau2_r, tau2_s)
 Returns π = P(Z<sub>r</sub> > Z<sub>s</sub>) for independent
 Z<sub>r</sub> ~ N(`mu_r`, `tau2_r`) and Z<sub>s</sub> ~ N(`mu_s`, `tau2_s`).
 Vectorised over its arguments.
+
+---
+
+## composition_offset
+
+```r
+composition_offset(proportions, reference)
+```
+
+| Argument | Description |
+|----------|-------------|
+| `proportions` | Non-negative spots x cell types matrix of cell-type proportions, e.g. RCTD weights, with spot rownames. Rows are rescaled to sum to one. |
+| `reference` | Non-negative cell types x genes matrix of reference mean expression on a linear scale, e.g. counts per 10,000. Row names must be the cell types in `colnames(proportions)`. |
+
+Returns the spots x genes matrix log m<sub>ig</sub>, where
+m<sub>ig</sub> = Σ<sub>t</sub> p<sub>it</sub> ν<sub>tg</sub> is the
+expression predicted from the spot's composition. No pseudocount is added:
+a gene with zero predicted expression in some spot gets `-Inf` there and must
+be removed before fitting.
+
+---
+
+## estimate_dispersion_scale
+
+```r
+estimate_dispersion_scale(counts, library_size, min_total = 10L,
+                          min_detected = 3L, fit_type = "parametric",
+                          block_size = 256L)
+```
+
+| Argument | Description |
+|----------|-------------|
+| `counts` | Raw counts, spots x genes, dense or sparse, with unique spot and gene names. Use all genes, not only pathway genes. |
+| `library_size` | Library size of each spot, e.g. total UMI. |
+| `min_total`, `min_detected` | A gene is eligible when its total count is at least `min_total` and it is detected in at least `min_detected` spots. At least 30 genes must be eligible. |
+| `fit_type` | DESeq2 dispersion trend type. |
+| `block_size` | Genes per block, to bound memory. |
+
+Estimates the NB dispersion α<sub>g</sub> of every eligible gene with DESeq2
+(intercept-only design, trend fit and MAP shrinkage) and returns a data frame
+with columns `gene`, `total`, `detected`, `eligible`, `dispersion` and
+`dispersion_scale` = exp(mean(log α)) / α<sub>g</sub>, which is `NA` for
+ineligible genes. Gene-wise and MAP steps run in blocks, while the trend and
+its prior variance are fitted once on all genes, so the result equals an
+unblocked DESeq2 run. Requires DESeq2.
