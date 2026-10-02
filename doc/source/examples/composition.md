@@ -73,8 +73,7 @@ omega <- as.matrix(normalize_weights(rctd@results$weights))   # spots x cell typ
 
 Each row of `omega` holds the cell-type proportions of one spot and sums to one.
 
-cell2location can be used instead of RCTD. It was more accurate in earlier
-benchmarks (REF), but it is much slower and a GPU is recommended.
+Alternatively, cell2location can be used in place of RCTD; it is more accurate but considerably slower, and a GPU is recommended (REF).
 
 ## 3. Reference mean expression
 
