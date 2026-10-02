@@ -8,8 +8,7 @@ deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
 This example uses the same Visium section 151673 as the
 [observed mode](observed.md) and the LIBD DLPFC snRNA-seq reference
 (Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
-chosen here because it is fast. cell2location is described as an
-[alternative](#alternative-cell2location) below.
+chosen here because it is fast.
 
 !!! note
     The composition-adjusted model is not yet included in the released
@@ -74,81 +73,8 @@ omega <- as.matrix(normalize_weights(rctd@results$weights))   # spots x cell typ
 
 Each row of `omega` holds the cell-type proportions of one spot and sums to one.
 
-## Alternative: cell2location
-
-cell2location was more accurate than RCTD in earlier benchmarks (REF), but it
-takes much longer to run, and a GPU is recommended. It is a Python package
-(`pip install cell2location`). Export both datasets with raw counts:
-
-```r
-library(zellkonverter)
-
-spe_out <- SingleCellExperiment(assays = list(counts = counts(spe)),
-                                colData = colData(spe))
-writeH5AD(spe_out, "dlpfc_151673.h5ad", X_name = "counts")
-writeH5AD(sce, "dlpfc_snrna.h5ad", X_name = "counts")
-```
-
-Then estimate the cell-type signatures from the reference and the cell-type
-abundance in each spot:
-
-```python
-import numpy as np
-import scanpy as sc
-import cell2location
-from cell2location.models import RegressionModel
-from cell2location.utils.filtering import filter_genes
-
-# Reference signatures
-adata_ref = sc.read_h5ad("dlpfc_snrna.h5ad")
-selected = filter_genes(adata_ref, cell_count_cutoff=5,
-                        cell_percentage_cutoff2=0.03, nonz_mean_cutoff=1.12)
-adata_ref = adata_ref[:, selected].copy()
-
-RegressionModel.setup_anndata(adata_ref, batch_key="Sample",
-                              labels_key="cellType_broad_hc")
-ref_model = RegressionModel(adata_ref)
-ref_model.train(max_epochs=250)
-adata_ref = ref_model.export_posterior(
-    adata_ref, sample_kwargs={"num_samples": 1000, "batch_size": 2500}
-)
-
-factors = adata_ref.uns["mod"]["factor_names"]
-inf_aver = adata_ref.varm["means_per_cluster_mu_fg"][
-    [f"means_per_cluster_mu_fg_{f}" for f in factors]
-].copy()
-inf_aver.columns = factors
-
-# Spatial mapping
-adata_vis = sc.read_h5ad("dlpfc_151673.h5ad")
-genes = np.intersect1d(adata_vis.var_names, inf_aver.index)
-adata_vis = adata_vis[:, genes].copy()
-inf_aver = inf_aver.loc[genes, :]
-
-cell2location.models.Cell2location.setup_anndata(adata=adata_vis)
-model = cell2location.models.Cell2location(
-    adata_vis, cell_state_df=inf_aver,
-    N_cells_per_location=5,   # placeholder: expected cells per spot
-    detection_alpha=20,
-)
-model.train(max_epochs=30000, batch_size=None, train_size=1)
-adata_vis = model.export_posterior(
-    adata_vis, sample_kwargs={"num_samples": 1000,
-                              "batch_size": model.adata.n_obs}
-)
-
-# Cell-type proportions per spot
-abundance = adata_vis.obsm["q05_cell_abundance_w_sf"]
-abundance.columns = factors
-proportions = abundance.div(abundance.sum(axis=1), axis=0)
-proportions.to_csv("proportions_151673.csv")
-```
-
-Read the proportions back into R and use them as `omega` in the steps below:
-
-```r
-omega <- as.matrix(read.csv("proportions_151673.csv", row.names = 1))
-```
+cell2location can be used instead of RCTD. It was more accurate in earlier
+benchmarks (REF), but it is much slower and a GPU is recommended.
 
 ## 3. Reference mean expression
 
