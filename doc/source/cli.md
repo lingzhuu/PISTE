@@ -12,12 +12,9 @@ the folder with your data at `/work`:
 ```bash
 docker build -t spapath .        # once, from the SpaPath repository
 docker run --rm -v "$PWD":/work spapath \
-  run --input sample.h5ad --region-key layer --gmt pathways.gmt --out results
+  spapath run --input sample.h5ad --region-key layer \
+              --gmt pathways.gmt --out results
 ```
-
-The image runs `spapath` by default, so everything after the image name is
-passed to it. The examples below write `spapath run ...`; with Docker, replace
-`spapath` by `docker run --rm -v "$PWD":/work spapath`.
 
 ## Run without Docker
 

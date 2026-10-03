@@ -62,8 +62,7 @@ packages used in the examples.
 git clone https://github.com/lingzhuu/pathwayLGM.git
 cd pathwayLGM
 docker build -t spapath .
-docker run --rm -v "$PWD":/work spapath --help                 # the spapath command
-docker run --rm -it -v "$PWD":/work --entrypoint R spapath     # R, for the examples
+docker run --rm -it -v "$PWD":/work spapath
 ```
 
 ## Install from source

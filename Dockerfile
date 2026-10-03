@@ -3,9 +3,9 @@
 # Build from the repository root:
 #   docker build -t spapath .
 # Run the command-line interface on files in the current folder:
-#   docker run --rm -v "$PWD":/work spapath run --help
+#   docker run --rm -v "$PWD":/work spapath spapath run --help
 # Or open R with the current folder mounted at /work:
-#   docker run --rm -it -v "$PWD":/work --entrypoint R spapath
+#   docker run --rm -it -v "$PWD":/work spapath
 #
 # INLA ships x86_64 Linux binaries; on Apple Silicon / ARM machines add
 # --platform linux/amd64 to both commands (runs under emulation).
@@ -44,5 +44,4 @@ RUN install2.r --error --skipinstalled Seurat \
     && R -q -e "remotes::install_github('dmcable/spacexr', build_vignettes = FALSE, upgrade = 'never')"
 
 WORKDIR /work
-ENTRYPOINT ["spapath"]
-CMD ["--help"]
+CMD ["R"]
