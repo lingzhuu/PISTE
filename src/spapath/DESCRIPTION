@@ -17,8 +17,9 @@ Description: Fits spatial pathway models with a shared baseline intercept,
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, Matrix, methods, stats, utils, qrng
-Suggests: fmesher, DESeq2, S4Vectors, SummarizedExperiment
+Imports: INLA, Matrix, methods, stats, utils, qrng, fmesher, DESeq2,
+    S4Vectors, SummarizedExperiment
+biocViews:
 Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
     'positive_summary.R'

@@ -19,7 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # CRAN dependencies of SpaPath and INLA.
 RUN install2.r --error --skipinstalled \
-        Matrix qrng fmesher sp foreach
+        Matrix qrng fmesher sp foreach BiocManager remotes
+
+# Bioconductor dependencies of SpaPath (composition-adjusted mode).
+RUN R -q -e "BiocManager::install(c('DESeq2', 'S4Vectors', 'SummarizedExperiment'), update = FALSE, ask = FALSE)"
 
 # INLA, from its own repository (not on CRAN).
 RUN R -q -e "install.packages('INLA', repos = c(getOption('repos'), INLA = 'https://inla.r-inla-download.org/R/stable'))" \
@@ -29,6 +32,12 @@ RUN R -q -e "install.packages('INLA', repos = c(getOption('repos'), INLA = 'http
 COPY src/spapath /opt/spapath
 RUN R CMD INSTALL /opt/spapath \
     && R -q -e "library(PathwayLGM); cat('PathwayLGM', as.character(packageVersion('PathwayLGM')), 'OK\n')"
+
+# Packages used in the documentation examples: DLPFC data (spatialLIBD),
+# SCTransform (Seurat) and RCTD deconvolution (spacexr).
+RUN install2.r --error --skipinstalled Seurat \
+    && R -q -e "BiocManager::install(c('spatialLIBD', 'HDF5Array'), update = FALSE, ask = FALSE)" \
+    && R -q -e "remotes::install_github('dmcable/spacexr', build_vignettes = FALSE, upgrade = 'never')"
 
 WORKDIR /work
 CMD ["R"]

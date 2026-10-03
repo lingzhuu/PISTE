@@ -6,12 +6,22 @@ from spatialLIBD (Maynard et al., 2021). The observed mode fits a Gaussian
 model to normalized expression and reports the total regional difference in
 pathway activity, including differences that come from cell composition.
 
-Packages used in addition to SpaPath:
+## Requirements
+
+Besides SpaPath ([Installation](../installation.md)), this example uses:
+
+| Package | Source | Used for |
+|---------|--------|----------|
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation, and plots spots on the H&E image |
+| Seurat | CRAN | SCTransform normalization |
 
 ```r
-install.packages(c("Seurat", "msigdbr"))
+install.packages(c("BiocManager", "Seurat"))
 BiocManager::install("spatialLIBD")
 ```
+
+The gene sets are read from a file in the SpaPath repository, so no gene-set
+package is needed.
 
 ## 1. Load the data
 
@@ -31,6 +41,23 @@ counts <- counts(spe)
 rownames(counts) <- make.unique(rowData(spe)$gene_name)
 ```
 
+The section and its manual layer annotation, Layer1 to Layer6 and white
+matter, can be shown next to the H&E image:
+
+```r
+library(ggplot2)
+
+he <- imgRaster(spe, sample_id = "151673", image_id = "lowres")
+png("151673_HE.png", width = 600, height = 600)
+plot(he)
+dev.off()
+
+layers <- vis_clus(spe, sampleid = "151673",
+                   clustervar = "layer_guess_reordered",
+                   colors = libd_layer_colors)
+ggsave("151673_layers.png", layers, width = 6, height = 6)
+```
+
 ## 2. Normalize with SCTransform
 
 SpaPath models normalized expression as Gaussian. We recommend SCTransform and
@@ -48,9 +75,14 @@ expr <- t(as.matrix(GetAssayData(obj, assay = "SCT", layer = "scale.data")))
 
 ## 3. Coordinates and regions
 
+Coordinates are shifted to start at zero and divided by their largest value,
+so the section fits in the unit square. The mesh and `h` are in these units.
+
 ```r
 spots  <- match(rownames(expr), colnames(spe))
 xy     <- spatialCoords(spe)[spots, ]
+xy     <- sweep(xy, 2, apply(xy, 2, min))
+xy     <- xy / max(xy)
 region <- as.character(spe$layer_guess_reordered[spots])
 table(region)
 ```
@@ -60,33 +92,30 @@ pass `cfg = list(baseline_region = "WM")` when fitting.
 
 ## 4. Gene sets
 
+The DLPFC panel of 20 MSigDB gene sets is stored as a GMT file in the SpaPath
+repository:
+
 ```r
-library(msigdbr)
-
-go_cc <- msigdbr(species = "Homo sapiens", collection = "C5",
-                 subcollection = "GO:CC")
-gene_sets <- split(go_cc$gene_symbol, go_cc$gs_name)[
-  c("GOCC_MYELIN_SHEATH", "GOCC_SYNAPTIC_VESICLE")
-]
+gmt <- paste0("https://raw.githubusercontent.com/lingzhuu/pathwayLGM/main/",
+              "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt")
+fields    <- strsplit(readLines(gmt), "\t")
+gene_sets <- setNames(lapply(fields, function(x) x[-(1:2)]),
+                      vapply(fields, `[`, "", 1))
+names(gene_sets)
 ```
-
-Older versions of msigdbr use `category` and `subcategory` instead of
-`collection` and `subcollection`.
 
 ## 5. Build the mesh
 
 Build the mesh once for the section and reuse it for every gene set.
 
 ```r
-h <- 1000   # placeholder: spatial length scale in pixels
-mesh <- fmesher::fm_mesh_2d_inla(loc = xy, max.edge = c(300, 1000),
-                                 cutoff = 100)   # placeholders
+h    <- 0.3
+mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = 0.25, cutoff = 0.08,
+                            offset = c(0.1, 0.2))
 ```
 
-`spatialCoords()` returns full-resolution pixel coordinates, so `h` and the
-mesh sizes are in pixels. With the default settings `h` is the practical range
-of the spatial fields, the distance at which their correlation falls to about
-0.1.
+With the default settings `h` is the practical range of the spatial fields,
+the distance at which their correlation falls to about 0.1.
 
 ## 6. Run SpaPath
 

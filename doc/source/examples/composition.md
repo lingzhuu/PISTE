@@ -11,10 +11,21 @@ This example uses the same Visium section 151673 as the
 chosen here because it is fast. White matter (WM) is tested against all
 other annotated spots.
 
-Packages used in addition to SpaPath:
+## Requirements
+
+Besides SpaPath ([Installation](../installation.md)), which already includes
+DESeq2 for the dispersion step, this example uses:
+
+| Package | Source | Used for |
+|---------|--------|----------|
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and the LIBD DLPFC snRNA-seq reference |
+| HDF5Array | Bioconductor | Loads the snRNA-seq reference, which is stored on disk in HDF5 format |
+| spacexr | GitHub | RCTD deconvolution |
 
 ```r
-BiocManager::install(c("spatialLIBD", "DESeq2"))
+install.packages(c("BiocManager", "remotes"))
+BiocManager::install(c("spatialLIBD", "HDF5Array"))
+remotes::install_github("dmcable/spacexr", build_vignettes = FALSE)
 ```
 
 ## 1. Load the Visium data and the snRNA-seq reference
@@ -43,13 +54,7 @@ different name in your version.
 
 ## 2. Deconvolve with RCTD
 
-RCTD is provided by the spacexr package:
-
-```r
-remotes::install_github("dmcable/spacexr", build_vignettes = FALSE)
-```
-
-Build the reference and the spatial object from raw counts, then run RCTD in
+RCTD is provided by the spacexr package. Build the reference and the spatial object from raw counts, then run RCTD in
 full mode, which allows any number of cell types per spot:
 
 ```r
@@ -141,6 +146,8 @@ mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = 0.25, cutoff = 0.08,
 ```
 
 Use the gene sets of the [observed mode](observed.md#4-gene-sets).
+The layer annotation and H&E image of the section are shown in the
+[observed mode](observed.md#1-load-the-data).
 
 ## 6. Run SpaPath
 
