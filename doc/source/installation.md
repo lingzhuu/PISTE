@@ -27,6 +27,9 @@ on:
 | qrng | CRAN | Quadrature for the posterior evidence |
 | DESeq2 | Bioconductor | Dispersion estimation in the composition-adjusted mode |
 | S4Vectors, SummarizedExperiment | Bioconductor | Required by the DESeq2 step |
+| sctransform | CRAN | SCTransform normalization in the [command line](cli.md) |
+| hdf5r | CRAN | Reading `.h5ad` and 10x `.h5` files in the command line |
+| glmGamPoi | Bioconductor | Faster SCTransform (optional) |
 
 Packages that are only needed to run the [examples](examples/observed.md), such
 as the data package and the deconvolution method, are listed at the start of
@@ -52,7 +55,8 @@ platform-specific notes.
 ## Docker
 
 SpaPath can also be installed using the Docker image, which contains R,
-SpaPath, all its dependencies and the packages used in the examples.
+SpaPath, all its dependencies, the `spapath` [command](cli.md) and the
+packages used in the examples.
 
 ```bash
 git clone https://github.com/lingzhuu/pathwayLGM.git

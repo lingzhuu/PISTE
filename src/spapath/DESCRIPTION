@@ -13,12 +13,14 @@ Description: Fits spatial pathway models with a shared baseline intercept,
     counts as negative binomial with a cell-type composition offset, so that
     regional differences are adjusted for composition. Computes directional
     pathway probabilities and posterior evidence using compact CCD
-    configuration mixtures. Includes checked positive marginal summaries.
+    configuration mixtures. Includes checked positive marginal summaries
+    and a command-line interface that runs every gene set of a GMT file.
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 Imports: INLA, Matrix, methods, stats, utils, qrng, fmesher, DESeq2,
-    S4Vectors, SummarizedExperiment
+    S4Vectors, SummarizedExperiment, sctransform, hdf5r
+Suggests: glmGamPoi
 biocViews:
 Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
@@ -26,3 +28,5 @@ Collate:
     'pi_engine.R'
     'inla_screen.R'
     'adjusted_inputs.R'
+    'cli_io.R'
+    'cli.R'
