@@ -59,7 +59,7 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 
 ## 2. Gene sets
 
-20 MSigDB gene sets is stored as a GMT file:
+20 MSigDB gene sets are stored as a GMT file:
 
 ```{r gene-sets}
 gmt <- "geneset/DLPFC_brain_and_reference.gmt"
@@ -72,16 +72,9 @@ res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
                    out = "results_observed")
 ```
 
-`run_spapath()` normalizes the raw counts with SCTransform, the recommended
-normalization, and uses its Pearson residuals as Gaussian expression. Pass
-`normalized = TRUE` to use expression you have already normalized. It then
-rescales the coordinates to the unit square, builds the mesh for the spatial
-fields, and fits every gene set with WM as the baseline region. The spatial
-scale `h` keeps its default of 0.3, the distance in unit-square units at
-which the correlation of the spatial fields falls to about 0.1. Results of
-each gene set are written to `results_observed/<gene set>`. See
-[API](../api.md#run_spapath) for all options and for the step-by-step
-functions it is built from.
+`run_spapath()` normalizes the counts with SCTransform, builds the mesh and
+fits every gene set, with WM as the baseline region. Results are written to
+`results_observed`. See [API](../api.md#run_spapath) for all options.
 
 ## 4. Read the results
 

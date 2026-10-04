@@ -7,9 +7,9 @@ activity that cannot be explained by differences in cell-type composition. It
 models raw counts and uses, for each spot, the expression predicted from its
 deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
 
-This example uses the same Visium section 151673 as the
-[observed mode](observed.md) and the LIBD DLPFC snRNA-seq reference
-(Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
+This example uses the human dorsolateral prefrontal cortex (DLPFC) Visium
+section 151673 from spatialLIBD (Maynard et al., 2021) and the LIBD DLPFC
+snRNA-seq reference (Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
 chosen here because it is fast. White matter (WM) is tested against all
 other annotated spots.
 
@@ -20,7 +20,7 @@ DESeq2 for the dispersion step, this example uses:
 
 | Package | Source | Used for |
 |---------|--------|----------|
-| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and the LIBD DLPFC snRNA-seq reference |
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data, its layer annotation and the LIBD DLPFC snRNA-seq reference, and plots spots on the H&E image |
 | HDF5Array | Bioconductor | Loads the snRNA-seq reference, which is stored on disk in HDF5 format |
 | spacexr | GitHub | RCTD deconvolution |
 
@@ -49,6 +49,18 @@ sce <- HDF5Array::loadHDF5SummarizedExperiment(
 sce <- sce[, !is.na(sce$cellType_broad_hc)]
 rownames(sce) <- make.unique(rowData(sce)$gene_name)
 table(sce$cellType_broad_hc)
+```
+
+The H&E image of the section and its manual layer annotation, Layer1 to
+Layer6 and white matter:
+
+```{r he-image}
+plot(imgRaster(spe, sample_id = "151673", image_id = "lowres"))
+```
+
+```{r layers}
+vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
+         colors = libd_layer_colors)
 ```
 
 ## 2. Deconvolve with RCTD
@@ -101,7 +113,15 @@ nu <- reference_profile(t(ref_counts), sce$cellType_broad_hc)   # cell types x g
 dim(nu)
 ```
 
-## 4. Run SpaPath
+## 4. Gene sets
+
+20 MSigDB gene sets are stored as a GMT file:
+
+```{r gene-sets}
+gmt <- "geneset/DLPFC_brain_and_reference.gmt"
+```
+
+## 5. Run SpaPath
 
 RCTD drops spots with too few counts, so keep the spots that have
 proportions. White matter is compared with all other spots:
@@ -111,22 +131,17 @@ spe    <- spe[, rownames(omega)]
 counts <- t(counts(spe))                       # spots x genes, raw counts
 xy     <- spatialCoords(spe)
 region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
-gmt    <- "geneset/DLPFC_brain_and_reference.gmt"
 
 res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
                    proportions = omega, reference = nu,
                    baseline = "rest", out = "results_adjusted")
 ```
 
-In the adjusted mode, `run_spapath()` estimates the dispersion of every gene
-once on the whole transcriptome, computes for each spot and gene the
-expression predicted from the cell-type proportions and the reference, and
-keeps the genes with positive predicted expression in every spot. It then
-fits every gene set to the raw counts. See [API](../api.md#run_spapath) for
-all options and for the step-by-step functions it is built from.
+`run_spapath()` builds the composition offset from `omega` and `nu`, builds
+the mesh and fits every gene set to the raw counts. Results are written to
+`results_adjusted`. See [API](../api.md#run_spapath) for all options.
 
-
-## 5. Read the results
+## 6. Read the results
 
 ```{r results}
 wm <- res$overall[res$overall$region == "WM", ]
@@ -135,14 +150,17 @@ rownames(wm) <- NULL
 wm[, c("gene_set", "genes", "score", "evidence")]
 ```
 
-The WM row is read as in the [observed mode](observed.md#4-read-the-results),
-but `score` and `evidence` now describe pathway activity after adjusting for
-cell-type composition. For each gene set, `gene_coefficients` lists each
-gene's intercept `a_g` and composition slope `lambda_g`; `lambda_g` near 1
-means the gene follows the reference prediction. For the first gene set:
+For the WM row, `score` is the posterior mean of π, how often a pathway
+gene's expression state in WM exceeds its state in the other spots after
+adjusting for cell-type composition, and `evidence` is the posterior
+probability that π > 0.5. Evidence near 1 indicates higher activity in WM and
+evidence near 0 higher activity in the other spots. For each gene set,
+`gene_coefficients` lists each gene's intercept `a_g` and composition slope
+`lambda_g`; `lambda_g` near 1 means the gene follows the reference
+prediction. For the first gene set:
 
 ```{r coefficients}
 head(res$results[[1]]$gene_coefficients)
 ```
 
-See [API](../api.md#screen_summarize) for all outputs.
+See [API](../api.md#run_spapath) for all outputs.
