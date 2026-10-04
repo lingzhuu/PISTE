@@ -14,7 +14,8 @@
 # =============================================================================
 
 
-# Number of sub-intervals used when the whole-range integral fails the check.
+# Number of sub-intervals used when the whole-range integral fails or fails
+# the check.
 POSITIVE_SUMMARY_SEGMENTS <- 64L
 
 # Where failing marginals are saved for offline debugging.
@@ -27,7 +28,8 @@ POSITIVE_SUMMARY_FAILURE_DIR <- "logs/positive_marginal_failures"
 #' 50% and 97.5% quantiles of x by adaptive integration on the log scale. If
 #' the independent trapezoidal check disagrees by a relative error of 5e-4 or
 #' more, the calculation is repeated once with the range split into 64
-#' segments; if it still disagrees an error is raised.
+#' segments; if it still disagrees an error is raised. A whole-range integral
+#' that fails outright is split the same way and still checked.
 #'
 #' @param m Two-column INLA marginal (x, density) with all x > 0.
 #' @param transform Function applied to x (e.g. `function(x) 1 / x` to turn a
@@ -51,30 +53,41 @@ positive_marginal_summary <- function(m, transform = identity,
   # Density on the log scale, including the Jacobian exp(z).
   log_scale_density <- function(z) exp(f$fun(exp(z)) + z)
 
+  # Same integral on POSITIVE_SUMMARY_SEGMENTS sub-intervals.
+  split_mass <- function(integrand, a, b) {
+    cuts <- seq(a, b, length.out = POSITIVE_SUMMARY_SEGMENTS + 1L)
+    pieces <- vapply(seq_len(POSITIVE_SUMMARY_SEGMENTS), function(i) {
+      stats::integrate(integrand, cuts[i], cuts[i + 1L],
+                       rel.tol = 1e-9, abs.tol = 1e-12,
+                       subdivisions = 2000L, stop.on.error = TRUE)$value
+    }, 0.)
+    sum(pieces)
+  }
+
+  # TRUE once a whole-range integral has failed and been split instead.
+  split_fallback <- FALSE
+
   # Integral over z in [a, b] of log_scale_density(z) * weight(exp(z)).
   mass <- function(a, b, weight = function(x) rep(1, length(x))) {
     if (a == b) return(0)
     integrand <- function(z) log_scale_density(z) * weight(exp(z))
 
-    if (split_integral) {
-      # Integrate the same density on smaller intervals when a whole-range
-      # adaptive integral disagrees with the independent dense-grid check.
-      cuts <- seq(a, b, length.out = POSITIVE_SUMMARY_SEGMENTS + 1L)
-      pieces <- vapply(seq_len(POSITIVE_SUMMARY_SEGMENTS), function(i) {
-        stats::integrate(integrand, cuts[i], cuts[i + 1L],
-                         rel.tol = 1e-9, abs.tol = 1e-12,
-                         subdivisions = 2000L, stop.on.error = TRUE)$value
-      }, 0.)
-      return(sum(pieces))
-    }
+    # Integrate the same density on smaller intervals when a whole-range
+    # adaptive integral disagrees with the independent dense-grid check.
+    if (split_integral) return(split_mass(integrand, a, b))
 
+    # A whole-range integral that fails outright (e.g. "extremely bad
+    # integrand behaviour") is also split; the result is still checked below.
     tryCatch(
       stats::integrate(integrand, a, b,
                        rel.tol = 1e-9, subdivisions = 2000L,
                        stop.on.error = TRUE)$value,
       error = function(e) {
-        positive_summary_save_failure(m, a, b, e)
-        stop(e)
+        split_fallback <<- TRUE
+        tryCatch(split_mass(integrand, a, b), error = function(e2) {
+          positive_summary_save_failure(m, a, b, e2)
+          stop(e2)
+        })
       }
     )
   }
@@ -116,7 +129,7 @@ positive_marginal_summary <- function(m, transform = identity,
 
   attr(values, "independent_relative_error") <- err
   attr(values, "integration_segments") <-
-    if (split_integral) POSITIVE_SUMMARY_SEGMENTS else 1L
+    if (split_integral || split_fallback) POSITIVE_SUMMARY_SEGMENTS else 1L
   values
 }
 
