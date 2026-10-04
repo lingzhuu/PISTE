@@ -134,12 +134,15 @@ region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 
 res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
                    proportions = omega, reference = nu,
-                   baseline = "rest", out = "results_adjusted")
+                   baseline = "rest", out = "results_adjusted",
+                   cfg = list(threads = "8:1"))
 ```
 
 `run_spapath()` builds the composition offset from `omega` and `nu`, builds
 the mesh and fits every gene set to the raw counts. Results are written to
-`results_adjusted`. See [API](../api.md#run_spapath) for all options.
+`results_adjusted`. `cfg$threads` sets the INLA threads; each outer thread
+needs its own memory, so use fewer on a machine with less memory. See
+[API](../api.md#run_spapath) for all options.
 
 ## 6. Read the results
 

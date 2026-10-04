@@ -69,12 +69,15 @@ gmt <- "geneset/DLPFC_brain_and_reference.gmt"
 
 ```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
 res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
-                   out = "results_observed")
+                   out = "results_observed",
+                   cfg = list(threads = "8:1"))
 ```
 
 `run_spapath()` normalizes the counts with SCTransform, builds the mesh and
 fits every gene set, with WM as the baseline region. Results are written to
-`results_observed`. See [API](../api.md#run_spapath) for all options.
+`results_observed`. `cfg$threads` sets the INLA threads; each outer thread
+needs its own memory, so use fewer on a machine with less memory. See
+[API](../api.md#run_spapath) for all options.
 
 ## 4. Read the results
 
