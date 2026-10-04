@@ -11,9 +11,7 @@
 # function can be called from R with a character vector of arguments.
 #
 # Pipeline
-#   read inputs -> align spots -> normalise (observed) or build the
-#   composition offset (adjusted) -> scale coordinates and build the mesh ->
-#   fit, summarise and write each gene set -> combined summary tables
+#   read inputs -> align spots -> run_spapath() (see run_spapath.R)
 # =============================================================================
 
 
@@ -220,42 +218,6 @@ cli_load_inputs <- function(opts) {
 }
 
 
-#' Coordinates shifted to start at zero and scaled to the unit square
-#' @noRd
-cli_scale_coordinates <- function(xy) {
-  xy <- sweep(xy, 2, apply(xy, 2, min))
-  xy / max(xy)
-}
-
-
-#' Mesh for the spatial fields
-#' @noRd
-cli_build_mesh <- function(xy, opts) {
-  mesh <- build_mesh(xy, max_edge = opts$`max-edge`, cutoff = opts$cutoff,
-                     offset = opts$`mesh-offset`)
-  cli_log("Mesh with ", mesh$n, " nodes")
-  mesh
-}
-
-
-#' SCTransform Pearson residuals for selected genes
-#'
-#' Runs sctransform v2 on all genes (as Seurat's SCTransform does) and keeps
-#' the residuals of `genes`, clipped at +-sqrt(N / 30) like Seurat.
-#' @return Dense spots x genes matrix.
-#' @noRd
-cli_sctransform <- function(counts, genes) {
-  cli_log("Normalising with SCTransform (sctransform v2)")
-  n_spots <- nrow(counts)
-  umi <- Matrix::t(counts)
-  vst_out <- sctransform::vst(umi, vst.flavor = "v2", verbosity = 0,
-                              res_clip_range = c(-1, 1) * sqrt(n_spots / 30))
-  residuals <- vst_out$y
-  genes <- intersect(genes, rownames(residuals))
-  t(residuals[genes, , drop = FALSE])
-}
-
-
 #' Reference expression of each cell type (cell types x genes)
 #'
 #' A table is used as is. Single-cell counts are pooled per cell type and
@@ -277,44 +239,20 @@ cli_reference_profile <- function(path, celltype_key) {
     stop("--celltype-key must be an obs column of the reference .h5ad or a table of cell ID and cell type.")
   }
   cells <- intersect(rownames(reference$counts), names(cell_type)[!is.na(cell_type)])
-  counts <- reference$counts[cells, , drop = FALSE]
-  cell_type <- cell_type[cells]
-
-  pooled <- sapply(split(seq_along(cell_type), cell_type),
-                   function(rows) Matrix::colSums(counts[rows, , drop = FALSE]))
-  t(sweep(pooled, 2, colSums(pooled), "/") * 1e4)
+  reference_profile(reference$counts[cells, , drop = FALSE], cell_type[cells])
 }
 
 
-#' Inputs of the composition-adjusted mode
-#'
-#' @return List with `library_size`, `dispersion_scale` (named by gene),
-#'   `log_m` (spots x shared genes) and the `usable` genes.
+#' Read the cell-type proportions and the reference of the adjusted mode
 #' @noRd
-cli_adjusted_inputs <- function(counts, opts) {
+cli_adjusted_tables <- function(opts) {
   proportions <- as.matrix(read_delimited(opts$proportions, row_names = TRUE))
-  missing <- setdiff(rownames(counts), rownames(proportions))
-  if (length(missing)) stop(length(missing), " spots have no cell-type proportions.")
-  proportions <- proportions[rownames(counts), , drop = FALSE]
-
-  nu <- cli_reference_profile(opts$reference, opts$`celltype-key`)
-  if (!setequal(rownames(nu), colnames(proportions))) {
+  reference <- cli_reference_profile(opts$reference, opts$`celltype-key`)
+  if (!setequal(rownames(reference), colnames(proportions))) {
     stop("Cell types differ between --proportions (", paste(colnames(proportions), collapse = ", "),
-         ") and --reference (", paste(rownames(nu), collapse = ", "), ").")
+         ") and --reference (", paste(rownames(reference), collapse = ", "), ").")
   }
-
-  library_size <- Matrix::rowSums(counts)
-  cli_log("Estimating gene dispersions with DESeq2 on ", ncol(counts), " genes")
-  dispersion <- estimate_dispersion_scale(counts, library_size)
-  scale <- setNames(dispersion$dispersion_scale, dispersion$gene)
-
-  shared <- intersect(colnames(counts), colnames(nu))
-  log_m <- composition_offset(proportions, nu[, shared, drop = FALSE])
-  usable <- shared[!is.na(scale[shared]) & colSums(!is.finite(log_m)) == 0]
-  cli_log(length(usable), " genes are usable in the adjusted mode")
-
-  list(library_size = library_size, dispersion_scale = scale,
-       log_m = log_m, usable = usable)
+  list(proportions = proportions, reference = reference)
 }
 
 
@@ -322,105 +260,33 @@ cli_adjusted_inputs <- function(counts, opts) {
 # Running gene sets
 # -----------------------------------------------------------------------------
 
-#' Fit, summarise and write one gene set
-#' @return The summary from screen_summarize().
-#' @noRd
-cli_fit_gene_set <- function(genes, inputs, mesh, opts, out) {
-  cfg <- list(pi = !isTRUE(opts$`no-pi`))
-  if (!is.null(opts$baseline)) cfg$baseline_region <- opts$baseline
-  large <- length(genes) >= 150
-  cfg$threads <- if (!is.null(opts$threads)) opts$threads else if (large) "1:1" else "2:1"
-  if (large) cfg$low_memory <- TRUE
-
-  fit <- if (opts$mode == "observed") {
-    screen_joint_fit(inputs$expression[, genes, drop = FALSE], inputs$xy,
-                     inputs$region, mesh, opts$h, mode = "observed", cfg = cfg)
-  } else {
-    adjusted <- inputs$adjusted
-    screen_joint_fit(as.matrix(inputs$counts[, genes, drop = FALSE]), inputs$xy,
-                     inputs$region, mesh, opts$h, mode = "adjusted",
-                     library_size = adjusted$library_size,
-                     dispersion_scale = adjusted$dispersion_scale[genes],
-                     composition_offset = adjusted$log_m[, genes, drop = FALSE],
-                     cfg = cfg)
-  }
-  summary <- screen_summarize(fit)
-  screen_write(summary, out)
-  summary
-}
-
-
-#' Run every gene set and write the combined tables
+#' Run every gene set with run_spapath() and write the results
+#' @return The `gene_sets` status table of run_spapath().
 #' @noRd
 cli_run <- function(opts) {
   opts <- cli_check_options(opts)
-  dir.create(opts$out, recursive = TRUE, showWarnings = FALSE)
-
   inputs <- cli_load_inputs(opts)
   gene_sets <- read_gmt(opts$gmt)
   cli_log(length(gene_sets), " gene sets in ", opts$gmt)
-  pathway_genes <- unique(unlist(gene_sets))
 
-  if (opts$mode == "observed") {
-    inputs$expression <- if (isTRUE(opts$normalized)) {
-      as.matrix(inputs$counts[, intersect(pathway_genes, colnames(inputs$counts)), drop = FALSE])
-    } else {
-      cli_sctransform(inputs$counts, pathway_genes)
-    }
-    available <- colnames(inputs$expression)
-  } else {
-    inputs$adjusted <- cli_adjusted_inputs(inputs$counts, opts)
-    available <- inputs$adjusted$usable
-  }
+  tables <- if (opts$mode == "adjusted") cli_adjusted_tables(opts) else list()
+  cfg <- list()
+  if (isTRUE(opts$`no-pi`)) cfg$pi <- FALSE
+  if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
-  inputs$xy <- cli_scale_coordinates(inputs$xy)
-  mesh <- cli_build_mesh(inputs$xy, opts)
-
-  status <- data.frame(gene_set = names(gene_sets),
-                       genes_in_set = lengths(gene_sets),
-                       genes_used = NA_integer_, status = NA_character_,
-                       message = NA_character_, stringsAsFactors = FALSE)
-  overall <- list()
-  pairwise <- list()
-
-  for (s in seq_along(gene_sets)) {
-    set_name <- names(gene_sets)[s]
-    genes <- intersect(gene_sets[[s]], available)
-    status$genes_used[s] <- length(genes)
-    if (length(genes) < opts$`min-genes`) {
-      status$status[s] <- "skipped"
-      status$message[s] <- paste("fewer than", opts$`min-genes`, "usable genes")
-      cli_log("[", s, "/", length(gene_sets), "] ", set_name, ": skipped (", length(genes), " genes)")
-      next
-    }
-
-    cli_log("[", s, "/", length(gene_sets), "] ", set_name, ": ", length(genes), " genes")
-    folder <- file.path(opts$out, make.names(set_name))
-    result <- tryCatch(cli_fit_gene_set(genes, inputs, mesh, opts, folder),
-                       error = function(e) e)
-    if (inherits(result, "error")) {
-      status$status[s] <- "failed"
-      status$message[s] <- conditionMessage(result)
-      cli_log("  failed: ", conditionMessage(result))
-      next
-    }
-    status$status[s] <- "done"
-    if (!is.null(result$pi)) {
-      overall[[set_name]] <- cbind(gene_set = set_name, genes = length(genes), result$pi$overall)
-      pairwise[[set_name]] <- cbind(gene_set = set_name, genes = length(genes), result$pi$pairwise)
-    }
-  }
-
-  out_file <- function(name) file.path(opts$out, name)
-  utils::write.csv(status, out_file("gene_sets.csv"), row.names = FALSE)
-  if (length(overall)) {
-    utils::write.csv(do.call(rbind, overall), out_file("overall_scores.csv"), row.names = FALSE)
-    utils::write.csv(do.call(rbind, pairwise), out_file("pairwise_scores.csv"), row.names = FALSE)
-  }
-  cli_log("Done: ", sum(status$status == "done"), " fitted, ",
-          sum(status$status == "skipped"), " skipped, ",
-          sum(status$status == "failed"), " failed. Results in ", opts$out)
-  invisible(status)
+  res <- run_spapath(inputs$counts, inputs$xy, inputs$region, gene_sets,
+                     mode = opts$mode, out = opts$out,
+                     normalized = isTRUE(opts$normalized),
+                     proportions = tables$proportions,
+                     reference = tables$reference,
+                     baseline = opts$baseline, h = opts$h,
+                     min_genes = opts$`min-genes`,
+                     mesh_args = list(max_edge = opts$`max-edge`,
+                                      cutoff = opts$cutoff,
+                                      offset = opts$`mesh-offset`),
+                     cfg = cfg)
+  cli_log("Results in ", opts$out)
+  invisible(res$gene_sets)
 }
 
 

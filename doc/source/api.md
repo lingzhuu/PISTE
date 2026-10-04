@@ -4,16 +4,114 @@
 library(PathwayLGM)
 ```
 
+SpaPath can be run in two ways. Quick mode runs the whole workflow for a
+panel of gene sets in one call to `run_spapath()`. Step-by-step mode calls
+the functions it is built from, for custom workflows: building the mesh once
+with other settings, preparing the adjusted-mode inputs yourself, or fitting
+a single gene set with other model options.
+
+### Quick mode
+
+| Function | Description |
+|----------|-------------|
+| [`run_spapath()`](#run_spapath) | Run SpaPath on every gene set of a panel, from raw counts to result tables. |
+| [`reference_profile()`](#reference_profile) | Reference expression of each cell type from single-cell counts, for the adjusted mode. |
+
+### Step-by-step mode
+
 | Function | Description |
 |----------|-------------|
 | [`build_mesh()`](#build_mesh) | Build the mesh for the spatial fields of a section. |
+| [`estimate_dispersion_scale()`](#estimate_dispersion_scale) | Relative negative binomial dispersion of every gene, for the adjusted mode. |
+| [`composition_offset()`](#composition_offset) | Log expression predicted from cell-type proportions, for the adjusted mode. |
 | [`screen_joint_fit()`](#screen_joint_fit) | Fit the spatial pathway model for one gene set. |
 | [`screen_summarize()`](#screen_summarize) | Compute π scores, evidence and posterior summaries from a fit. |
 | [`screen_write()`](#screen_write) | Write a summary to CSV and RDS files. |
 | [`pathway_pi_integrate()`](#pathway_pi_integrate) | Recompute π scores and evidence from a fit. |
 | [`pathway_pi()`](#pathway_pi) | π for given regional means and variances. |
-| [`composition_offset()`](#composition_offset) | Log expression predicted from cell-type proportions, for the adjusted mode. |
-| [`estimate_dispersion_scale()`](#estimate_dispersion_scale) | Relative negative binomial dispersion of every gene, for the adjusted mode. |
+
+---
+
+## run_spapath
+
+```r
+run_spapath(counts, xy, region, gene_sets,
+            mode = c("observed", "adjusted"), out = NULL,
+            normalized = FALSE, proportions = NULL, reference = NULL,
+            baseline = NULL, h = 0.3, min_genes = 5,
+            mesh_args = list(), cfg = list(), verbose = TRUE)
+```
+
+Runs SpaPath on every gene set of a panel in one call:
+
+1. In observed mode, normalizes the counts with SCTransform (sctransform v2
+   Pearson residuals, clipped at ±√(N/30) as in Seurat). In adjusted mode,
+   estimates the dispersion scales with `estimate_dispersion_scale()` and the
+   composition offset with `composition_offset()`, and keeps the genes with a
+   dispersion scale and positive predicted expression in every spot.
+2. Rescales the coordinates to the unit square (shifted to start at zero and
+   divided by their largest value) and builds the mesh with `build_mesh()`.
+3. Fits each gene set with `screen_joint_fit()` and summarizes it with
+   `screen_summarize()`. Gene sets with fewer than `min_genes` usable genes
+   are skipped; a gene set whose fit fails is reported and the run goes on.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `counts` | Spots x genes matrix (dense or sparse) of raw counts with spot rownames and gene colnames. With `normalized = TRUE` in observed mode, normalized expression instead. |
+| `xy` | Spot coordinates with two columns, in the spot order of `counts`, in any unit. |
+| `region` | Region label of each spot, in the spot order of `counts`, no `NA`. |
+| `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
+| `mode` | `"observed"` (default) or `"adjusted"`. |
+| `out` | Optional output folder; see Value. |
+| `normalized` | Observed mode. `TRUE` when `counts` is already normalized, to skip SCTransform. |
+| `proportions` | Adjusted mode. Spots x cell types matrix of cell-type proportions, e.g. normalized RCTD weights, with spot rownames. |
+| `reference` | Adjusted mode. Cell types x genes matrix of reference mean expression on a linear scale, e.g. from `reference_profile()`. |
+| `baseline` | Baseline region of the model. Default: the first label in `region`. |
+| `h` | Spatial length scale in unit-square units; the practical range of the spatial fields with the default `kappa_h`. |
+| `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
+| `mesh_args` | List of arguments passed to `build_mesh()`, e.g. `list(cutoff = 0.05)`. |
+| `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). Unless set here, gene sets of 150 genes or more use `threads = "1:1"` and `low_memory = TRUE`, and others `threads = "2:1"`. |
+| `verbose` | Print progress messages. |
+
+### Value
+
+Invisibly, a list with
+
+- `overall`: the `overall` π tables of all fitted gene sets, with columns
+  `gene_set` and `genes` (number of genes used) added;
+- `pairwise`: the `pairwise` π tables, likewise;
+- `gene_sets`: one row per gene set with the genes in the set, the genes
+  used, `status` (`done`, `skipped` or `failed`) and a message;
+- `results`: the `screen_summarize()` output of each fitted gene set.
+
+With `out`, each gene set is written to its own subfolder with
+`screen_write()`, and `overall_scores.csv`, `pairwise_scores.csv` and
+`gene_sets.csv` are written to `out`.
+
+---
+
+## reference_profile
+
+```r
+reference_profile(counts, cell_type)
+```
+
+Pools the raw counts of all cells of each cell type and scales them to
+counts per 10,000. The result is the `reference` of `run_spapath()` and
+`composition_offset()`.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `counts` | Cells x genes matrix (dense or sparse) of raw single-cell counts with gene colnames. |
+| `cell_type` | Cell type of each cell; cells with `NA` are dropped. |
+
+### Value
+
+Cell types x genes matrix.
 
 ---
 

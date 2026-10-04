@@ -37,10 +37,9 @@ RUN R CMD INSTALL /opt/spapath \
     && ln -s "$(Rscript -e "cat(system.file('bin/spapath', package = 'PathwayLGM'))")" /usr/local/bin/spapath \
     && spapath --version
 
-# Packages used in the documentation examples: DLPFC data (spatialLIBD),
-# SCTransform (Seurat) and RCTD deconvolution (spacexr).
-RUN install2.r --error --skipinstalled Seurat \
-    && R -q -e "BiocManager::install(c('spatialLIBD', 'HDF5Array'), update = FALSE, ask = FALSE)" \
+# Packages used in the documentation examples: DLPFC data (spatialLIBD) and
+# RCTD deconvolution (spacexr).
+RUN R -q -e "BiocManager::install(c('spatialLIBD', 'HDF5Array'), update = FALSE, ask = FALSE)" \
     && R -q -e "remotes::install_github('dmcable/spacexr', build_vignettes = FALSE, upgrade = 'never')"
 
 WORKDIR /work

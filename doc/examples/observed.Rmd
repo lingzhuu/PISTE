@@ -15,10 +15,9 @@ Besides SpaPath ([Installation](../installation.md)), this example uses:
 | Package | Source | Used for |
 |---------|--------|----------|
 | spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation, and plots spots on the H&E image |
-| Seurat | CRAN | SCTransform normalization |
 
 ```{r install, eval = FALSE}
-install.packages(c("BiocManager", "Seurat"))
+install.packages("BiocManager")
 BiocManager::install("spatialLIBD")
 ```
 
@@ -30,7 +29,6 @@ needed.
 ```{r load, message = FALSE, warning = FALSE}
 library(spatialLIBD)
 library(SpatialExperiment)
-library(Seurat)
 library(PathwayLGM)
 
 spe <- fetch_data(type = "spe")
@@ -39,10 +37,15 @@ spe <- spe[, spe$sample_id == "151673"]
 # Keep spots with a layer annotation (Layer1 to Layer6, WM).
 spe <- spe[, !is.na(spe$layer_guess_reordered)]
 
-counts <- counts(spe)
-rownames(counts) <- make.unique(rowData(spe)$gene_name)
-dim(counts)
+counts <- t(counts(spe))                       # spots x genes, raw counts
+colnames(counts) <- make.unique(rowData(spe)$gene_name)
+xy     <- spatialCoords(spe)
+region <- as.character(spe$layer_guess_reordered)
+table(region)
 ```
+
+`counts`, `xy` and `region` follow the same spot order. The coordinates can
+be in any unit.
 
 The H&E image of the section and its manual layer annotation, Layer1 to
 Layer6 and white matter:
@@ -56,90 +59,37 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
          colors = libd_layer_colors)
 ```
 
-## 2. Normalize with SCTransform
-
-SpaPath models normalized expression as Gaussian. We recommend SCTransform and
-use its Pearson residuals. Set `return.only.var.genes = FALSE` so that
-residuals are kept for every gene, not only the variable genes.
-
-```{r sctransform, message = FALSE, warning = FALSE, cache = TRUE}
-obj <- CreateSeuratObject(counts = counts)
-obj <- SCTransform(obj, return.only.var.genes = FALSE, verbose = FALSE)
-
-expr <- t(as.matrix(GetAssayData(obj, assay = "SCT", layer = "scale.data")))
-dim(expr)
-```
-
-`expr` is a spots x genes matrix of Pearson residuals.
-
-## 3. Coordinates and regions
-
-Coordinates are shifted to start at zero and divided by their largest value,
-so the section fits in the unit square. The mesh and `h` are in these units.
-
-```{r coordinates}
-spots  <- match(rownames(expr), colnames(spe))
-xy     <- spatialCoords(spe)[spots, ]
-xy     <- sweep(xy, 2, apply(xy, 2, min))
-xy     <- xy / max(xy)
-region <- as.character(spe$layer_guess_reordered[spots])
-table(region)
-```
-
-All inputs must follow the same spot order. To make WM the baseline region,
-pass `cfg = list(baseline_region = "WM")` when fitting.
-
-## 4. Gene sets
+## 2. Gene sets
 
 The DLPFC panel of 20 MSigDB gene sets is stored as a GMT file in a local
 `geneset` folder:
 
 ```{r gene-sets}
 gmt <- "geneset/DLPFC_brain_and_reference.gmt"
-fields    <- strsplit(readLines(gmt), "\t")
-gene_sets <- setNames(lapply(fields, function(x) x[-(1:2)]),
-                      vapply(fields, `[`, "", 1))
-names(gene_sets)
 ```
 
-## 5. Build the mesh
+## 3. Run SpaPath
 
-`build_mesh()` builds the triangular mesh for the spatial fields. Build it
-once for the section and reuse it for every gene set.
-
-```{r mesh}
-h    <- 0.3
-mesh <- build_mesh(xy)
-mesh$n
+```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
+res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
+                   out = "results_observed")
 ```
 
-With the default settings `h` is the practical range of the spatial fields,
-the distance at which their correlation falls to about 0.1.
+`run_spapath()` normalizes the raw counts with SCTransform, the recommended
+normalization, and uses its Pearson residuals as Gaussian expression. Pass
+`normalized = TRUE` to use expression you have already normalized. It then
+rescales the coordinates to the unit square, builds the mesh for the spatial
+fields, and fits every gene set with WM as the baseline region. The spatial
+scale `h` keeps its default of 0.3, the distance in unit-square units at
+which the correlation of the spatial fields falls to about 0.1. Results of
+each gene set are written to `results_observed/<gene set>`. See
+[API](../api.md#run_spapath) for all options and for the step-by-step
+functions it is built from.
 
-## 6. Run SpaPath
-
-Fit each gene set, write its results to `results_observed/<gene set>` and
-keep the WM row of its `overall` table:
-
-```{r fit, message = FALSE, warning = FALSE, cache = TRUE}
-wm <- list()
-for (set_name in names(gene_sets)) {
-  genes <- intersect(gene_sets[[set_name]], colnames(expr))
-  fit <- screen_joint_fit(expr[, genes], xy, region, mesh, h,
-                          cfg = list(baseline_region = "WM"))
-  res <- screen_summarize(fit)
-  screen_write(res, file.path("results_observed", set_name))
-
-  overall <- res$pi$overall
-  wm[[set_name]] <- cbind(gene_set = set_name, genes = length(genes),
-                          overall[overall$region == "WM", ])
-}
-wm <- do.call(rbind, wm)
-```
-
-## 7. Read the results
+## 4. Read the results
 
 ```{r results}
+wm <- res$overall[res$overall$region == "WM", ]
 wm <- wm[order(wm$evidence, decreasing = TRUE), ]
 rownames(wm) <- NULL
 wm[, c("gene_set", "genes", "score", "evidence")]
@@ -150,5 +100,5 @@ other regions. For the WM row, `score` is the posterior mean of π, how often a
 pathway gene's expression state in WM exceeds its state in the cortical
 layers, and `evidence` is the posterior probability that π > 0.5. Evidence
 near 1 indicates higher activity in WM and evidence near 0 higher activity in
-the cortical layers. `res$pi$pairwise` gives the same quantities for every
-pair of regions. See [API](../api.md#screen_summarize) for all outputs.
+the cortical layers. `res$pairwise` gives the same quantities for every pair
+of regions. See [API](../api.md#run_spapath) for all outputs.

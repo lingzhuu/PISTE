@@ -8,6 +8,8 @@ importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
 export(build_mesh)
+export(run_spapath)
+export(reference_profile)
 export(screen_joint_fit)
 export(screen_summarize)
 export(screen_write)

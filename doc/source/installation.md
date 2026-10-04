@@ -27,7 +27,7 @@ on:
 | qrng | CRAN | Quadrature for the posterior evidence |
 | DESeq2 | Bioconductor | Dispersion estimation in the composition-adjusted mode |
 | S4Vectors, SummarizedExperiment | Bioconductor | Required by the DESeq2 step |
-| sctransform | CRAN | SCTransform normalization in the [command line](cli.md) |
+| sctransform | CRAN | SCTransform normalization in `run_spapath()` and the [command line](cli.md) |
 | hdf5r | CRAN | Reading `.h5ad` and 10x `.h5` files in the command line |
 | glmGamPoi | Bioconductor | Faster SCTransform (optional) |
 

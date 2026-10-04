@@ -2,7 +2,8 @@
 
 SpaPath can be run from a Linux shell without writing R code. One command
 reads the data, normalizes it, builds the mesh and runs every gene set of a
-GMT file.
+GMT file. It reads the files and then runs the same workflow as
+[`run_spapath()`](api.md#run_spapath) in R.
 
 ## Run with Docker
 
