@@ -21,8 +21,6 @@ install.packages("BiocManager")
 BiocManager::install("spatialLIBD")
 ```
 
-The gene sets are read from a local GMT file, so no gene-set package is
-needed.
 
 ## 1. Load the data
 
@@ -61,8 +59,7 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 
 ## 2. Gene sets
 
-The DLPFC panel of 20 MSigDB gene sets is stored as a GMT file in a local
-`geneset` folder:
+20 MSigDB gene sets is stored as a GMT file:
 
 ```{r gene-sets}
 gmt <- "geneset/DLPFC_brain_and_reference.gmt"
