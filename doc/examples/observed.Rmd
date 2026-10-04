@@ -10,7 +10,7 @@ pathway activity, including differences that come from cell composition.
 
 ## Requirements
 
-Besides SpaPath ([Installation](../installation.md)), this example uses:
+This example also uses:
 
 | Package | Source | Used for |
 |---------|--------|----------|
@@ -48,11 +48,11 @@ be in any unit.
 The H&E image of the section and its manual layer annotation, Layer1 to
 Layer6 and white matter:
 
-```{r he-image}
+```{r he-image, fig.width = 4, fig.height = 4, crop = TRUE}
 plot(imgRaster(spe, sample_id = "151673", image_id = "lowres"))
 ```
 
-```{r layers}
+```{r layers, fig.width = 4, fig.height = 4, crop = TRUE}
 vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
          colors = libd_layer_colors)
 ```

@@ -10,7 +10,7 @@ pathway activity, including differences that come from cell composition.
 
 ## Requirements
 
-Besides SpaPath ([Installation](../installation.md)), this example uses:
+This example also uses:
 
 | Package | Source | Used for |
 |---------|--------|----------|
