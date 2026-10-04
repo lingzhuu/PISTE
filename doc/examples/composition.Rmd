@@ -118,7 +118,6 @@ res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
                    baseline = "rest", out = "results_adjusted")
 ```
 
-The gene sets are the same as in the [observed mode](observed.md#2-gene-sets).
 In the adjusted mode, `run_spapath()` estimates the dispersion of every gene
 once on the whole transcriptome, computes for each spot and gene the
 expression predicted from the cell-type proportions and the reference, and
@@ -126,8 +125,6 @@ keeps the genes with positive predicted expression in every spot. It then
 fits every gene set to the raw counts. See [API](../api.md#run_spapath) for
 all options and for the step-by-step functions it is built from.
 
-The layer annotation and H&E image of the section are shown in the
-[observed mode](observed.md#1-load-the-data).
 
 ## 5. Read the results
 
