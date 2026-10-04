@@ -140,9 +140,9 @@ res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
 
 `run_spapath()` builds the composition offset from `omega` and `nu`, builds
 the mesh and fits every gene set to the raw counts. Results are written to
-`results_adjusted`. `threads = "8:1"` is the number of INLA threads: INLA
-evaluates eight hyperparameter configurations in parallel, each with one
-thread. See [API](../api.md#run_spapath) for all options.
+`results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
+`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
+evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
 
 ## 6. Read the results
 
