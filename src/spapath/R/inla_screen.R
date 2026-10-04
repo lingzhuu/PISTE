@@ -57,7 +57,7 @@ screen_default_cfg <- function(mode) {
     pi_tolerance = .002,
 
     # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
-    threads = "2:1",
+    threads = "1:1",
     kappa_h = sqrt(8),
     strategy = if (mode == "observed") "gaussian" else "simplified.laplace",
 
@@ -460,7 +460,7 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #' @param cfg List of options overriding the defaults:
 #'   * `pi` (TRUE), `pi_nodes`, `pi_max_nodes`, `pi_tolerance`: directional
 #'     probability inference, see [pathway_pi_integrate()].
-#'   * `threads` ("2:1"), `strategy` ("gaussian" in observed mode,
+#'   * `threads` ("1:1"), `strategy` ("gaussian" in observed mode,
 #'     "simplified.laplace" in adjusted mode): INLA settings.
 #'   * `kappa_h` (`sqrt(8)`): kappa * h, must lie in \[2.3, 3.2\].
 #'   * `tau_prior`: prior on the gene-effect log precisions, one of

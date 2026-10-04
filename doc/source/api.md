@@ -72,7 +72,7 @@ Runs SpaPath on every gene set of a panel in one call:
 | `h` | Spatial length scale in unit-square units; the practical range of the spatial fields with the default `kappa_h`. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `mesh_args` | List of arguments passed to `build_mesh()`, e.g. `list(cutoff = 0.05)`. |
-| `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). Unless set here, gene sets of 150 genes or more use `threads = "1:1"` and `low_memory = TRUE`, and others `threads = "2:1"`. |
+| `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). |
 | `verbose` | Print progress messages. |
 
 ### Value
@@ -192,7 +192,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `pi_nodes` | `4096` | Initial number of quadrature nodes for the evidence with three or more regions (power of two, ≥ 16). |
 | `pi_max_nodes` | `65536` | Maximum number of quadrature nodes (power of two, ≥ 2 × `pi_nodes`). |
 | `pi_tolerance` | `0.002` | Convergence tolerance between quadrature refinements. |
-| `threads` | `"2:1"` | INLA `num.threads`. |
+| `threads` | `"1:1"` | INLA `num.threads`, as `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each evaluation uses B threads. |
 | `strategy` | `"gaussian"`; `"simplified.laplace"` in adjusted mode | INLA approximation strategy. |
 | `kappa_h` | `sqrt(8)` | SPDE scale times `h`; must lie in [2.3, 3.2]. |
 | `tau_prior` | `"normal"` | Prior on the log precision of the regional gene effects: `"normal"`, `"inla_default"` (log-gamma(1, 5e-5) on the precision), `"pc"` or `"flat"`. |
@@ -203,7 +203,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `gene_specific_covariates` | none | Columns of `X` that get an independent slope for each gene. Observed mode only. |
 | `gene_covariate_prior_sd` | `10` | Standard deviation of the fixed normal prior on the gene-specific slopes. |
 | `nb_logsize_mean`, `nb_logsize_sd` | `log(10)`, `1.5` | Normal prior on log `nb_size0`. Adjusted mode only. |
-| `low_memory` | `FALSE` | AMD reordering with a small node factor: the same model with less memory, useful for gene sets of 150 genes or more. |
+| `low_memory` | `FALSE` | AMD reordering with a small node factor: the same model with less memory, useful for large gene sets. |
 | `initial_theta` | `NULL` | Starting hyperparameters (length R + 2), e.g. `fit$fit$mode$theta` from an earlier run. |
 | `verbose` | `FALSE` | Print INLA's log. |
 

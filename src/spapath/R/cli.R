@@ -47,7 +47,7 @@ cli_option_table <- function() {
     c("max-edge", "0.25", FALSE, "Largest mesh triangle edge."),
     c("cutoff", "0.08", FALSE, "Minimum distance between mesh nodes."),
     c("mesh-offset", "0.1,0.2", FALSE, "Inner and outer mesh extension around the spots."),
-    c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 2:1, or 1:1 with low memory for sets of 150 genes or more)."),
+    c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
     c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "Show this help.")
   )

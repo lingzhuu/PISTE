@@ -49,8 +49,8 @@
 #' @param h Spatial length scale in unit-square units.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
 #' @param mesh_args List of arguments passed to [build_mesh()].
-#' @param cfg List of options passed to [screen_joint_fit()]. Unless set
-#'   here, sets of 150 genes or more use one thread and `low_memory`.
+#' @param cfg List of options passed to [screen_joint_fit()], e.g.
+#'   `list(threads = "8:1")`.
 #' @param verbose Print progress messages.
 #' @return Invisibly, a list with
 #'   * `overall`, `pairwise`: the π tables of all gene sets, with columns
@@ -130,7 +130,7 @@ run_spapath <- function(counts, xy, region, gene_sets,
     }
 
     log_step(progress, ": ", length(genes), " genes")
-    set_cfg <- modifyList(gene_set_cfg(length(genes), baseline), cfg)
+    set_cfg <- modifyList(if (is.null(baseline)) list() else list(baseline_region = baseline), cfg)
     summary <- tryCatch({
       fit <- if (mode == "observed") {
         screen_joint_fit(expression[, genes, drop = FALSE], xy, region, mesh, h,
@@ -206,18 +206,6 @@ reference_profile <- function(counts, cell_type) {
   pooled <- sapply(split(seq_along(cell_type), cell_type),
                    function(rows) Matrix::colSums(counts[rows, , drop = FALSE]))
   t(sweep(pooled, 2, colSums(pooled), "/") * 1e4)
-}
-
-
-#' Default per-gene-set options of screen_joint_fit()
-#'
-#' Sets of 150 genes or more use one thread and the low-memory reordering.
-#' @noRd
-gene_set_cfg <- function(n_genes, baseline) {
-  large <- n_genes >= 150
-  cfg <- list(threads = if (large) "1:1" else "2:1", low_memory = large)
-  if (!is.null(baseline)) cfg$baseline_region <- baseline
-  cfg
 }
 
 

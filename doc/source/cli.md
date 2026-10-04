@@ -107,6 +107,6 @@ dispersions are estimated once on all genes with DESeq2.
 --max-edge MAX_EDGE            Largest mesh triangle edge. [default: 0.25]
 --cutoff CUTOFF                Minimum distance between mesh nodes. [default: 0.08]
 --mesh-offset MESH_OFFSET      Inner and outer mesh extension around the spots. [default: 0.1,0.2]
---threads THREADS              INLA threads, e.g. 4:1 (default: 2:1, or 1:1 with low memory for sets of 150 genes or more).
+--threads THREADS              INLA threads, e.g. 4:1 (default: 1:1).
 --no-pi                        Skip pi scores and evidence; report regional means only.
 ```
