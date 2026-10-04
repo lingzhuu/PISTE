@@ -231,8 +231,8 @@ cli_scale_coordinates <- function(xy) {
 #' Mesh for the spatial fields
 #' @noRd
 cli_build_mesh <- function(xy, opts) {
-  mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = opts$`max-edge`,
-                              cutoff = opts$cutoff, offset = opts$`mesh-offset`)
+  mesh <- build_mesh(xy, max_edge = opts$`max-edge`, cutoff = opts$cutoff,
+                     offset = opts$`mesh-offset`)
   cli_log("Mesh with ", mesh$n, " nodes")
   mesh
 }

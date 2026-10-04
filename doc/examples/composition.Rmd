@@ -150,15 +150,13 @@ xy <- sweep(xy, 2, apply(xy, 2, min))
 xy <- xy / max(xy)
 
 h    <- 0.3
-mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = 0.25, cutoff = 0.08,
-                            offset = c(0.1, 0.2))
+mesh <- build_mesh(xy)
 ```
 
 The gene sets are the same as in the [observed mode](observed.md#4-gene-sets):
 
 ```{r gene-sets}
-gmt <- paste0("https://raw.githubusercontent.com/lingzhuu/pathwayLGM/main/",
-              "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt")
+gmt <- "geneset/DLPFC_brain_and_reference.gmt"
 fields    <- strsplit(readLines(gmt), "\t")
 gene_sets <- setNames(lapply(fields, function(x) x[-(1:2)]),
                       vapply(fields, `[`, "", 1))

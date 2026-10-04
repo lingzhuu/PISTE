@@ -6,6 +6,7 @@ library(PathwayLGM)
 
 | Function | Description |
 |----------|-------------|
+| [`build_mesh()`](#build_mesh) | Build the mesh for the spatial fields of a section. |
 | [`screen_joint_fit()`](#screen_joint_fit) | Fit the spatial pathway model for one gene set. |
 | [`screen_summarize()`](#screen_summarize) | Compute π scores, evidence and posterior summaries from a fit. |
 | [`screen_write()`](#screen_write) | Write a summary to CSV and RDS files. |
@@ -13,6 +14,33 @@ library(PathwayLGM)
 | [`pathway_pi()`](#pathway_pi) | π for given regional means and variances. |
 | [`composition_offset()`](#composition_offset) | Log expression predicted from cell-type proportions, for the adjusted mode. |
 | [`estimate_dispersion_scale()`](#estimate_dispersion_scale) | Relative negative binomial dispersion of every gene, for the adjusted mode. |
+
+---
+
+## build_mesh
+
+```r
+build_mesh(xy, max_edge = 0.25, cutoff = 0.08, offset = c(0.1, 0.2))
+```
+
+Builds the 2D triangular mesh on which the spatial fields are defined, with
+`fmesher::fm_mesh_2d()`. Build it once for a section and pass it to
+`screen_joint_fit()` for every gene set. The defaults assume coordinates
+rescaled to the unit square, shifted to start at zero and divided by their
+largest value.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `xy` | Numeric matrix of spot coordinates with two columns. |
+| `max_edge` | Largest triangle edge. |
+| `cutoff` | Minimum distance between mesh nodes; closer spots share a node. |
+| `offset` | Inner and outer extension of the mesh around the spots. |
+
+### Value
+
+An `fm_mesh_2d` mesh; `mesh$n` is its number of nodes.
 
 ---
 
@@ -47,7 +75,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `Y` | Spots x genes matrix with at least two genes and no missing or infinite values. Normalized expression in observed mode; raw integer counts with unique spot rownames and gene colnames in adjusted mode. Column names are used as gene labels. |
 | `xy` | Numeric matrix of spot coordinates with two columns, in the same spot order as `Y`. |
 | `region` | Region label of each spot, at least two distinct labels, no `NA`. Labels are converted to character and ordered by first appearance. |
-| `mesh` | 2D mesh for the spatial fields, e.g. from `fmesher::fm_mesh_2d_inla()`. |
+| `mesh` | Mesh for the spatial fields, from [`build_mesh()`](#build_mesh). |
 | `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. |
 | `mode` | `"observed"` (default) or `"adjusted"`. |
 | `X` | Optional numeric covariate matrix with N rows and unique column names. An `intercept` column is added if absent, and no other column may be constant one. |

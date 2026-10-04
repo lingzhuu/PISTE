@@ -27,6 +27,7 @@ Collate:
     'positive_summary.R'
     'pi_engine.R'
     'inla_screen.R'
+    'mesh.R'
     'adjusted_inputs.R'
     'cli_io.R'
     'cli.R'

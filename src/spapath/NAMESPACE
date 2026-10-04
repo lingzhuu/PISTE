@@ -7,6 +7,7 @@ importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx)
 importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
+export(build_mesh)
 export(screen_joint_fit)
 export(screen_summarize)
 export(screen_write)

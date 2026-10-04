@@ -35,6 +35,7 @@
 # observation precision (observed) or the NB size nb_size0 (adjusted).
 #
 # Typical workflow
+#   mesh    <- build_mesh(xy)
 #   fit     <- screen_joint_fit(Y, xy, region, mesh, h)
 #   summary <- screen_summarize(fit)
 #   screen_write(summary, "results/")
@@ -437,7 +438,7 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   adjusted mode.
 #' @param xy N x 2 matrix of spot coordinates.
 #' @param region Length-N vector of region labels (at least two regions).
-#' @param mesh `fmesher`/INLA mesh for the SPDE field.
+#' @param mesh Mesh for the SPDE field, from [build_mesh()].
 #' @param h Spatial length scale; the SPDE parameter kappa is fixed at
 #'   `cfg$kappa_h / h`.
 #' @param mode `"observed"` (Gaussian model of normalised expression) or

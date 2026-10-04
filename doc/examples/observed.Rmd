@@ -22,8 +22,8 @@ install.packages(c("BiocManager", "Seurat"))
 BiocManager::install("spatialLIBD")
 ```
 
-The gene sets are read from a file in the SpaPath repository, so no gene-set
-package is needed.
+The gene sets are read from a local GMT file, so no gene-set package is
+needed.
 
 ## 1. Load the data
 
@@ -91,12 +91,11 @@ pass `cfg = list(baseline_region = "WM")` when fitting.
 
 ## 4. Gene sets
 
-The DLPFC panel of 20 MSigDB gene sets is stored as a GMT file in the SpaPath
-repository:
+The DLPFC panel of 20 MSigDB gene sets is stored as a GMT file in a local
+`geneset` folder:
 
 ```{r gene-sets}
-gmt <- paste0("https://raw.githubusercontent.com/lingzhuu/pathwayLGM/main/",
-              "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt")
+gmt <- "geneset/DLPFC_brain_and_reference.gmt"
 fields    <- strsplit(readLines(gmt), "\t")
 gene_sets <- setNames(lapply(fields, function(x) x[-(1:2)]),
                       vapply(fields, `[`, "", 1))
@@ -105,12 +104,12 @@ names(gene_sets)
 
 ## 5. Build the mesh
 
-Build the mesh once for the section and reuse it for every gene set.
+`build_mesh()` builds the triangular mesh for the spatial fields. Build it
+once for the section and reuse it for every gene set.
 
 ```{r mesh}
 h    <- 0.3
-mesh <- fmesher::fm_mesh_2d(loc = xy, max.edge = 0.25, cutoff = 0.08,
-                            offset = c(0.1, 0.2))
+mesh <- build_mesh(xy)
 mesh$n
 ```
 
