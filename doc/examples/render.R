@@ -7,9 +7,9 @@
 # Each <page>.Rmd is knitted to doc/source/examples/<page>.md, with figures in
 # doc/source/examples/figures/. Code runs in a work folder outside the
 # repository (SPAPATH_DOC_WORK, default ~/spapath_doc_work), which also holds
-# the knitr cache and the result folders written by the examples. The local
-# geneset/ folder (not in git) is copied there, since the examples read their
-# GMT file from geneset/.
+# the knitr cache and the result folders written by the examples. The DLPFC
+# GMT file is copied there under the same relative path, since the examples
+# read it from benchmark/analysis/DLPFC/data/.
 
 library(knitr)
 knit_hooks$set(crop = hook_pdfcrop)   # crop = TRUE trims the white margins of a figure
@@ -22,7 +22,10 @@ page_dir   <- normalizePath("doc/source/examples")
 work_dir   <- path.expand(Sys.getenv("SPAPATH_DOC_WORK", "~/spapath_doc_work"))
 dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
 work_dir   <- normalizePath(work_dir)
-if (dir.exists("geneset")) file.copy("geneset", work_dir, recursive = TRUE, overwrite = TRUE)
+gmt_dir    <- "benchmark/analysis/DLPFC/data"
+dir.create(file.path(work_dir, gmt_dir), showWarnings = FALSE, recursive = TRUE)
+invisible(file.copy(file.path(gmt_dir, "DLPFC_brain_and_reference.gmt"),
+                     file.path(work_dir, gmt_dir), overwrite = TRUE))
 
 for (page in pages) {
   opts_knit$set(base.dir = page_dir, root.dir = work_dir)

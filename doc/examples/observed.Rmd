@@ -62,7 +62,7 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 20 MSigDB gene sets are stored as a GMT file:
 
 ```{r gene-sets}
-gmt <- "geneset/DLPFC_brain_and_reference.gmt"
+gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
 ## 3. Run SpaPath
