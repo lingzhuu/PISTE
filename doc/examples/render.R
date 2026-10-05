@@ -31,7 +31,8 @@ for (page in pages) {
   opts_knit$set(base.dir = page_dir, root.dir = work_dir)
   opts_chunk$set(fig.path = paste0("figures/", page, "-"),
                  cache.path = file.path(work_dir, "cache", page, ""),
-                 comment = "#>", fig.width = 6, fig.height = 6, dpi = 100)
+                 comment = "#>", fig.width = 6, fig.height = 6, dpi = 100,
+                 error = FALSE)   # stop at the first error rather than knit it into the page
   knit(file.path(source_dir, paste0(page, ".Rmd")),
        file.path(page_dir, paste0(page, ".md")),
        envir = new.env())
