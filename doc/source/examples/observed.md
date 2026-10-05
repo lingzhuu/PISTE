@@ -32,9 +32,6 @@ library(SpatialExperiment)
 library(PathwayLGM)
 
 spe <- fetch_data(type = "spe")
-```
-
-``` r
 spe <- spe[, spe$sample_id == "151673"]
 
 # Keep spots with a layer annotation (Layer1 to Layer6, WM).
@@ -80,7 +77,7 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 
 
 ``` r
-gmt <- "geneset/DLPFC_brain_and_reference.gmt"
+gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
 ## 3. Run SpaPath
@@ -88,61 +85,15 @@ gmt <- "geneset/DLPFC_brain_and_reference.gmt"
 
 ``` r
 res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
-                   out = "results_observed")
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
-```
-
-```
-#> 
-#>  *** inla.core.safe:  The inla program failed, but will rerun in case better initial values may help. try=1/1 
-#> 
-#>  *** inla.core.safe:  rerun with improved initial values
+                   out = "results_observed",
+                   cfg = list(threads = "8:1"))
 ```
 
 `run_spapath()` normalizes the counts with SCTransform, builds the mesh and
 fits every gene set, with WM as the baseline region. Results are written to
-`results_observed`. See [API](../api.md#run_spapath) for all options.
+`results_observed`. `cfg$threads` sets the number of threads INLA uses, as
+`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
+evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
 
 ## 4. Read the results
 
@@ -156,37 +107,47 @@ wm[, c("gene_set", "genes", "score", "evidence")]
 
 ```
 #>                                                         gene_set genes
-#> 1                                             GOCC_MYELIN_SHEATH    42
-#> 2                               REACTOME_SPHINGOLIPID_METABOLISM    96
-#> 3               GOBP_AXON_ENSHEATHMENT_IN_CENTRAL_NERVOUS_SYSTEM    23
-#> 4              GOBP_VERY_LONG_CHAIN_FATTY_ACID_METABOLIC_PROCESS    32
-#> 5                                        GOBP_MYELIN_MAINTENANCE    16
+#> 1                                         REACTOME_MRNA_SPLICING   210
+#> 2                             GOBP_MONOCARBOXYLIC_ACID_TRANSPORT   126
+#> 3                               REACTOME_SPHINGOLIPID_METABOLISM    96
+#> 4                                             GOCC_MYELIN_SHEATH    42
+#> 5               GOBP_AXON_ENSHEATHMENT_IN_CENTRAL_NERVOUS_SYSTEM    23
 #> 6                            REACTOME_NUCLEOTIDE_EXCISION_REPAIR   107
-#> 7                              REACTOME_CHOLESTEROL_BIOSYNTHESIS    26
-#> 8                                          REACTOME_MRNA_CAPPING    29
-#> 9                        REACTOME_TRNA_PROCESSING_IN_THE_NUCLEUS    57
-#> 10                                      REACTOME_PROTEIN_FOLDING    88
-#> 11                          GOBP_SYNAPTIC_TRANSMISSION_GABAERGIC    59
-#> 12 REACTOME_ACTIVATION_OF_NMDA_RECEPTORS_AND_POSTSYNAPTIC_EVENTS    84
-#> 13                      GOBP_SYNAPTIC_TRANSMISSION_GLUTAMATERGIC   100
-#> 14             REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE    24
-#> 15                        REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS    31
+#> 7              GOBP_VERY_LONG_CHAIN_FATTY_ACID_METABOLIC_PROCESS    32
+#> 8                                        GOBP_MYELIN_MAINTENANCE    16
+#> 9                              REACTOME_CHOLESTEROL_BIOSYNTHESIS    26
+#> 10                                         REACTOME_MRNA_CAPPING    29
+#> 11                       REACTOME_TRNA_PROCESSING_IN_THE_NUCLEUS    57
+#> 12                                      REACTOME_PROTEIN_FOLDING    88
+#> 13                          GOBP_SYNAPTIC_TRANSMISSION_GABAERGIC    59
+#> 14                              GOBP_SYNAPTIC_VESICLE_EXOCYTOSIS   102
+#> 15                      GOBP_SYNAPTIC_TRANSMISSION_GLUTAMATERGIC   100
+#> 16             REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE    24
+#> 17 REACTOME_ACTIVATION_OF_NMDA_RECEPTORS_AND_POSTSYNAPTIC_EVENTS    84
+#> 18                        REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS    31
+#> 19                 GOMF_VOLTAGE_GATED_POTASSIUM_CHANNEL_ACTIVITY    86
+#> 20                                GOBP_OXIDATIVE_PHOSPHORYLATION   135
 #>        score     evidence
-#> 1  0.6922329 9.988453e-01
-#> 2  0.6187125 9.983953e-01
-#> 3  0.7274945 9.977120e-01
-#> 4  0.6301380 9.703229e-01
-#> 5  0.6504722 9.587596e-01
-#> 6  0.5569454 9.452628e-01
-#> 7  0.6139136 9.325164e-01
-#> 8  0.5813712 8.562173e-01
-#> 9  0.5582827 8.498671e-01
-#> 10 0.5034565 5.367441e-01
-#> 11 0.3484737 8.314528e-04
-#> 12 0.3286696 1.255088e-05
-#> 13 0.2655723 0.000000e+00
-#> 14 0.1835766 0.000000e+00
-#> 15 0.1858631 0.000000e+00
+#> 1  0.6973029 1.0000000000
+#> 2  0.6160519 0.9992882060
+#> 3  0.6215357 0.9987039153
+#> 4  0.6868095 0.9983546889
+#> 5  0.7101165 0.9955955086
+#> 6  0.5676972 0.9722121547
+#> 7  0.6292330 0.9696651274
+#> 8  0.6594246 0.9580399610
+#> 9  0.6274162 0.9524832882
+#> 10 0.5795515 0.8521399667
+#> 11 0.5591023 0.8510963319
+#> 12 0.5025770 0.5249499053
+#> 13 0.3373526 0.0001317621
+#> 14 0.2380503 0.0000000000
+#> 15 0.2670079 0.0000000000
+#> 16 0.1769775 0.0000000000
+#> 17 0.3238279 0.0000000000
+#> 18 0.2031705 0.0000000000
+#> 19 0.3206181 0.0000000000
+#> 20 0.2656734 0.0000000000
 ```
 
 The `overall` table compares each region with the spot-weighted average of all
