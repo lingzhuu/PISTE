@@ -2,7 +2,6 @@
 # downstream use:
 #   pearson_residuals.rds / _f32.bin   dense residual matrix (+ float32 binary)
 #   corrected_counts.rds               sparse UMI-corrected counts
-#   sct_models.rds                     fitted SCT models
 #   genes.txt / spots.txt              row/column names of the matrices
 #   preprocess_manifest.rds            provenance, settings and summary stats
 
@@ -42,18 +41,3 @@ writeBin(as.numeric(residual), file.path(out, "pearson_residuals_f32.bin"),
          size = 4L, endian = "little")
 writeLines(rownames(residual), file.path(out, "genes.txt"))
 writeLines(colnames(residual), file.path(out, "spots.txt"))
-saveRDS(seu[["SCT"]]@SCTModel.list, file.path(out, "sct_models.rds"),
-        compress = "xz")
-
-meta <- list(input = file.path(data_dir, "processed_data.rds"),
-             dataset_seed = x$seed, n_genes = nrow(residual),
-             n_spots = ncol(residual),
-             Seurat = as.character(packageVersion("Seurat")),
-             sctransform = as.character(packageVersion("sctransform")),
-             method = "Seurat::SCTransform", vst_flavor = "v2",
-             variable_features_n = 10000L, return_only_var_genes = FALSE,
-             do_correct_umi = TRUE, seed = sct_seed,
-             residual_min = min(residual), residual_max = max(residual),
-             residual_mean = mean(residual),
-             corrected_nnz = length(corrected@x))
-saveRDS(meta, file.path(out, "preprocess_manifest.rds"))
