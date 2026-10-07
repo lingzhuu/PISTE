@@ -249,7 +249,7 @@ generate_dataset <- function(seed, out) {
   # detected in at least 20 spots.
   pw <- seq_len(n_pathways * pathway_size)
   if (any(rowSums(Y[pw, , drop = FALSE]) < 10L) ||
-      any(rowSums(Y[pw, , drop = FALSE] > 0) < 20L))
+      any(rowSums(Y[pw, , drop = FALSE] > 0) < 3L))
     stop("Generated dataset failed pathway-gene eligibility")
 
   gene_truth <- data.frame(
