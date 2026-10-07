@@ -246,7 +246,7 @@ generate_dataset <- function(seed, out) {
     ifelse(design$K > 0L, design$n_down / design$K, NA_real_)
 
   # Pathway genes must stay usable downstream: total count >= 10 and
-  # detected in at least 20 spots.
+  # detected in at least 3 spots.
   pw <- seq_len(n_pathways * pathway_size)
   if (any(rowSums(Y[pw, , drop = FALSE]) < 10L) ||
       any(rowSums(Y[pw, , drop = FALSE] > 0) < 3L))
