@@ -12,7 +12,6 @@ library(Seurat)
 
 work_dir <- "../../analysis/DLPFC"
 data_dir <- file.path(work_dir, "data")
-sct_seed <- 42L
 
 # ---- run ------------------------------------------------------------------------
 out <- file.path(data_dir, "SCTransform_v2")
@@ -20,14 +19,12 @@ dir.create(out, recursive = TRUE, showWarnings = FALSE)
 
 x <- readRDS(file.path(data_dir, "processed_data.rds"))
 
-set.seed(sct_seed)
-start <- proc.time()[["elapsed"]]
 seu <- CreateSeuratObject(counts = Matrix(x$counts, sparse = TRUE),
                           min.cells = 0, min.features = 0)
 seu <- SCTransform(seu, assay = "RNA", new.assay.name = "SCT",
                    vst.flavor = "v2", variable.features.n = 10000L,
                    return.only.var.genes = FALSE, do.correct.umi = TRUE,
-                   seed.use = sct_seed, verbose = FALSE)
+                   seed.use = 42, verbose = FALSE)
 
 # ---- extract ------------------------------------------------------------------------
 residual <- GetAssayData(seu, assay = "SCT", layer = "scale.data")
@@ -58,6 +55,5 @@ meta <- list(input = file.path(data_dir, "processed_data.rds"),
              do_correct_umi = TRUE, seed = sct_seed,
              residual_min = min(residual), residual_max = max(residual),
              residual_mean = mean(residual),
-             corrected_nnz = length(corrected@x),
-             seconds = proc.time()[["elapsed"]] - start)
+             corrected_nnz = length(corrected@x))
 saveRDS(meta, file.path(out, "preprocess_manifest.rds"))
