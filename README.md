@@ -47,7 +47,7 @@ SpaPath's posterior evidence instead increased monotonically as the prespecified
 [Supplementary Table 1. Per-pathway simulation results for the simulation dataset.](benchmark/analysis/simulation_data/result/simulation_per_pathway_result.xlsx)
 ### Layer-resolved pathway activity in the human DLPFC
 
-To evaluate the performance of these methods on real data, we analyzed a human dorsolateral prefrontal cortex (DLPFC) Visium dataset because its six cortical layers and white matter were manually annotated and the molecular functions of each layer are well documented. [Maynard et al., 2021] We applied SpaPath, GSVA, STpathway, and GSDensity to section 151673, which contains 3,639 spots. We tested a prespecified panel of 20 MSigDB gene sets: 6 for synaptic transmission (including glutamatergic, GABAergic, and NMDA/AMPA receptor programs), 1 for voltage-gated potassium channel activity, 1 for oxidative phosphorylation, 3 for myelination, and 4 for lipid metabolism, together with 5 reference sets for basal RNA/protein maintenance and DNA repair. Sets were selected for appropriate size (16–210 detected genes in the transcriptome of the selected tissue section) and minimal redundancy (mean pairwise Jaccard index = 0.008; maximum = 0.19).
+To evaluate the performance of these methods on real data, we analyzed a human dorsolateral prefrontal cortex (DLPFC) Visium dataset because its six cortical layers and white matter were manually annotated and the molecular functions of each layer are well documented. [Maynard et al., 2021] We applied SpaPath, GSVA, STpathway, and GSDensity to section 151673, which contains 3,639 spots. We tested a prespecified panel of 20 MSigDB gene sets (Methods; Supplementary Table 2).
 
 [Supplementary Table 2. The 20 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_20.xlsx)
 
@@ -163,24 +163,30 @@ together with the posterior evidence $P(\pi_{rs}>0.5\mid Y)$, which equals $P(\m
 
 ### Simulation framework
 
-We simulate raw spatial transcriptomic counts at the 3,639 tissue spots of the spatialLIBD DLPFC 151673 section, using its observed spot coordinates. The primary dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs), and 4,000 background genes without a spatial effect. Background SVGs receive independently generated spatial activity maps unrelated to the test-pathway maps.
+We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Two independent datasets were generated with different random seeds.
 
-We designed 50 pathways spanning five response-size groups, five spatial pattern classes, and two effect-size distributions. For each responsive gene, $E_g>0$ denotes the absolute target-versus-rest expected log2 fold change, adjusted for spot depth:
+The 50 test pathways cover the full factorial of five response-size groups, five spatial-pattern classes and two effect-size distributions. For pathway $p$, the number of responsive genes $K_p$ among its 100 members was drawn uniformly from one of five ranges, 0–4, 5–10, 11–30, 31–60 or 61–100, and the remaining $100-K_p$ members were left unresponsive. Pathways with $K_p\le 4$ serve as near-null controls.
+
+Each pathway was assigned a spatial activity map $A_i^{(p)}$, scaled to $[0,1]$, from one of five classes chosen to represent common tissue architectures. Discrete domains represent compartmentalized structures such as cortical layers, with piecewise-constant activity across three bands separated by randomly shifted, wavy boundaries. Smooth gradients represent continuous processes such as metabolic zonation and were drawn from a Gaussian random field with a Matérn covariance of smoothness 3/2 and range 0.25. Radial or niche-centered patterns represent niches centered on vessels or ducts, with activity decaying exponentially with distance from a randomly chosen spot at a scale drawn uniformly from 0.12 to 0.24. Localized hotspots represent focal structures such as tertiary lymphoid structures and consist of two Gaussian hotspots of widths 0.06 and 0.09 centered on randomly chosen spots. Interface-specific patterns represent tissue boundaries such as the tumor–stroma interface or an invasive front, with
 
 $$
-E_g \sim
-\begin{cases}
-\mathrm{Lognormal}(\text{s}=0.3,\text{ scale}=0.4), & \text{broad and weak},\\
-\mathrm{Lognormal}(\text{s}=0.4,\text{ scale}=0.9), & \text{narrow and strong}.
+A_i^{(p)} = \mathbb{1}(h_i \le r)\exp(-h_i/\lambda),
+$$
+
+where $h_i$ is the distance of spot $i$ to a sinusoidal boundary, $r=0.14$ and $\lambda=0.06$. The target region of each pathway is the most active band for domain maps, the 20% most active spots for gradient and radial maps, the spots with $A_i^{(p)}\ge 0.5$ for hotspot maps and the spots with $A_i^{(p)}>0$ for interface maps. Responsive genes inherit their pathway's activity map, $H_{ig}=A_i^{(p)}$, whereas unresponsive pathway genes and background genes without a spatial effect have $H_{ig}=0$. Each background SVG received its own radial activity map, generated independently of the test-pathway maps, to mimic the spatially structured background variation of real tissue.
+
+For each responsive gene $g$, the absolute target-versus-rest log2 fold change of the depth-corrected expected expression, $E_g>0$, was drawn from one of two distributions,
+
+$$
+E_g \sim \begin{cases}
+\mathrm{Lognormal}(\text{s}=0.3,\ \text{scale}=0.4), & \text{broad and weak},\\
+\mathrm{Lognormal}(\text{s}=0.4,\ \text{scale}=0.9), & \text{narrow and strong}.
 \end{cases}
 $$
 
-For each pathway $p$, $K_p$ is the number of the responsive members among the 100 genes, sampled from five ranges: 0–4, 5–10, 11–30, 31–60, or 61–100; the remaining $100-K_p$ members are not responsive. Response direction is drawn before count generation, with $d_g=+1$ for target-upregulated genes and $d_g=-1$ for target-downregulated genes. Genes in weaker response group are more likely to have their direction reversed, with reversal probabilities of 30–50%, 15–30%, and 10–15% in the weak, medium, and strong groups, respectively. $E_g$ denotes the effect size of an individual responsive gene.
+Response direction was assigned before count generation, with $d_g=+1$ for target-upregulated and $d_g=-1$ for target-downregulated genes. To mimic the heterogeneous composition of real pathways, each responsive gene was downregulated with probability 0.4 when $K_p\le 10$ and with probability $0.4\exp\{-(K_p-10)/18\}$ otherwise, so that pathways with fewer responsive genes contain a larger share of genes responding in the opposite direction. Background SVGs were assigned a random direction and an effect from the broad and weak distribution.
 
-Each pathway is assigned an activity map $A_i^{(p)}$, normalized to $[0,1]$, from one of five classes: (i) discrete domains, representing compartmentalized tissue such as cortical layers; (ii) smooth gradients, representing continuous processes such as metabolic zonation; (iii) radial or niche-centered patterns, representing niches centered on vessels or ducts; (iv) localized hotspots, representing focal structures such as tertiary lymphoid structures; or (v) interface-specific patterns, representing tissue boundaries such as the tumor–stroma interface or invasive front. Domain activity is piecewise constant across $D_p$ spatial regions; gradients vary smoothly across the tissue; radial activity decays with distance from a niche center; hotspot activity is localized; and interface activity follows
-$A_i^{(p)} = \mathbb{1}(h_i \leq r)\exp(-h_i/\lambda)$, where $h_i$ is the distance to the relevant boundary. Responsive genes receive their pathway's activity map through $H_{ig}=A_i^{(p)}$.
-
-Raw read counts $Y_{ig}$ are simulated from a negative binomial distribution:
+Raw read counts were then generated from a negative binomial model,
 
 $$
 Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad
@@ -188,15 +194,25 @@ Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad
 $$
 
 $$
-\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig}.
+\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig},
 $$
 
-Here $c_i$ is the spot-specific depth factor and $(m_g, \theta_g)$ is a jointly sampled empirical baseline-expression and dispersion pair. 
+where $b_g\ge 0$ was calibrated numerically so that the target-versus-rest log2 fold change of the depth-corrected mean $m_g\exp(d_g b_g H_{ig})$ equals $d_g E_g$, and $b_g=0$ for genes without a spatial effect. The baseline mean $m_g$ and dispersion $\theta_g$ were estimated jointly from the observed counts of section 151673 by an intercept-only DESeq2 fit (REF), and each simulated gene received one intact empirical pair, sampled without replacement from the genes detected in at least 100 spots, so that the simulated data preserve the mean–dispersion relationship of Visium data. The spot depth factors $c_i$ are the DESeq2 size factors of the same section, randomly permuted across spots and rescaled to a geometric mean of 1.
 
-For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of the 10 strata defined by effect distribution and response size, with spatial patterns balanced, so that the 30-set panel was nested in the 40-set panel and both included the same gene sets in the two datasets. The simulated expression data were unchanged.
+For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of the ten strata defined by effect-size distribution and response-size group, with spatial-pattern classes balanced, so that the 30-set panel was strictly nested within the 40-set panel, and the same gene sets were used in both simulated datasets. The underlying simulated expression data were identical across panel sizes.
 
-GSDensity receives a Seurat object built from raw counts and uses the author function's internal NormalizeData() step. SpaPath and STpathway receive the SCTransform Pearson residuals.
+### Compared methods and benchmarking
 
-### Benchmarking on the DLPFC data
+We benchmarked SpaPath against three representative pathway-analysis methods, GSVA (REF), STpathway (REF) and GSDensity (REF). [TODO: software versions and code sources.] Because the methods return statistics that are not directly comparable, each method's output was mapped onto a common question, whether a pathway differs between a target region and the remaining tissue, as detailed below.
 
-All methods were applied to the 3,611 annotated spots of section 151673 and the same 20 gene sets, and each pathway was compared between the 513 WM spots and the remaining 3,098 spots. GSVA (REF) scored each pathway in each spot from the SCTransform Pearson residuals with the default automatic choice of kernel. WM-versus-rest differences in mean score were tested with a two-sided spatial block bootstrap. Spot coordinates were scaled to the unit square and divided into 85 square blocks of side 0.10. Blocks were resampled with replacement 1,999 times, keeping the scores and region labels within each block together, and the p-value was the proportion of centered bootstrap differences at least as large in absolute value as the observed difference, so the smallest attainable p-value is 1/2,000. P-values were corrected across the 20 gene sets by the Benjamini–Hochberg procedure. STpathway (REF) was run with the authors' code on the Pearson residuals of the genes in each set, computing the distance correlation (dCor) between their expression profiles in WM and in the rest with 199 permutations; a lower dCor indicates a larger regional difference and carries no direction. GSDensity (REF) was run with the authors' functions. The pathway activity of each spot was computed by random walk with restart on a 300-nearest-neighbour graph, the coherence of each set was tested against 100 random gene sets of the same size, and sets with Benjamini–Hochberg q < 0.05 across the 20 sets were reported. For these sets, spots were labelled as highly active or not, and the proportions of highly active spots in WM and the rest were compared by a chi-squared test with continuity correction.
+The benchmarking protocol was identical for simulated and real data, and only the dataset and the definition of the target region differed. On simulated data, the target region of each pathway was the one defined by its activity map, and each method's region-level statistic was compared with the prespecified pathway activity across the ten strata defined by response size and effect-size distribution, and separately across the five spatial-pattern classes. On the DLPFC data, all methods were applied to the 3,611 morphologically annotated spots of section 151673, with the 513 white matter (WM) spots as the target region and the remaining 3,098 spots as the rest. WM serves as a partial biological reference because myelin-related and oligodendrocyte-associated pathways are expected a priori to be WM-enriched (REF). The DLPFC panel consisted of 20 MSigDB gene sets spanning synaptic transmission (n = 6), voltage-gated potassium channel activity (n = 1), oxidative phosphorylation (n = 1), myelination (n = 3), lipid metabolism (n = 4), and basal RNA/protein maintenance and DNA repair (n = 5). Sets were selected for size (16–210 detected genes in this section) and minimal redundancy (mean pairwise Jaccard index 0.008, maximum 0.19; Supplementary Table 2).
+
+GSDensity received a Seurat object built from raw counts and used the normalization internal to the authors' functions (`NormalizeData`). GSVA, STpathway and SpaPath, run in the observed mode, received the SCTransform Pearson residuals computed from the same counts.
+
+GSVA scored each pathway in each spot from the SCTransform Pearson residuals with the default automatic kernel choice. Because the scores of neighbouring spots are spatially autocorrelated, tests that treat spots as independent inflate type I error. We therefore tested target-versus-rest differences in mean score with a two-sided spatial block bootstrap, which preserves local spatial dependence by resampling contiguous blocks rather than individual spots. Spot coordinates were scaled to the unit square and partitioned into 85 square blocks of side 0.10. Blocks were resampled with replacement 1,999 times, keeping scores and region labels within each block together, and the p-value was the proportion of centered bootstrap differences at least as large in absolute value as the observed difference, so that the smallest attainable p-value is 1/2,000. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets tested in each dataset.
+
+STpathway was run with the authors' code on the Pearson residuals of the genes in each set, computing the distance correlation (dCor) between their expression profiles in the target region and the remaining spots with 199 permutations. A lower dCor indicates a larger regional difference and carries no direction.
+
+GSDensity was run with the authors' functions. The pathway activity of each spot was computed by random walk with restart on a 300-nearest-neighbour graph, the coherence of each set was tested against 100 size-matched random gene sets, and sets with Benjamini–Hochberg q < 0.05 within each dataset were retained. For these sets, spots were labelled as highly active or not, and the proportions of highly active spots in the target region and the remaining spots were compared by a chi-squared test with continuity correction.
+
+For SpaPath, we report the π score and posterior evidence of the target region versus the rest of the tissue, as defined in Directional pathway score and posterior evidence.
