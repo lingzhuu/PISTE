@@ -10,8 +10,8 @@
 # independent radial effects. sigma_eta = 0.
 
 # ---- config ---------------------------------------------------------------------
-ref_dir  <- file.path("..", "data", "reference_151673")
-out_root <- file.path("..", "data", "simulated")
+ref_dir  <- "../../analysis/simulation_data/reference_151673"
+out_root <- "../../analysis/simulation_data"
 seeds    <- c(20260926L, 20260929L)   # benchmark seeds
 
 n_genes      <- 10000L
@@ -51,13 +51,10 @@ draw_K <- function(group) {
   sample(bounds, 1L)
 }
 
-# Number of down-regulated genes among the K responsive ones: each
-# responsive gene is down-regulated with probability p_down(K), flat at
-# 0.4 up to K = 10, then decaying exponentially.
+# Fixed number of down-regulated genes among K responsive genes.
+# Their identities are selected randomly downstream.
 draw_down_count <- function(K) {
-  if (K == 0L) return(0L)
-  p_down <- 0.4 * exp(-pmax(0, K - 10) / 18)
-  rbinom(1L, K, p_down)
+  as.integer(floor(0.4 * sqrt(K)))
 }
 
 # ---- main -----------------------------------------------------------------------
