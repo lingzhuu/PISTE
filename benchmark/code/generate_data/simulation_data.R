@@ -12,7 +12,7 @@
 # ---- config ---------------------------------------------------------------------
 ref_dir  <- "../../analysis/simulation_data/reference_151673"
 out_root <- "../../analysis/simulation_data"
-seeds    <- c(20260926L, 20260929L)   # benchmark seeds
+seeds    <- c(2020L, 2021L, 2022L, 2023L, 2024L, 2025L, 2026L)   # benchmark seeds
 
 n_genes      <- 10000L
 n_pathways   <- 50L
