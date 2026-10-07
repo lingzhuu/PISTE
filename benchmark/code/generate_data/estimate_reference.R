@@ -6,14 +6,14 @@
 # DESeq2 (intercept-only) gives spot depth factors c_i and per-gene
 # dispersion = 1/theta_g; m_g is the depth-corrected mean expression.
 #
-# Input : ../../reference_151673/{genes.csv, spots.csv, counts.mtx}
-# Output: ../../reference_151673/reference_parameters.csv  (per-gene m, theta)
-#         ../../reference_151673/reference_depth.csv       (per-spot c_i)
+# Input : ../../analysis/simulation_data/reference_151673/{genes.csv, spots.csv, counts.mtx}
+# Output: ../../analysis/simulation_data/reference_151673/reference_parameters.csv  (per-gene m, theta)
+#         ../../analysis/simulation_data/reference_151673/reference_depth.csv       (per-spot c_i)
 
 library(Matrix)
 library(DESeq2)
 
-base <- "../../reference_151673"
+base <- "../../analysis/simulation_data/reference_151673"
 
 genes <- read.csv(file.path(base, "genes.csv"))$gene
 spots <- read.csv(file.path(base, "spots.csv"))
