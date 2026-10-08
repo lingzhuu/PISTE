@@ -1,0 +1,169 @@
+# Composition-adjusted mode on DLPFC
+
+<!-- Generated from doc/examples/composition.Rmd by doc/examples/render.R; edit the .Rmd. -->
+
+The composition-adjusted mode reports the regional difference in pathway
+activity that cannot be explained by differences in cell-type composition. It
+models raw counts and uses, for each spot, the expression predicted from its
+deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
+
+This example uses the human dorsolateral prefrontal cortex (DLPFC) Visium
+section 151673 from spatialLIBD (Maynard et al., 2021) and the LIBD DLPFC
+snRNA-seq reference (Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
+chosen here because it is fast. White matter (WM) is tested against all
+other annotated spots.
+
+## Requirements
+
+Besides SpaPath ([Installation](../installation.md)), which already includes
+DESeq2 for the dispersion step, this example uses:
+
+| Package | Source | Used for |
+|---------|--------|----------|
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data, its layer annotation and the LIBD DLPFC snRNA-seq reference, and plots spots on the H&E image |
+| HDF5Array | Bioconductor | Loads the snRNA-seq reference, which is stored on disk in HDF5 format |
+| spacexr | GitHub | RCTD deconvolution |
+
+```{r install, eval = FALSE}
+install.packages(c("BiocManager", "remotes"))
+BiocManager::install(c("spatialLIBD", "HDF5Array"))
+remotes::install_github("dmcable/spacexr", build_vignettes = FALSE)
+```
+
+## 1. Load the Visium data and the snRNA-seq reference
+
+```{r load, message = FALSE, warning = FALSE}
+library(spatialLIBD)
+library(SpatialExperiment)
+
+spe <- fetch_data(type = "spe")
+spe <- spe[, spe$sample_id == "151673"]
+spe <- spe[, !is.na(spe$layer_guess_reordered)]
+rownames(spe) <- make.unique(rowData(spe)$gene_name)
+
+sce_zip <- fetch_data(type = "spatialDLPFC_snRNAseq")
+unzip(sce_zip, exdir = tempdir())
+sce <- HDF5Array::loadHDF5SummarizedExperiment(
+  file.path(tempdir(), "sce_DLPFC_annotated")
+)
+sce <- sce[, !is.na(sce$cellType_broad_hc)]
+rownames(sce) <- make.unique(rowData(sce)$gene_name)
+table(sce$cellType_broad_hc)
+```
+
+The H&E image of the section and its manual layer annotation, Layer1 to
+Layer6 and white matter:
+
+```{r he-image, fig.width = 4, fig.height = 4, crop = TRUE}
+plot(imgRaster(spe, sample_id = "151673", image_id = "lowres"))
+```
+
+```{r layers, fig.width = 4, fig.height = 4, crop = TRUE}
+vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
+         colors = libd_layer_colors)
+```
+
+## 2. Deconvolve with RCTD
+
+RCTD is provided by the spacexr package. Build the reference and the spatial
+object from raw counts, then run RCTD in full mode, which allows any number of
+cell types per spot:
+
+```{r rctd, message = FALSE, warning = FALSE, results = "hide", cache = TRUE, cache.lazy = FALSE}
+library(spacexr)
+library(Matrix)
+
+ref_counts <- as(counts(sce), "dgCMatrix")
+cell_types <- factor(sce$cellType_broad_hc)
+names(cell_types) <- colnames(sce)
+reference <- Reference(ref_counts, cell_types, nUMI = colSums(ref_counts))
+
+vis_counts <- as(counts(spe), "dgCMatrix")
+coords <- as.data.frame(spatialCoords(spe))
+colnames(coords) <- c("x", "y")
+rownames(coords) <- colnames(spe)
+puck <- SpatialRNA(coords, vis_counts, nUMI = colSums(vis_counts))
+
+rctd <- create.RCTD(puck, reference, max_cores = 8)
+rctd <- run.RCTD(rctd, doublet_mode = "full")
+
+omega <- as.matrix(normalize_weights(rctd@results$weights))   # spots x cell types
+```
+
+Each row of `omega` holds the cell-type proportions of one spot and sums to
+one. The mean proportions in WM and in the other spots:
+
+```{r rctd-summary}
+in_wm <- spe$layer_guess_reordered[match(rownames(omega), colnames(spe))] == "WM"
+round(rbind(WM = colMeans(omega[in_wm, ]), rest = colMeans(omega[!in_wm, ])), 3)
+```
+
+Alternatively, cell2location can be used in place of RCTD; it is more
+accurate but considerably slower, and a GPU is recommended (REF).
+
+## 3. Reference expression
+
+`reference_profile()` pools the raw counts of all nuclei of each cell type and
+scales them to counts per 10,000:
+
+```{r reference, cache = TRUE}
+library(PathwayLGM)
+
+nu <- reference_profile(t(ref_counts), sce$cellType_broad_hc)   # cell types x genes
+dim(nu)
+```
+
+## 4. Gene sets
+
+20 MSigDB gene sets are stored as a GMT file:
+
+```{r gene-sets}
+gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
+```
+
+## 5. Run SpaPath
+
+RCTD drops spots with too few counts, so keep the spots that have
+proportions. White matter is compared with all other spots:
+
+```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
+spe    <- spe[, rownames(omega)]
+counts <- t(counts(spe))                       # spots x genes, raw counts
+xy     <- spatialCoords(spe)
+region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
+
+res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
+                   proportions = omega, reference = nu,
+                   baseline = "rest", out = "results_adjusted",
+                   cfg = list(threads = "8:1"))
+```
+
+`run_spapath()` builds the composition offset from `omega` and `nu`, builds
+the mesh and fits every gene set to the raw counts. Results are written to
+`results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
+`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
+evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
+
+## 6. Read the results
+
+```{r results}
+wm <- res$overall[res$overall$region == "WM", ]
+wm <- wm[order(wm$evidence, decreasing = TRUE), ]
+rownames(wm) <- NULL
+wm[, c("gene_set", "genes", "score", "evidence")]
+```
+
+For the WM row, `score` is the posterior mean of π, how often a pathway
+gene's expression state in WM exceeds its state in the other spots after
+adjusting for cell-type composition, and `evidence` is the posterior
+probability that π > 0.5. Evidence near 1 indicates higher activity in WM and
+evidence near 0 higher activity in the other spots. For each gene set,
+`gene_coefficients` lists each gene's intercept `a_g` and composition slope
+`lambda_g`; `lambda_g` near 1 means the gene follows the reference
+prediction. For the first gene set:
+
+```{r coefficients}
+head(res$results[[1]]$gene_coefficients)
+```
+
+See [API](../api.md#run_spapath) for all outputs.

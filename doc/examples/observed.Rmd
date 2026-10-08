@@ -1,0 +1,97 @@
+# Observed mode on DLPFC
+
+<!-- Generated from doc/examples/observed.Rmd by doc/examples/render.R; edit the .Rmd. -->
+
+This example tests pathways in white matter (WM) against the cortical layers
+of the human dorsolateral prefrontal cortex (DLPFC) Visium section 151673
+from spatialLIBD (Maynard et al., 2021). The observed mode fits a Gaussian
+model to normalized expression and reports the total regional difference in
+pathway activity, including differences that come from cell composition.
+
+## Requirements
+
+This example also uses:
+
+| Package | Source | Used for |
+|---------|--------|----------|
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation, and plots spots on the H&E image |
+
+```{r install, eval = FALSE}
+install.packages("BiocManager")
+BiocManager::install("spatialLIBD")
+```
+
+
+## 1. Load the data
+
+```{r load, message = FALSE, warning = FALSE}
+library(spatialLIBD)
+library(SpatialExperiment)
+library(PathwayLGM)
+
+spe <- fetch_data(type = "spe")
+spe <- spe[, spe$sample_id == "151673"]
+
+# Keep spots with a layer annotation (Layer1 to Layer6, WM).
+spe <- spe[, !is.na(spe$layer_guess_reordered)]
+
+counts <- t(counts(spe))                       # spots x genes, raw counts
+colnames(counts) <- make.unique(rowData(spe)$gene_name)
+xy     <- spatialCoords(spe)
+region <- as.character(spe$layer_guess_reordered)
+table(region)
+```
+
+`counts`, `xy` and `region` follow the same spot order. The coordinates can
+be in any unit.
+
+The H&E image of the section and its manual layer annotation, Layer1 to
+Layer6 and white matter:
+
+```{r he-image, fig.width = 4, fig.height = 4, crop = TRUE}
+plot(imgRaster(spe, sample_id = "151673", image_id = "lowres"))
+```
+
+```{r layers, fig.width = 4, fig.height = 4, crop = TRUE}
+vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
+         colors = libd_layer_colors)
+```
+
+## 2. Gene sets
+
+20 MSigDB gene sets are stored as a GMT file:
+
+```{r gene-sets}
+gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
+```
+
+## 3. Run SpaPath
+
+```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
+res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
+                   out = "results_observed",
+                   cfg = list(threads = "8:1"))
+```
+
+`run_spapath()` normalizes the counts with SCTransform, builds the mesh and
+fits every gene set, with WM as the baseline region. Results are written to
+`results_observed`. `cfg$threads` sets the number of threads INLA uses, as
+`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
+evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
+
+## 4. Read the results
+
+```{r results}
+wm <- res$overall[res$overall$region == "WM", ]
+wm <- wm[order(wm$evidence, decreasing = TRUE), ]
+rownames(wm) <- NULL
+wm[, c("gene_set", "genes", "score", "evidence")]
+```
+
+The `overall` table compares each region with the spot-weighted average of all
+other regions. For the WM row, `score` is the posterior mean of π, how often a
+pathway gene's expression state in WM exceeds its state in the cortical
+layers, and `evidence` is the posterior probability that π > 0.5. Evidence
+near 1 indicates higher activity in WM and evidence near 0 higher activity in
+the cortical layers. `res$pairwise` gives the same quantities for every pair
+of regions. See [API](../api.md#run_spapath) for all outputs.

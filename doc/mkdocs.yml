@@ -1,0 +1,27 @@
+site_name: SpaPath
+site_description: Spatial pathway inference for spatial transcriptomics with INLA
+repo_url: https://github.com/lingzhuu/pathwayLGM
+edit_uri: edit/dev/doc/source/
+docs_dir: source
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+
+nav:
+  - Installation: installation.md
+  - Command line: cli.md
+  - API: api.md
+  - Examples:
+      - Observed mode on DLPFC: examples/observed.md
+      - Composition-adjusted mode on DLPFC: examples/composition.md
+  - About: about.md
