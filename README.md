@@ -26,7 +26,7 @@ SpaPath compares two regions $r$ and $s$ through the directional score $\pi_{rs}
 
 SpaPath can be run in two modes. The observed mode fits a Gaussian model to normalized expression and quantifies the total difference in pathway activity between regions, including differences that arise because the regions contain different cell types. The composition-adjusted mode fits a negative binomial model to raw counts. It includes the expression of each gene predicted from the cell-type proportions of each spot as a covariate with a gene-specific coefficient, so that the regional difference it reports is the part that cannot be explained by cell composition. We recommend running both modes, because together they distinguish pathways whose regional differences are driven by cell composition, which are supported only in the observed mode, from pathways that change within cell types, which remain supported after adjustment.
 
-### Validation of SpaPath in simulations
+### SpaPath detects weak pathway differences
 
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)
@@ -45,7 +45,7 @@ SpaPath's posterior evidence instead increased monotonically as the prespecified
 [Table 1. Median region-level statistics of the four methods across the 100 simulated gene sets.](benchmark/analysis/simulation_data/result/simulation_summary.xlsx)
 
 [Supplementary Table 1. Per-pathway simulation results for the simulation dataset.](benchmark/analysis/simulation_data/result/simulation_per_pathway_result.xlsx)
-### Layer-specific pathways in human DLPFC
+### Resolving layer-specific pathways in human DLPFC
 
 To evaluate the performance of these methods on real data, we analyzed a human dorsolateral prefrontal cortex (DLPFC) Visium dataset because its six cortical layers and white matter were manually annotated and the molecular functions of each layer are well documented. [Maynard et al., 2021] We applied SpaPath, GSVA, STpathway, and GSDensity to section 151673, which contains 3,639 spots. We tested a prespecified panel of 20 MSigDB gene sets (Methods; Supplementary Table 2).
 
@@ -61,7 +61,7 @@ We also observed that several pathways representing basic cellular processes, in
 
 These results indicate that a substantial fraction of the inferred WM–gray matter differences in basal cellular pathways can be explained by regional differences in cell composition. These considerations motivated us to distinguish composition-driven pathway differences from those that persist after accounting for cell composition. To this end, we extended SpaPath with a composition covariate. For each spot, we used its deconvolved cell-type proportions to compute the expected expression of each gene and included this quantity as a covariate with a gene-specific coefficient (Methods). The regional effects therefore capture pathway differences beyond those predicted by cell composition.
 
-### Adjusting for cell composition in DLPFC
+### Disentangling cell composition from pathway activity
 
 Cell composition acts on the expected counts of a spot, which are a mixture of cell-type expression profiles, and this relationship is lost after normalization such as Pearson residuals. The composition-adjusted mode therefore models the raw counts with a negative binomial likelihood and a sequencing-depth offset, and adds a composition term $\lambda_g\log m_{ig}$, where $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$ is the expression of gene $g$ in spot $i$ expected from its cell-type proportions $\omega_{ik}$ and the reference expression $\nu_{kg}$ (Methods). The coefficient $\lambda_g\sim N(1,0.25^2)$ is estimated for each gene rather than fixed at 1, and each gene has its own intercept. The regional levels therefore describe the pathway differences that remain after accounting for cell composition.
 
@@ -69,7 +69,7 @@ We applied this mode to the WM-versus-rest comparison for the same 20 gene sets 
 
 [Figure 2. WM-versus-rest π scores and posterior evidence of the 20 DLPFC gene sets in the observed and composition-adjusted modes](benchmark/analysis/DLPFC/figure/adjust_vs_observe.png)
 
-### SpaPath maps pathway activity across the 3D mouse brain
+### Mapping pathway activity in 3D mouse brain
 
 We next applied SpaPath to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of an adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3), with every spot assigned to an anatomical region. We analyzed the left hemisphere across 122 sections spanning 0.25–12.65 mm along the anterior–posterior axis, with adjacent sections a median of 100 µm apart (Methods). By fitting all sections jointly with a three-dimensional spatial field, we built a three-dimensional brain atlas of regional pathway activity.
 
