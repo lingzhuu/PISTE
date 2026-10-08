@@ -93,17 +93,18 @@ pathway_pi <- function(mu_r, mu_s, tau2_r, tau2_s) {
 # Extracting the low-dimensional joint posterior from an INLA fit
 # -----------------------------------------------------------------------------
 
-#' Covariance of selected latent entries from a sparse precision matrix
+#' Covariance of linear combinations of the latent field
 #'
-#' Uses sparse Cholesky solves against unit vectors instead of inverting the
-#' full precision matrix. Accepts INLA's full, upper- or lower-triangular
-#' storage of a symmetric matrix.
+#' Returns Cov(t(W) x) = t(W) Q^{-1} W for a sparse weight matrix W, using
+#' sparse Cholesky solves instead of inverting the full precision matrix.
+#' Accepts INLA's full, upper- or lower-triangular storage of a symmetric
+#' matrix.
 #'
 #' @param Q Precision matrix (dense or sparse).
-#' @param indices Latent indices to extract.
-#' @return Dense symmetric covariance matrix of the selected entries.
+#' @param weights Sparse matrix with one column per linear combination.
+#' @return Dense symmetric covariance matrix.
 #' @noRd
-pi_selected_covariance <- function(Q, indices) {
+pi_selected_covariance <- function(Q, weights) {
   if (!inherits(Q, "Matrix")) Q <- Matrix::Matrix(Q, sparse = TRUE)
 
   if (isSymmetric(Q)) {
@@ -116,28 +117,32 @@ pi_selected_covariance <- function(Q, indices) {
     stop("Unsupported nonsymmetric INLA precision storage.")
   }
 
-  # Solve Q X = E, where the columns of E are the selected unit vectors;
-  # the selected rows of X are then the requested covariance block.
-  unit_vectors <- Matrix::sparseMatrix(
-    i = indices, j = seq_along(indices), x = 1,
-    dims = c(nrow(Q), length(indices))
-  )
-  solution <- Matrix::solve(Matrix::Cholesky(Q, LDL = FALSE), unit_vectors,
+  solution <- Matrix::solve(Matrix::Cholesky(Q, LDL = FALSE), weights,
                             system = "A")
-  covariance <- as.matrix(solution[indices, , drop = FALSE])
+  covariance <- as.matrix(Matrix::crossprod(weights, solution))
 
   # Symmetrise to remove round-off asymmetry.
   (covariance + t(covariance)) / 2
 }
 
 
-#' Positions of the named latent effects inside an INLA configuration
+#' Sparse map from the latent field to the canonical regional states
+#'
+#' Column 1 is the baseline intercept and columns 2..R the relative regional
+#' offsets. In adjusted mode the gene intercepts are an intercept plus K free
+#' auxiliary effects u_g, and the canonical baseline intercept is
+#' intercept + mean(u), so column 1 also puts weight 1/K on every u_g.
 #'
 #' @param configs `fit$misc$configs` from an INLA fit.
-#' @param effect_names Names of scalar latent effects.
-#' @return Integer indices into each configuration's mean vector and Q.
+#' @param n_latent Length of each configuration's latent mean vector.
+#' @param effect_names Names of the intercept and the relative offsets.
+#' @param gene_intercept_name Name of the auxiliary gene-intercept effect, or
+#'   NULL in observed mode.
+#' @return List with the sparse `n_latent` x R matrix `map` and `state_rows`,
+#'   the latent positions of the intercept and the offsets.
 #' @noRd
-pi_latent_indices <- function(configs, effect_names) {
+pi_regional_state_map <- function(configs, n_latent, effect_names,
+                                  gene_intercept_name = NULL) {
   contents <- configs$contents
   starts <- contents$start
 
@@ -156,7 +161,25 @@ pi_latent_indices <- function(configs, effect_names) {
   if (anyNA(selected) || any(contents$length[selected] != 1L)) {
     stop("Cannot identify intercept and regional offsets in INLA configuration.")
   }
-  starts[selected]
+  rows <- starts[selected]
+  cols <- seq_along(effect_names)
+  values <- rep(1, length(effect_names))
+
+  if (!is.null(gene_intercept_name)) {
+    block <- match(gene_intercept_name, contents$tag)
+    if (is.na(block)) stop("Cannot identify the gene intercepts in INLA configuration.")
+    n_genes <- contents$length[block]
+    rows <- c(rows, starts[block] + seq_len(n_genes) - 1L)
+    cols <- c(cols, rep(1L, n_genes))
+    values <- c(values, rep(1 / n_genes, n_genes))
+  }
+
+  if (any(rows < 1L | rows > n_latent)) {
+    stop("INLA compact precision and mean layout do not agree.")
+  }
+  list(map = Matrix::sparseMatrix(i = rows, j = cols, x = values,
+                                  dims = c(n_latent, length(effect_names))),
+       state_rows = starts[selected])
 }
 
 
@@ -200,13 +223,16 @@ pi_absolute_mean_transform <- function(n_regions) {
 #' @param region_spots Number of spots per region.
 #' @param intercept_name Name of the baseline intercept latent effect.
 #' @param regional_offset_names Names of the relative offsets mu_r2..mu_rR.
+#' @param gene_intercept_name Name of the auxiliary gene-intercept effect in
+#'   adjusted mode, NULL in observed mode.
 #' @return A list with `configurations` (each with `mu`, `covariance`, `tau2`,
 #'   `theta`), normalised `weights`, region information and a
 #'   `marginal_diagnostic` table comparing mixture moments with INLA's own
 #'   marginals.
 #' @noRd
 pi_extract_joint <- function(fit, region_labels, region_spots,
-                             intercept_name, regional_offset_names) {
+                             intercept_name, regional_offset_names,
+                             gene_intercept_name = NULL) {
   started <- proc.time()[["elapsed"]]
 
   configs <- fit$misc$configs
@@ -218,7 +244,9 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
   }
 
   n_regions <- length(region_labels)
-  indices <- pi_latent_indices(configs, c(intercept_name, regional_offset_names))
+  states <- pi_regional_state_map(configs, nrow(configs$config[[1]]$Q),
+                                  c(intercept_name, regional_offset_names),
+                                  gene_intercept_name)
   to_absolute <- pi_absolute_mean_transform(n_regions)
   weights <- pi_configuration_weights(configs)
   precision_tags <- paste0("Log precision for gene_r", seq_len(n_regions))
@@ -227,9 +255,11 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
   max_skewness <- 0
 
   for (k in seq_along(weights)) {
+    # Release the previous configuration's sparse factorisation first.
+    gc(FALSE)
     config <- configs$config[[k]]
     if (length(config$improved.mean) != nrow(config$Q) ||
-        any(indices < 1L | indices > nrow(config$Q))) {
+        nrow(states$map) != nrow(config$Q)) {
       stop("INLA compact precision and mean layout do not agree.")
     }
 
@@ -241,7 +271,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     tau2 <- exp(-config$theta[precision_index])
     if (any(!is.finite(tau2) | tau2 <= 0)) stop("Invalid regional variance.")
 
-    covariance <- pi_selected_covariance(config$Q, indices)
+    covariance <- pi_selected_covariance(config$Q, states$map)
     if (any(!is.finite(covariance)) || any(diag(covariance) <= 0)) {
       stop("Invalid selected covariance.")
     }
@@ -249,13 +279,14 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     # Transform (baseline intercept, relative offsets) to absolute regional
     # states only for the directional probability integration.
     mixture[[k]] <- list(
-      mu = as.numeric(to_absolute %*% config$improved.mean[indices]),
+      mu = as.numeric(to_absolute %*%
+                        as.numeric(Matrix::crossprod(states$map, config$improved.mean))),
       covariance = to_absolute %*% covariance %*% t(to_absolute),
       tau2 = as.numeric(tau2),
       theta = config$theta
     )
 
-    skewness <- config$skewness[indices]
+    skewness <- config$skewness[states$state_rows]
     if (any(is.finite(skewness))) {
       max_skewness <- max(max_skewness, abs(skewness[is.finite(skewness)]))
     }
