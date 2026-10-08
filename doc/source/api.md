@@ -250,7 +250,10 @@ A list with
   spatial variance `sigma_s2` and noise variance `sigma_e2`. In adjusted mode
   the regional means are composition-adjusted states named
   `adjusted_state_r1`, …, and `sigma_e2` is replaced by the NB size
-  `nb_size0` and its inverse `alpha0`.
+  `nb_size0` and its inverse `alpha0`. Intervals of these variance
+  parameters are computed from INLA's internal-scale marginals (log precision,
+  log size) and then transformed, because the user-scale precision marginals
+  can be too skewed for accurate quantiles.
 - `mean_contrasts`: differences of regional means, each region against the
   rest (`dmu_<r>_vs_rest`) and every pair (`dmu_<r>_vs_<s>`), with
   `p_gt_zero` and `lfsr`.
@@ -261,6 +264,9 @@ A list with
   composition slopes `lambda_g` of each gene; `NULL` in observed mode.
 - `fixed_marginals`, `hyper_marginals`, `contrast_marginals`, `metadata`,
   `warnings`.
+- `internal_hyper_marginals`: INLA's `internal.marginals.hyperpar`, the
+  hyperparameter marginals on the internal scale, in the same order as
+  `hyper_marginals`.
 
 `score` is the posterior mean of π, the probability that a gene's expression
 state in the region exceeds that in the reference; 0.5 means no difference.
