@@ -69,13 +69,13 @@ We applied this mode to the WM-versus-rest comparison for the same 20 gene sets 
 
 [Figure 2. WM-versus-rest π scores and posterior evidence of the 20 DLPFC gene sets in the observed and composition-adjusted modes](benchmark/analysis/DLPFC/figure/adjust_vs_observe.png)
 
-### SpaPath builds a three-dimensional atlas of pathway activity in the mouse brain
+### SpaPath maps pathway activity across the 3D mouse brain
 
 We next applied SpaPath to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of an adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3), with every spot assigned to an anatomical region. We analyzed the left hemisphere across 122 sections spanning 0.25–12.65 mm along the anterior–posterior axis, with adjacent sections a median of 100 µm apart (Methods). By fitting all sections jointly with a three-dimensional spatial field, we built a three-dimensional brain atlas of regional pathway activity.
 
 [TODO: results]
 
-### SpaPath reveals [TODO] in the triple-negative breast cancer microenvironment
+### SpaPath reveals [TODO] in breast cancer
 Data: 
 [Integrative spatial omics reveals distinct tumor-promoting multicellular niches and immunosuppressive mechanisms in Black American and White American patients with TNBC. (Zhu et al.)](https://www.nature.com/articles/s41467-025-61034-3)  [data](https://zenodo.org/records/15247064) 
 > This dataset contains the 10X Visium Spatial Transcriptomic data of TNBC patients. There are two cohorts. Baylor Scott and White (BSW) cohort: `10x.visium.tar.gz`, containing 10 patients with TNBC from Baylor Scott and White affiliated Hospital. Each sample is made of Space Ranger processed spot-separated gene expression data (processed to HDF5 AnnData file). There are also H&E images, and spot coordinate files available. 
