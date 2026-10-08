@@ -4,7 +4,7 @@ work_dir <- "../../analysis/DLPFC"
 data_dir <- file.path(work_dir, "data")
 out_dir <- file.path(work_dir, "GSVA")
 
-x <- readRDS(file.path(data_dir, "processed_data.rds"))
+x <- readRDS(file.path(data_dir, "pearson_residuals.rds"))
 
 gmt <- strsplit(readLines(file.path(data_dir, "DLPFC_brain_and_reference.gmt")),"\t")
 
