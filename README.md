@@ -205,7 +205,7 @@ All methods started from the same SCTransform fit of the raw counts (REF). GSDen
 
 #### GSVA
 
-GSVA scored each pathway in each spot from the SCTransform Pearson residuals, estimating the cumulative distribution of each gene across spots directly from the empirical distribution without kernel smoothing. Because the scores of neighbouring spots are spatially autocorrelated, we tested target-versus-rest differences in mean score with a two-sided spatial block bootstrap. Spot coordinates were scaled to the unit square and divided into 85 square blocks of side 0.10, and the blocks were resampled with replacement 1,999 times, each keeping the scores and region labels of its spots. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets tested in each dataset.
+GSVA scored each pathway in each spot from the SCTransform Pearson residuals, estimating the cumulative distribution of each gene across spots directly from the empirical distribution without kernel smoothing. Because the scores of neighbouring spots are spatially autocorrelated, we tested target-versus-rest differences in mean score with a two-sided spatial block bootstrap. Spot coordinates were scaled to the unit square and divided into 85 square blocks of side 0.10, and the blocks were resampled with replacement 1,999 times. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets tested in each dataset.
 
 #### STpathway
 
