@@ -209,7 +209,7 @@ GSVA scored each pathway in each spot from the SCTransform Pearson residuals wit
 
 #### STpathway
 
-STpathway computed the distance correlation (dCor) between the Pearson residuals of a set's genes in the target region and in the remaining spots, with 199 permutations. A lower dCor indicates a larger regional difference and carries no direction.
+STpathway treats the genes of a set as observations and represents each gene by two vectors, its Pearson residuals across the target spots and across the remaining spots. It computes the distance correlation (dCor) between the two vectors over the genes of the set and tests their dependence with 199 permutations. A high dCor indicates that the genes keep their relative expression between the two regions, whereas a lower dCor indicates a larger regional difference. The statistic carries no direction.
 
 #### GSDensity
 
