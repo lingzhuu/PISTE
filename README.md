@@ -71,7 +71,7 @@ We applied this mode to the WM-versus-rest comparison for the same 20 gene sets 
 
 ### Three-dimensional pathway activity in the mouse brain
 
-We next applied SpaPath to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of one adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3) and every spot was assigned to an anatomical region. We analyzed the left hemisphere of 122 sections spanning 0.25 to 12.65 mm along the anterior–posterior axis (Methods). Adjacent sections are about 100 µm apart, so spots are spatially dependent across sections as well as within them, and SpaPath was therefore fitted with a spatial field defined in three dimensions (Methods).
+We next applied SpaPath to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of an adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3), with every spot assigned to an anatomical region. We analyzed the left hemisphere across 122 sections spanning 0.25–12.65 mm along the anterior–posterior axis, with adjacent sections a median of 100 µm apart (Methods). We fitted all sections jointly with a three-dimensional spatial field and thereby built a three-dimensional atlas of regional pathway activity across the left hemisphere.
 
 [TODO: results]
 
