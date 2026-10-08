@@ -1,7 +1,4 @@
-# Gaussian target-vs-rest PathwayLGM fits for all pathways.
-# Products: one directory per pathway under
-# base/PathwayLGM_oracle_one_sided_baseline_0.4.0/Gaussian/ (screen_write output,
-# screen_summary.rds).
+# Target-vs-rest PathwayLGM fits for all pathways.
 
 # ---- config ---------------------------------------------------------------------
 work_dir <- "../../analysis/DLPFC"
