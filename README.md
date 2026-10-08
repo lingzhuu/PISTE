@@ -34,7 +34,7 @@ SpaPath can be run in two modes. The observed mode fits a Gaussian model to norm
 - GSDensity [paper](https://www.nature.com/articles/s41467-023-44206-x)
   > Here, we present GSDensity, a graph-modeling approach that allows users to obtain pathway-centric interpretation and dissection of single-cell and spatial transcriptomics (ST) data without performing clustering. Using pathway gene sets, we show that GSDensity can accurately detect biologically distinct cells and reveal novel cell-pathway associations ignored by existing methods. 
   
-We generated two simulated datasets with different random seeds to benchmark SpaPath against three representative pathway-analysis workflows: GSVA, the gene-set scoring approach popularized in single-cell RNA sequencing, tested here with a spatial block bootstrap region test; STpathway, a distance-correlation (dCor) test for region-associated pathways; and GSDensity, evaluated by its published region enrichment test on dichotomized spot activity. Each dataset was built on the real spot coordinates of DLPFC section 151673 and comprised 40 non-overlapping 100-gene sets spanning five spatial activity patterns, with the number K of genes responding to the activity map prespecified for each gene set (Methods). To assess sensitivity to panel size, we also analyzed panels of 30 and 40 of the 50 gene sets in each dataset.
+We generated seven simulated datasets with different random seeds to benchmark SpaPath against three representative pathway-analysis workflows: GSVA, the gene-set scoring approach popularized in single-cell RNA sequencing, tested here with a spatial block bootstrap region test; STpathway, a distance-correlation (dCor) test for region-associated pathways; and GSDensity, evaluated by its published region enrichment test on dichotomized spot activity. Each dataset was built on the real spot coordinates of DLPFC section 151673 and comprised 40 non-overlapping 100-gene sets spanning five spatial activity patterns, with the number K of genes responding to the activity map prespecified for each gene set (Methods). To assess sensitivity to panel size, we also analyzed a panel of 30 of the 40 gene sets in each dataset.
 
 Across the eight groups defined by K and effect distribution, the existing methods did not provide discriminative region-level evidence. 
 GSDensity's region test reflected strong simulated pathway activity: as activity increased, the difference in high-activity spot proportions between target and rest increased whereas the region p-value decreased. The pass rate of GSDensity's coherence pre-filter increased with the prespecified pathway activity; however, of the 100 prespecified gene sets, only 35 passed this filter, which checks whether a set's genes cluster in the embedding space and whether its PAL activity scores are reliable. Following the original publication, we report its region test only for those passing sets. Among these sets, the median region p in the broad, weak-effect setting was 3.6 × 10⁻⁵ at K = 31 to 60 and 0.011 at K = 61 to 100, but not in the narrow, strong-effect setting, where the median p was 0.247 at K = 31 to 60 and 0.082 at K = 61 to 100. Additionally, in the high-K groups of the narrow, strong-effect setting, fewer than 1% of spots were labeled highly active in either target or rest, and the region p-value was therefore not meaningful.
@@ -129,27 +129,25 @@ where $\beta$ are covariate effects shared by all genes and $\mu_r$ is the mean 
 
 #### Negative binomial model for the composition-adjusted mode
 
-In the composition-adjusted mode, SpaPath models the raw counts $C_{ig}$. Let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The log expression expected from composition alone and its within-gene centered version are
+In the composition-adjusted mode, SpaPath models the raw counts $C_{ig}$. Let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The expression of gene $g$ in spot $i$ expected from composition alone is
 
 $$
-o_{ig}=\log\Big(\sum_k\omega_{ik}\nu_{kg}+\varepsilon\Big),
+m_{ig}=\sum_k\omega_{ik}\nu_{kg},
+$$
+
+and SpaPath fits
+
+$$
+C_{ig}\sim\mathrm{NB}(\eta_{ig},\phi_g),
 \qquad
-\tilde o_{ig}=o_{ig}-\frac{1}{N}\sum_{i'=1}^{N}o_{i'g},
+\log\eta_{ig}=\log d_i+\lambda_g\log m_{ig}+X_i^T\beta+a_g+\mu_{r(i)}+b_{g,r(i)}+w_g(s_i),
 $$
 
-where $\varepsilon$ is a small constant that keeps the logarithm finite for genes not detected in the reference. SpaPath then fits
-
-$$
-C_{ig}\sim\mathrm{NB}(\eta_{ig},\phi),
-\qquad
-\log\eta_{ig}=\log d_i+\tilde o_{ig}+X_i^T\beta+a_g+\mu_{r(i)}+b_{g,r(i)}+w_g(s_i),
-$$
-
-where $\eta_{ig}$ is the expected count, $d_i$ is the total count of spot $i$, $\phi$ is an overdispersion parameter shared by all genes and $a_g$ is a gene intercept, with all other terms as in the Gaussian model. Because composition determines expression on the count scale, it enters the log link exactly, and both $\log d_i$ and $\tilde o_{ig}$ are offsets with coefficients fixed at 1. A gene-specific difference in scale between the reference and the spatial data multiplies the expected count by a constant and is absorbed by $a_g$, which also removes each gene's baseline level, so that $b_{gr}$ describes deviations from the regional level rather than overall abundance. The regional means $\mu_r$ thus describe the regional difference that composition does not explain. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region. Like the Gaussian model, it has $R+2$ hyperparameters.
+where $\eta_{ig}$ is the expected count, $d_i$ is the total count of spot $i$, $\lambda_g$ is a composition coefficient and $a_g$ is a gene intercept, with all other terms as in the Gaussian model. Because composition determines expression on the count scale, it enters through the log link, and $\log d_i$ is an offset. The coefficient $\lambda_g$ is estimated for each gene with a prior centered at 1, so that the model starts from the exact mixture but allows the relation between the reference and the spatial data to differ across genes. A gene-specific difference in scale between the reference and the spatial data multiplies the expected count by a constant and is absorbed by $a_g$, which also removes each gene's baseline level, so that $b_{gr}$ describes deviations from the regional level rather than overall abundance. Genes with $m_{ig}=0$ in any spot are removed before fitting. The size parameter of gene $g$ is $\phi_g=\phi S_g$, where $S_g$ is the inverse of its DESeq2 dispersion estimated on the whole transcriptome (REF), scaled to a geometric mean of 1, and $\phi$ is shared by all genes. The regional means $\mu_r$ thus describe the regional difference that composition does not explain. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region. Like the Gaussian model, it has $R+2$ hyperparameters.
 
 #### Priors and posterior inference
 
-Fixed effects, including the regional means and the gene intercepts, have $N(0,10^2)$ priors. The regional log precisions follow $\log(1/\tau_r^2)\sim N(0,3^2)$ and $\log\sigma_s\sim N(0,1)$ in both models, and the residual precision of the Gaussian model has a penalized-complexity prior with $P(\sigma_\epsilon>2)=0.05$. INLA integrates over the hyperparameters with the central composite design (CCD) (REF); because the number of design points grows quickly with the number of hyperparameters, SpaPath warns when it exceeds a user-set limit (10 by default). For each design point $k$ with normalized weight $q_k$, INLA gives a Gaussian posterior $N(m_k,\Sigma_k)$ for the regional means together with the variances $\tau_{r,k}^2$, and the joint posterior of the regional means is approximated by the mixture of these Gaussians.
+Fixed effects, including the regional means and the gene intercepts, have $N(0,10^2)$ priors, and the composition coefficients have $\lambda_g\sim N(1,0.25^2)$. The regional log precisions follow $\log(1/\tau_r^2)\sim N(0,3^2)$ and $\log\sigma_s\sim N(0,1)$ in both models, the residual precision of the Gaussian model has a penalized-complexity prior with $P(\sigma_\epsilon>2)=0.05$, and the shared size parameter of the negative binomial model has $\log\phi\sim N(\log 10,1.5^2)$. INLA integrates over the hyperparameters with the central composite design (CCD) (REF); because the number of design points grows quickly with the number of hyperparameters, SpaPath warns when it exceeds a user-set limit (10 by default). For each design point $k$ with normalized weight $q_k$, INLA gives a Gaussian posterior $N(m_k,\Sigma_k)$ for the regional means together with the variances $\tau_{r,k}^2$, and the joint posterior of the regional means is approximated by the mixture of these Gaussians.
 
 #### Directional pathway score and posterior evidence
 
@@ -163,7 +161,7 @@ together with the posterior evidence $P(\pi_{rs}>0.5\mid Y)$, which equals $P(\m
 
 ### Simulation framework
 
-We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 40 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 5,000 background genes with no spatial effect. Two independent datasets were generated with different random seeds.
+We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 40 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 5,000 background genes with no spatial effect. Seven independent datasets were generated with different random seeds.
 
 The 40 test pathways cover the full factorial of four response-size groups, five spatial-pattern classes and two effect-size distributions. For pathway $p$, the number of responsive genes $K_p$ among its 100 members was drawn uniformly from one of four ranges, 0–10, 11–30, 31–60 or 61–100, and the remaining $100-K_p$ members were left unresponsive. Pathways in the 0–10 group serve as null and weak-signal controls.
 
@@ -184,7 +182,7 @@ E_g \sim \begin{cases}
 \end{cases}
 $$
 
-Response direction was assigned before count generation, with $d_g=+1$ for target-upregulated and $d_g=-1$ for target-downregulated genes. To mimic the heterogeneous composition of real pathways, each responsive gene was downregulated with probability 0.4 when $K_p\le 10$ and with probability $0.4\exp\{-(K_p-10)/18\}$ otherwise, so that pathways with fewer responsive genes contain a larger share of genes responding in the opposite direction. Background SVGs were assigned a random direction and an effect from the broad and weak distribution.
+Response direction was assigned before count generation, with $d_g=+1$ for target-upregulated and $d_g=-1$ for target-downregulated genes. To mimic the heterogeneous composition of real pathways, $\lfloor 0.4\sqrt{K_p}\rfloor$ randomly chosen responsive genes of each pathway were downregulated and the others upregulated, so that pathways with fewer responsive genes contain a larger share of genes responding in the opposite direction. Background SVGs were assigned a random direction and an effect from the broad and weak distribution.
 
 Raw read counts were then generated from a negative binomial model,
 
@@ -199,7 +197,7 @@ $$
 
 where $b_g\ge 0$ was calibrated numerically so that the target-versus-rest log2 fold change of the depth-corrected mean $m_g\exp(d_g b_g H_{ig})$ equals $d_g E_g$, and $b_g=0$ for genes without a spatial effect. The baseline mean $m_g$ and dispersion $\theta_g$ were estimated jointly from the observed counts of section 151673 by an intercept-only DESeq2 fit (REF), and each simulated gene received one intact empirical pair, sampled without replacement from the genes detected in at least 100 spots, so that the simulated data preserve the mean–dispersion relationship of Visium data. The spot depth factors $c_i$ are the DESeq2 size factors of the same section, randomly permuted across spots and rescaled to a geometric mean of 1.
 
-For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of the ten strata defined by effect-size distribution and response-size group, with spatial-pattern classes balanced, so that the 30-set panel was strictly nested within the 40-set panel, and the same gene sets were used in both simulated datasets. The underlying simulated expression data were identical across panel sizes.
+For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of the eight strata defined by effect-size distribution and response-size group, with spatial-pattern classes balanced, and the same 30 gene sets were used in all simulated datasets. The underlying simulated expression data were identical across panel sizes.
 
 ### Compared methods and benchmarking
 
