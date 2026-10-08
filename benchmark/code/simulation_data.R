@@ -5,8 +5,8 @@
 #   Var(Y_gi) = mu_gi + mu_gi^2 / theta_g
 #
 # (m_g, theta_g, c_i) come from real DLPFC 151673 via estimate_reference.R.
-# Genes 1-5,000: 50 disjoint pathways of 100 (5 response sizes x 5 activity
-# patterns x 2 effect profiles). Genes 5,001-10,000: background, 1,000 with
+# Genes 1-4,000: 40 disjoint pathways of 100 (4 response sizes x 5 activity
+# patterns x 2 effect profiles). Genes 4,001-10,000: background, 1,000 with
 # independent radial effects. sigma_eta = 0.
 
 # ---- config ---------------------------------------------------------------------
@@ -15,9 +15,9 @@ out_root <- "../../analysis/simulation_data"
 seeds    <- c(2020L, 2021L, 2022L, 2023L, 2024L, 2025L, 2026L)   # benchmark seeds
 
 n_genes      <- 10000L
-n_pathways   <- 50L
+n_pathways   <- 40L
 pathway_size <- 100L
-n_bg_genes   <- n_genes - n_pathways * pathway_size   # 5,000 background genes
+n_bg_genes   <- n_genes - n_pathways * pathway_size   # 6,000 background genes
 n_bg_svg     <- 1000L    # background genes with a radial spatial effect
 matern_ell   <- 0.25     # range of the Matern-3/2 field used for gradient maps
 
@@ -45,7 +45,7 @@ coefficient_for_fc <- function(A, target, sign, L) {
 # Number of responsive genes, drawn uniformly within the pathway's group.
 draw_K <- function(group) {
   bounds <- switch(group,
-    K0_4    = 0:4,   K5_10   = 5:10,  K11_30 = 11:30,
+    K0_10   = 0:10,  K11_30  = 11:30,
     K31_60  = 31:60, K61_100 = 61:100,
     stop("Unknown response group"))
   sample(bounds, 1L)
@@ -92,14 +92,14 @@ generate_dataset <- function(seed, out) {
   gene_ids <- paste0("g", seq_len(n_genes))
   rownames(param) <- gene_ids
 
-  # The first 5,000 genes form 50 pathways of 100 genes each.
+  # The first 4,000 genes form 40 pathways of 100 genes each.
   pathways <- split(gene_ids[seq_len(n_pathways * pathway_size)],
                     rep(sprintf("P%02d", seq_len(n_pathways)),
                         each = pathway_size))
 
-  # -- pathway design: 5 response sizes x 5 activity patterns x 2 effect profiles --
+  # -- pathway design: 4 response sizes x 5 activity patterns x 2 effect profiles --
   design <- expand.grid(
-    response_group = c("K0_4", "K5_10", "K11_30", "K31_60", "K61_100"),
+    response_group = c("K0_10", "K11_30", "K31_60", "K61_100"),
     spatial_class  = c("domain", "gradient", "radial", "hotspot", "interface"),
     effect_profile = c("broad_weak", "narrow_strong"),
     KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
@@ -210,7 +210,7 @@ generate_dataset <- function(seed, out) {
     design$n_down[p] <- n_down
   }
 
-  # -- background genes: 1,000 with independent radial effects, 4,000 flat --------
+  # -- background genes: 1,000 with independent radial effects, 5,000 flat --------
   background_svg <- logical(n_genes)
   bg_center_x <- rep(NA_real_, n_genes)
   bg_center_y <- rep(NA_real_, n_genes)
