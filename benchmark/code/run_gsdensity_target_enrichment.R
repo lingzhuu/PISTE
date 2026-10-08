@@ -2,9 +2,7 @@
 # Per pathway, a 2x2 table (target/rest x positive/negative label) is tested
 # with chisq.test(correct = TRUE), the Pearson chi-square with Yates
 # continuity correction (R default for 2x2 tables), then BH-adjusted across
-# pathways. Constant labels make the test unavailable and give NA, not a
-# fabricated p. Saves gsdensity_target_enrichment_scores.csv, one row per
-# pathway.
+# pathways.
 
 # ---- config ---------------------------------------------------------------------
 work_dir <- "../../analysis/DLPFC"
