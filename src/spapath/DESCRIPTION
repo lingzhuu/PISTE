@@ -10,7 +10,7 @@ Description: Fits Gaussian spatial pathway models with a shared baseline
     intercept, relative regional effects, conditionally independent regional
     gene effects and replicated gene-specific spatial fields. Computes
     directional pathway probabilities and posterior evidence using compact
-    CCD configuration mixtures. Includes checked positive marginal summaries.
+    CCD configuration mixtures.
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
@@ -18,6 +18,5 @@ Imports: INLA, Matrix, stats, utils, qrng
 Suggests: fmesher
 Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
-    'positive_summary.R'
     'pi_engine.R'
     'inla_screen.R'

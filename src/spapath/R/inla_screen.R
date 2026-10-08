@@ -543,17 +543,12 @@ screen_joint_fit <- function(Y, xy, region, mesh, h, family = "gaussian",
 
 #' Mean and 95% interval of `transform(x)` for an INLA marginal
 #'
-#' Strictly positive marginals are routed to the checked log-scale integrator
-#' `positive_marginal_summary()`. Set `decreasing = TRUE` for a decreasing
-#' `transform` (e.g. precision -> variance) so the interval ends are swapped.
+#' Set `decreasing = TRUE` for a decreasing `transform` (e.g. log precision
+#' -> variance) so the interval ends are swapped.
 #'
 #' @return Named vector `c(mean, lower, median, upper)`.
 #' @noRd
 screen_marginal_summary <- function(m, transform = identity, decreasing = FALSE) {
-  if (all(m[, 1] > 0)) {
-    return(positive_marginal_summary(m, transform, decreasing))
-  }
-
   quantiles <- inla.qmarginal(c(.025, .5, .975), m)
   if (decreasing) quantiles <- rev(quantiles)
   c(mean = inla.emarginal(transform, m),
@@ -599,30 +594,55 @@ screen_fixed_effect_table <- function(fit, metadata) {
 }
 
 
+#' Internal-scale marginal of a hyperparameter
+#'
+#' INLA integrates over the hyperparameters on their internal scale (log
+#' precision, Theta1), where the marginals are much less skewed and well
+#' covered by INLA's grid. On the user scale a precision marginal can be
+#' extremely right-skewed, so its quantiles are computed here from the
+#' internal marginal and transformed afterwards. `internal.marginals.hyperpar`
+#' lists the hyperparameters in the same order as `marginals.hyperpar`, so
+#' the internal marginal is looked up by the user-scale name.
+#' @noRd
+screen_internal_marginal <- function(fit, name) {
+  internal <- fit$internal.marginals.hyperpar
+  j <- match(name, names(fit$marginals.hyperpar))
+  if (is.na(j) || length(internal) != length(fit$marginals.hyperpar)) {
+    stop("INLA did not return the internal marginal of '", name, "'.")
+  }
+  internal[[j]]
+}
+
+
 #' Variance components on the variance scale
 #'
-#' tau2_r = 1 / precision of gene_r, sigma_s2 = exp(2 * Theta1) for the
-#' spatial field and sigma_e2 = 1 / Gaussian observation precision.
+#' Summarised from the internal-scale marginals (see
+#' `screen_internal_marginal()`): tau2_r = exp(-log precision of gene_r),
+#' sigma_s2 = exp(2 * Theta1) for the spatial field and sigma_e2 =
+#' exp(-log Gaussian observation precision).
 #' @noRd
 screen_variance_table <- function(fit, n_regions) {
   hyper_names <- c(paste0("Precision for gene_r", seq_len(n_regions)),
                    "Theta1 for spatial")
   names(hyper_names) <- c(paste0("tau2_r", seq_len(n_regions)), "sigma_s2")
 
+  inverse_exp <- function(theta) exp(-theta)
+  summarise <- function(parameter, name, transform, decreasing) {
+    summary <- screen_marginal_summary(screen_internal_marginal(fit, name),
+                                       transform, decreasing)
+    data.frame(parameter = parameter, t(summary), row.names = NULL)
+  }
+
   table <- NULL
   for (j in seq_along(hyper_names)) {
     is_precision <- j <= n_regions
-    transform <- if (is_precision) function(x) 1 / x else function(x) exp(2 * x)
-    summary <- screen_marginal_summary(fit$marginals.hyperpar[[hyper_names[j]]],
-                                       transform, is_precision)
-    table <- rbind(table, data.frame(parameter = names(hyper_names)[j],
-                                     t(summary), row.names = NULL))
+    transform <- if (is_precision) inverse_exp else function(theta) exp(2 * theta)
+    table <- rbind(table, summarise(names(hyper_names)[j], hyper_names[[j]],
+                                    transform, is_precision))
   }
 
-  noise <- screen_marginal_summary(
-    fit$marginals.hyperpar[["Precision for the Gaussian observations"]],
-    function(x) 1 / x, TRUE)
-  rbind(table, data.frame(parameter = "sigma_e2", t(noise)))
+  rbind(table, summarise("sigma_e2", "Precision for the Gaussian observations",
+                         inverse_exp, TRUE))
 }
 
 
@@ -730,6 +750,7 @@ screen_summarize <- function(result) {
     ),
     fixed_marginals = fit$marginals.fixed,
     hyper_marginals = fit$marginals.hyperpar,
+    internal_hyper_marginals = fit$internal.marginals.hyperpar,
     contrast_marginals = fit$marginals.lincomb.derived,
     metadata = metadata,
     warnings = fit$misc$warnings,
