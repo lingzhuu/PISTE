@@ -69,23 +69,11 @@ We applied this mode to the WM-versus-rest comparison for the same 20 gene sets 
 
 [Figure 2. WM-versus-rest π scores and posterior evidence of the 20 DLPFC gene sets in the observed and composition-adjusted modes](benchmark/analysis/DLPFC/figure/adjust_vs_observe.png)
 
-### Whole Mouse brain
-Data: [Single-cell spatial transcriptomic atlas of the whole mouse brain. (Han et al.)](https://www.cell.com/neuron/abstract/S0896-6273(25)00133-3)
+### Three-dimensional pathway activity in the mouse brain
 
-Using single-nucleus RNA sequencing (snRNA-seq) and Stereo-seq, genome-wide coverage. 
-> Coronal sections (10-μm thick) of the left hemisphere were prepared at 100-μm intervals, producing 123 sections (after quality control) with expression profiles for 29,655 genes, covering 95.5% of annotated protein-coding and non-coding genes. We defined the boundary of each cell based on the image of single-stranded DNA (ssDNA). A total of 4,229,623 cells were characterized in one mouse brain, with an average of 1,267 molecular identifiers (MIDs) and 668 detected genes per cell. Moreover, we manually segmented the brain areas for each section based on cytoarchitectural pattern and brain region delineation in ABA common coordinate framework (CCFv3)27.
+We next applied SpaPath to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of one adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3) and every spot was assigned to an anatomical region. We analyzed the left hemisphere of 122 sections spanning 0.25 to 12.65 mm along the anterior–posterior axis (Methods). Adjacent sections are about 100 µm apart, so spots are spatially dependent across sections as well as within them, and SpaPath was therefore fitted with a spatial field defined in three dimensions (Methods).
 
-The processed data can be downloaded in [Whole Mouse brain data](https://www.braindatacenter.cn/datacenter/web/#/dataSet/details?id=1888062851995131906). Raw data available upon request. 
-
-The author has performed quality control steps, including:
-
-- 去除 7 张捕获异常切片、5 张低质量切片，最终保留 195 张
-- 用 SAW 处理原始序列，过滤低质量 UMI、进行基因组比对和 UMI 去重
-- 使用检测基因数 100、线粒体比例 15% 两个阈值进行筛选，去除 20,019 个细胞，保留 4,209,604 个高质量细胞
-- Bin100: 过滤低基因数、高线粒体比例的 bin，然后进行 SCTransform
-
-For the normalized data using SCTransform, we model the transformed expression values using a Gaussian distribution.
-
+[TODO: results]
 
 ### Tumor microenvironment
 Data: 
@@ -214,3 +202,9 @@ STpathway was run with the authors' code on the Pearson residuals of the genes i
 GSDensity was run with the authors' functions. The pathway activity of each spot was computed by random walk with restart on a 300-nearest-neighbour graph, the coherence of each set was tested against 100 size-matched random gene sets, and sets with Benjamini–Hochberg q < 0.05 within each dataset were retained. For these sets, spots were labelled as highly active or not, and the proportions of highly active spots in the target region and the remaining spots were compared by a chi-squared test with continuity correction. P-values were adjusted by the Benjamini–Hochberg procedure across the retained gene sets in each dataset.
 
 For SpaPath, we report the π score and posterior evidence of the target region versus the rest of the tissue, as defined in Directional pathway score and posterior evidence.
+
+### Mouse whole-brain data
+
+We used mouse 1 of the adult mouse whole-brain Stereo-seq atlas (REF), whose 123 coronal sections were registered to CCFv3 by the authors, with each spot assigned to a CCFv3 structure and hemisphere. We kept the spots of the left hemisphere, because the right hemisphere was truncated unevenly across sections, whereas the left-hemisphere tissue area of every section was 0.87 to 1.14 times the CCFv3 hemisphere area at the same position. Spots without a region label, which lie outside the registered brain, were removed. Section T350 was excluded because its recorded position of 10.64 mm placed it after T351, whereas its tissue outline matched the neighbouring section T349. The remaining 122 sections are 40 to 270 µm apart (median 100 µm). Spots were aggregated into 100-µm bins within each section. [TODO: normalization, region comparisons and gene sets.]
+
+The spatial field of each gene was defined on a tetrahedral mesh of the left hemisphere, built from the CCFv3 left-hemisphere mask together with all observed bins so that every bin lies inside the mesh, following mgcvST (REF). [TODO: mesh resolution, range of the spatial field and handling of section effects.]
