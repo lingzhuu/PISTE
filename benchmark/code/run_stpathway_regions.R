@@ -1,5 +1,5 @@
 # Run the STpathway predefined-area test on every pathway of one simulation
-# dataset and save the combined score table for downstream use:
+# dataset and save the score table:
 #   stpathway_region_scores.csv one row per pathway
 #
 # Per pathway, the SCT Pearson residuals of its genes are split into spots
