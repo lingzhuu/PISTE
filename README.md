@@ -189,17 +189,33 @@ For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of
 
 ### Compared methods and benchmarking
 
+#### Benchmarking design
+
 We benchmarked SpaPath against three representative pathway-analysis methods, GSVA (REF), STpathway (REF) and GSDensity (REF). [TODO: software versions and code sources.] Because the methods return statistics that are not directly comparable, each method's output was mapped onto a common question, whether a pathway differs between a target region and the remaining tissue, as detailed below.
 
-The benchmarking protocol was identical for simulated and real data, and only the dataset and the definition of the target region differed. On simulated data, the target region of each pathway was the one defined by its activity map, and each method's region-level statistic was compared with the prespecified pathway activity across the eight strata defined by response size and effect-size distribution, and separately across the five spatial-pattern classes. On the DLPFC data, all methods were applied to the 3,611 morphologically annotated spots of section 151673, with the 513 white matter (WM) spots as the target region and the remaining 3,098 spots as the rest. WM serves as a partial biological reference because myelin-related and oligodendrocyte-associated pathways are expected a priori to be WM-enriched (REF). The DLPFC panel consisted of 20 MSigDB gene sets spanning synaptic transmission (n = 6), voltage-gated potassium channel activity (n = 1), oxidative phosphorylation (n = 1), myelination (n = 3), lipid metabolism (n = 4), and basal RNA/protein maintenance and DNA repair (n = 5). Sets were selected for size (16–210 detected genes in this section) and minimal redundancy (mean pairwise Jaccard index 0.008, maximum 0.19; Supplementary Table 2).
+The benchmarking protocol was identical for simulated and real data, and only the dataset and the definition of the target region differed. On simulated data, the target region of each pathway was the one defined by its activity map, and each method's region-level statistic was compared with the prespecified pathway activity across the eight strata defined by response size and effect-size distribution, and separately across the five spatial-pattern classes.
+
+#### DLPFC data
+
+On the DLPFC data, all methods were applied to the 3,611 morphologically annotated spots of section 151673, with the 513 white matter (WM) spots as the target region and the remaining 3,098 spots as the rest. WM serves as a partial biological reference because myelin-related and oligodendrocyte-associated pathways are expected a priori to be WM-enriched (REF). The DLPFC panel consisted of 20 MSigDB gene sets spanning synaptic transmission (n = 6), voltage-gated potassium channel activity (n = 1), oxidative phosphorylation (n = 1), myelination (n = 3), lipid metabolism (n = 4), and basal RNA/protein maintenance and DNA repair (n = 5). Sets were selected for size (16–210 detected genes in this section) and minimal redundancy (mean pairwise Jaccard index 0.008, maximum 0.19; Supplementary Table 2).
+
+#### Normalization
 
 All methods started from the same SCTransform fit of the raw counts (REF). GSDensity received the SCTransform-corrected counts, which its functions log-normalize before the embedding. GSVA, STpathway and SpaPath, run in the observed mode, received the Pearson residuals.
 
+#### GSVA
+
 GSVA scored each pathway in each spot from the SCTransform Pearson residuals with the default automatic kernel choice. Because the scores of neighbouring spots are spatially autocorrelated, tests that treat spots as independent inflate type I error. We therefore tested target-versus-rest differences in mean score with a two-sided spatial block bootstrap, which preserves local spatial dependence by resampling contiguous blocks rather than individual spots. Spot coordinates were scaled to the unit square and partitioned into 85 square blocks of side 0.10. Blocks were resampled with replacement 1,999 times, keeping scores and region labels within each block together, and the p-value was the proportion of centered bootstrap differences at least as large in absolute value as the observed difference, so that the smallest attainable p-value is 1/2,000. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets tested in each dataset.
+
+#### STpathway
 
 STpathway was run with the authors' code on the Pearson residuals of the genes in each set, computing the distance correlation (dCor) between their expression profiles in the target region and the remaining spots with 199 permutations. A lower dCor indicates a larger regional difference and carries no direction.
 
+#### GSDensity
+
 GSDensity was run with the authors' functions. The pathway activity of each spot was computed by random walk with restart on a 300-nearest-neighbour graph, the coherence of each set was tested against 100 size-matched random gene sets, and sets with Benjamini–Hochberg q < 0.05 within each dataset were retained. For these sets, spots were labelled as highly active or not, and the proportions of highly active spots in the target region and the remaining spots were compared by a chi-squared test with continuity correction. P-values were adjusted by the Benjamini–Hochberg procedure across the retained gene sets in each dataset.
+
+#### SpaPath
 
 For SpaPath, we report the π score and posterior evidence of the target region versus the rest of the tissue, as defined in Directional pathway score and posterior evidence.
 
