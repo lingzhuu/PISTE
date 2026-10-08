@@ -149,9 +149,15 @@ together with the posterior evidence $P(\pi_{rs}>0.5\mid Y)$, which equals $P(\m
 
 ### Simulation framework
 
+#### Tissue layout and genes
+
 We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 40 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 5,000 background genes with no spatial effect. Seven independent datasets were generated with different random seeds.
 
+#### Pathway design
+
 The 40 test pathways cover the full factorial of four response-size groups, five spatial-pattern classes and two effect-size distributions. For pathway $p$, the number of responsive genes $K_p$ among its 100 members was drawn uniformly from one of four ranges, 0–10, 11–30, 31–60 or 61–100, and the remaining $100-K_p$ members were left unresponsive. Pathways in the 0–10 group serve as null and weak-signal controls.
+
+#### Spatial activity patterns
 
 Each pathway was assigned a spatial activity map $A_i^{(p)}$, scaled to $[0,1]$, from one of five classes chosen to represent common tissue architectures. Discrete domains represent compartmentalized structures such as cortical layers, with piecewise-constant activity across three bands separated by randomly shifted, wavy boundaries. Smooth gradients represent continuous processes such as metabolic zonation and were drawn from a Gaussian random field with a Matérn covariance of smoothness 3/2 and range 0.25. Radial or niche-centered patterns represent niches centered on vessels or ducts, with activity decaying exponentially with distance from a randomly chosen spot at a scale drawn uniformly from 0.12 to 0.24. Localized hotspots represent focal structures such as tertiary lymphoid structures and consist of two Gaussian hotspots of widths 0.06 and 0.09 centered on randomly chosen spots. Interface-specific patterns represent tissue boundaries such as the tumor–stroma interface or an invasive front, with
 
@@ -160,6 +166,8 @@ A_i^{(p)} = \mathbb{1}(h_i \le 0.14)\exp(-h_i/0.06),
 $$
 
 where $h_i$ is the distance of spot $i$ to a sinusoidal boundary. The target region of each pathway is the most active band for domain maps, the 20% most active spots for gradient and radial maps, the spots with $A_i^{(p)}\ge 0.5$ for hotspot maps and the spots with $A_i^{(p)}>0$ for interface maps. Responsive genes inherit their pathway's activity map, $H_{ig}=A_i^{(p)}$, whereas unresponsive pathway genes and background genes without a spatial effect have $H_{ig}=0$. Each background SVG received its own radial activity map, generated independently of the test-pathway maps, to mimic the spatially structured background variation of real tissue.
+
+#### Effect sizes and response direction
 
 For each responsive gene $g$, the absolute target-versus-rest log2 fold change of the depth-corrected expected expression, $E_g>0$, was drawn from one of two log-normal distributions,
 
@@ -171,6 +179,8 @@ N(\log 0.9,\ 0.4^2), & \text{narrow and strong}.
 $$
 
 Response direction was assigned before count generation, with $d_g=+1$ for target-upregulated and $d_g=-1$ for target-downregulated genes. To mimic the heterogeneous composition of real pathways, $\lfloor 0.4\sqrt{K_p}\rfloor$ randomly chosen responsive genes of each pathway were downregulated and the others upregulated, so that pathways with fewer responsive genes contain a larger share of genes responding in the opposite direction. Background SVGs were assigned a random direction and an effect from the broad and weak distribution.
+
+#### Count generation
 
 Raw read counts were then generated from a negative binomial model,
 
@@ -184,6 +194,8 @@ $$
 $$
 
 where $b_g\ge 0$ was calibrated numerically so that the target-versus-rest log2 fold change of the depth-corrected mean $m_g\exp(d_g b_g H_{ig})$ equals $d_g E_g$, and $b_g=0$ for genes without a spatial effect. The baseline mean $m_g$ and dispersion $\theta_g$ were estimated jointly from the observed counts of section 151673 by an intercept-only DESeq2 fit (REF), and each simulated gene received one intact empirical pair, sampled without replacement from the genes detected in at least 100 spots, so that the simulated data preserve the mean–dispersion relationship of Visium data. The spot depth factors $c_i$ are the DESeq2 size factors of the same section, randomly permuted across spots and rescaled to a geometric mean of 1.
+
+#### Panel-size sensitivity
 
 For the panel-size sensitivity analysis, 3 or 4 gene sets were kept from each of the eight strata defined by effect-size distribution and response-size group, with spatial-pattern classes balanced, and the same 30 gene sets were used in all simulated datasets. The underlying simulated expression data were identical across panel sizes.
 
