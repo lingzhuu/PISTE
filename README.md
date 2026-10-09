@@ -26,7 +26,7 @@ SpaPath compares two regions $r$ and $s$ through the directional score $\pi_{rs}
 
 SpaPath can be run in two modes. The observed mode fits a Gaussian model to normalized expression and quantifies the total difference in pathway activity between regions, including differences that arise because the regions contain different cell types. The composition-adjusted mode fits a negative binomial model to raw counts. It includes the expression of each gene predicted from the cell-type proportions of each spot as a covariate with a gene-specific coefficient, so that the regional difference it reports is the part that cannot be explained by cell composition. We recommend running both modes, because together they distinguish pathways whose regional differences are driven by cell composition, which are supported only in the observed mode, from pathways that change within cell types, which remain supported after adjustment.
 
-### SpaPath detects weak pathway differences
+### SpaPath quantifies the strength of regional pathway differences
 
 - GSVA etc single cell pathway method in ST data
 - STpathway [paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/)

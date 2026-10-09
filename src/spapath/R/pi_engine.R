@@ -8,10 +8,17 @@
 # For two regions r and s we report
 #
 #   score    E[ pi_rs ]          with  pi_rs = P(Z_r > Z_s | mu, tau2)
+#                                     = Phi((mu_r - mu_s) /
+#                                           sqrt(tau2_r + tau2_s + kappa2_rs))
 #   evidence P( pi_rs > 0.5 )    i.e. the posterior probability that r is
 #                                enriched relative to s
 #
-# where the expectation / probability is over the posterior of the regional
+# kappa2_rs = sigma_e2 * (1 / n_r + 1 / n_s) is the measurement error of a
+# gene's regional means (n_r spots in region r). It keeps pi_rs near 0.5 when
+# both the regional difference and tau2 are at the noise level. The negative
+# binomial model has no sigma_e2, so there kappa2_rs = 0.
+#
+# The expectation / probability is over the posterior of the regional
 # means. That posterior is approximated by a mixture of multivariate Gaussians,
 # one per INLA CCD hyperparameter configuration (see `pi_extract_joint()`).
 #
@@ -30,6 +37,8 @@
 # ties (pi == 0.5) are detected reliably despite floating point round-off.
 PI_TIE_TOLERANCE <- 32 * .Machine$double.eps
 
+PI_ESTIMAND <- "Phi((mu_r - mu_s) / sqrt(tau2_r + tau2_s + kappa2_rs))"
+
 
 # -----------------------------------------------------------------------------
 # Conditional directional probability
@@ -43,10 +52,13 @@ PI_TIE_TOLERANCE <- 32 * .Machine$double.eps
 #' @param mr,ms Means of Z_r and Z_s.
 #' @param vr,vs Variances of Z_r and Z_s (must be > 0).
 #' @param covariance Cov(Z_r, Z_s).
+#' @param extra_variance Nonnegative variance added to Var(Z_r - Z_s), such as
+#'   the measurement error kappa2_rs.
 #' @return Probabilities in \[0, 1\].
 #' @noRd
-pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0) {
-  sizes <- lengths(list(mr, ms, vr, vs, covariance))
+pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0,
+                                    extra_variance = 0) {
+  sizes <- lengths(list(mr, ms, vr, vs, covariance, extra_variance))
   n <- max(sizes)
   if (n == 0L || any(!sizes %in% c(1L, n))) {
     stop("Probability inputs must be scalar or have a common positive length.")
@@ -57,8 +69,10 @@ pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0) {
   vr <- rep_len(vr, n)
   vs <- rep_len(vs, n)
   covariance <- rep_len(covariance, n)
+  extra_variance <- rep_len(extra_variance, n)
 
-  if (any(!is.finite(c(mr, ms, vr, vs, covariance))) || any(vr <= 0 | vs <= 0)) {
+  if (any(!is.finite(c(mr, ms, vr, vs, covariance, extra_variance))) ||
+      any(vr <= 0 | vs <= 0) || any(extra_variance < 0)) {
     stop("Means must be finite and variances positive.")
   }
   if (any(abs(covariance) > sqrt(vr * vs) + 1e-8)) {
@@ -66,7 +80,7 @@ pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0) {
   }
 
   # Z_r - Z_s is Gaussian; a positive difference is directional enrichment.
-  difference_variance <- vr + vs - 2 * covariance
+  difference_variance <- vr + vs - 2 * covariance + extra_variance
   if (any(difference_variance <= 0)) stop("Degenerate difference variance.")
 
   prob <- stats::pnorm((mr - ms) / sqrt(difference_variance))
@@ -77,15 +91,19 @@ pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0) {
 
 #' Conditional probability that the first pathway state exceeds the second
 #'
-#' Computes pi = P(Z_r > Z_s) for independent Gaussian pathway states
-#' Z_r ~ N(mu_r, tau2_r) and Z_s ~ N(mu_s, tau2_s).
+#' Computes pi = Phi((mu_r - mu_s) / sqrt(tau2_r + tau2_s + kappa2)) for
+#' independent Gaussian pathway states Z_r ~ N(mu_r, tau2_r) and
+#' Z_s ~ N(mu_s, tau2_s), where kappa2 is the measurement error of a gene's
+#' regional means.
 #'
 #' @param mu_r,mu_s Regional means.
 #' @param tau2_r,tau2_s Regional (between-gene) variances.
+#' @param kappa2 Measurement-error variance sigma_e2 * (1 / n_r + 1 / n_s);
+#'   0 gives P(Z_r > Z_s).
 #' @return Numeric vector of probabilities in \[0, 1\].
 #' @export
-pathway_pi <- function(mu_r, mu_s, tau2_r, tau2_s) {
-  pi_gaussian_directional(mu_r, mu_s, tau2_r, tau2_s)
+pathway_pi <- function(mu_r, mu_s, tau2_r, tau2_s, kappa2 = 0) {
+  pi_gaussian_directional(mu_r, mu_s, tau2_r, tau2_s, extra_variance = kappa2)
 }
 
 
@@ -214,7 +232,9 @@ pi_absolute_mean_transform <- function(n_regions) {
 #'
 #' For every saved CCD hyperparameter configuration, takes the conditional
 #' Gaussian of (baseline intercept, relative regional offsets), maps it to the
-#' absolute regional means and records the regional variances tau2_r. The fit
+#' absolute regional means and records the regional variances tau2_r and the
+#' measurement-error variances kappa2_rs (zero without a Gaussian likelihood
+#' precision). The fit
 #' must have been run with `control.compute = list(config = TRUE)` and an
 #' unconstrained latent model.
 #'
@@ -226,7 +246,7 @@ pi_absolute_mean_transform <- function(n_regions) {
 #' @param gene_intercept_name Name of the auxiliary gene-intercept effect in
 #'   adjusted mode, NULL in observed mode.
 #' @return A list with `configurations` (each with `mu`, `covariance`, `tau2`,
-#'   `theta`), normalised `weights`, region information and a
+#'   `kappa2`, `theta`), normalised `weights`, region information and a
 #'   `marginal_diagnostic` table comparing mixture moments with INLA's own
 #'   marginals.
 #' @noRd
@@ -250,6 +270,9 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
   to_absolute <- pi_absolute_mean_transform(n_regions)
   weights <- pi_configuration_weights(configs)
   precision_tags <- paste0("Log precision for gene_r", seq_len(n_regions))
+  inverse_spots <- 1 / region_spots
+  spot_error <- outer(inverse_spots, inverse_spots, "+")
+  diag(spot_error) <- 0
 
   mixture <- vector("list", length(weights))
   max_skewness <- 0
@@ -271,6 +294,10 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     tau2 <- exp(-config$theta[precision_index])
     if (any(!is.finite(tau2) | tau2 <= 0)) stop("Invalid regional variance.")
 
+    # Measurement error of a gene's regional means: sigma_e2 / n_r + sigma_e2 / n_s.
+    log_noise_precision <- config$theta["Log precision for the Gaussian observations"]
+    sigma_e2 <- if (is.na(log_noise_precision)) 0 else exp(-log_noise_precision)
+
     covariance <- pi_selected_covariance(config$Q, states$map)
     if (any(!is.finite(covariance)) || any(diag(covariance) <= 0)) {
       stop("Invalid selected covariance.")
@@ -283,6 +310,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
                         as.numeric(Matrix::crossprod(states$map, config$improved.mean))),
       covariance = to_absolute %*% covariance %*% t(to_absolute),
       tau2 = as.numeric(tau2),
+      kappa2 = sigma_e2 * spot_error,
       theta = config$theta
     )
 
@@ -297,7 +325,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     weights = weights,
     region_labels = region_labels,
     region_spots = region_spots,
-    estimand = "P(Z_r > Z_s)",
+    estimand = PI_ESTIMAND,
     baseline_region = region_labels[1L],
     approximation = "CCD mixture of improved-mean conditional multivariate Gaussians; no skew transform",
     weight_source = "normalized exp(config$log.posterior), as used by INLA's configuration mixture",
@@ -394,7 +422,7 @@ pathway_pi_integrate <- function(joint, nodes = 4096L, max_nodes = 65536L,
                               analytic_score_check = 0),
       configurations = length(weights),
       approximation = joint$approximation,
-      estimand = "P(Z_r > Z_s)", boundary = 0.5,
+      estimand = PI_ESTIMAND, boundary = 0.5,
       strict_inequality = TRUE, deterministic = TRUE,
       posterior_sampling = FALSE,
       seconds = proc.time()[["elapsed"]] - started
@@ -422,7 +450,7 @@ pathway_pi_integrate <- function(joint, nodes = 4096L, max_nodes = 65536L,
     refinement = evidence$refinement,
     configurations = length(weights),
     approximation = joint$approximation,
-    estimand = "P(Z_r > Z_s)", boundary = 0.5, strict_inequality = TRUE,
+    estimand = PI_ESTIMAND, boundary = 0.5, strict_inequality = TRUE,
     boundary_roundoff_tolerance = PI_TIE_TOLERANCE,
     deterministic = TRUE, posterior_sampling = FALSE,
     numerical_difference_is_not_error_bound = TRUE,
@@ -477,8 +505,10 @@ pi_component_root <- function(component, n_regions) {
   if (length(component$mu) != n_regions ||
       length(component$tau2) != n_regions ||
       !identical(dim(covariance), c(n_regions, n_regions)) ||
-      any(!is.finite(c(component$mu, component$tau2, covariance))) ||
-      any(component$tau2 <= 0) ||
+      !identical(dim(component$kappa2), c(n_regions, n_regions)) ||
+      any(!is.finite(c(component$mu, component$tau2, covariance,
+                       component$kappa2))) ||
+      any(component$tau2 <= 0) || any(component$kappa2 < 0) ||
       max(abs(covariance - t(covariance))) > 1e-8) {
     stop("Invalid conditional moments.")
   }
@@ -493,9 +523,9 @@ pi_component_root <- function(component, n_regions) {
 
 #' Posterior mean of pi_rs for all ordered pairs, computed analytically
 #'
-#' Given a component's regional means mu ~ N(m, C), Z_r - Z_s is Gaussian with
-#' variance tau2_r + C_rr + tau2_s + C_ss - 2 C_rs, so E[pi_rs] has a closed
-#' form per component.
+#' Given a component's regional means mu ~ N(m, C), E[pi_rs] equals
+#' Phi((m_r - m_s) / sqrt(tau2_r + tau2_s + kappa2_rs + C_rr + C_ss - 2 C_rs)),
+#' a closed form per component.
 #'
 #' @return List with `score` (R x R, NA diagonal) and `roots` (covariance
 #'   square roots, one per component).
@@ -517,7 +547,8 @@ pi_analytic_scores <- function(mixture, weights, pairs, n_regions) {
       p <- pi_gaussian_directional(mu[r], mu[s],
                                    tau2[r] + covariance[r, r],
                                    tau2[s] + covariance[s, s],
-                                   covariance[r, s])
+                                   covariance[r, s],
+                                   component$kappa2[r, s])
       score[r, s] <- score[r, s] + weights[k] * p
       score[s, r] <- score[s, r] + weights[k] * (1 - p)
     }
@@ -622,7 +653,8 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
       for (j in seq_len(nrow(pairs))) {
         r <- pairs[j, 1]
         s <- pairs[j, 2]
-        p <- pathway_pi(mu[, r], mu[, s], tau2[r], tau2[s])
+        p <- pathway_pi(mu[, r], mu[, s], tau2[r], tau2[s],
+                        component$kappa2[r, s])
 
         evidence[r, s] <- evidence[r, s] + w * mean(p > 0.5)
         evidence[s, r] <- evidence[s, r] + w * mean(p < 0.5)

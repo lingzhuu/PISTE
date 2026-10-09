@@ -269,7 +269,9 @@ A list with
   `hyper_marginals`.
 
 `score` is the posterior mean of π, the probability that a gene's expression
-state in the region exceeds that in the reference; 0.5 means no difference.
+state in the region exceeds that in the reference, with the measurement error
+of a gene's regional means added to the gene-to-gene variance (Gaussian model);
+0.5 means no difference.
 `evidence` is the posterior probability that π > 0.5. Region indices in
 parameter and contrast names follow `metadata$region_labels`.
 
@@ -319,16 +321,20 @@ if `max_nodes` is reached without convergence.
 ## pathway_pi
 
 ```r
-pathway_pi(mu_r, mu_s, tau2_r, tau2_s)
+pathway_pi(mu_r, mu_s, tau2_r, tau2_s, kappa2 = 0)
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `mu_r`, `mu_s` | Regional means. |
 | `tau2_r`, `tau2_s` | Regional between-gene variances. |
+| `kappa2` | Measurement error of a gene's regional means, σ<sub>ε</sub><sup>2</sup>(1/n<sub>r</sub> + 1/n<sub>s</sub>). |
 
-Returns π = P(Z<sub>r</sub> > Z<sub>s</sub>) for independent
+Returns π = Φ((`mu_r` − `mu_s`) / √(`tau2_r` + `tau2_s` + `kappa2`)).
+With `kappa2 = 0` this is P(Z<sub>r</sub> > Z<sub>s</sub>) for independent
 Z<sub>r</sub> ~ N(`mu_r`, `tau2_r`) and Z<sub>s</sub> ~ N(`mu_s`, `tau2_s`).
+Fits of the Gaussian model use σ<sub>ε</sub><sup>2</sup> from each CCD
+configuration; the negative binomial model uses `kappa2 = 0`.
 Vectorised over its arguments.
 
 ---
