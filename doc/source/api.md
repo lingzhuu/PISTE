@@ -176,7 +176,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `mesh` | Mesh for the spatial fields, from [`build_mesh()`](#build_mesh). |
 | `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. |
 | `mode` | `"observed"` (default) or `"adjusted"`. |
-| `X` | Optional numeric covariate matrix with N rows and unique column names. An `intercept` column is added if absent, and no other column may be constant one. |
+| `X` | Optional numeric covariate matrix with N rows and unique column names. Covariates that vary between spots of the section, e.g. sequencing depth or mitochondrial fraction. An `intercept` column is added if absent, and no other column may be constant one. |
 | `offset` | Optional known additive offset of length N, added to every gene of a spot. |
 | `library_size` | Adjusted mode. Library size of each spot, e.g. total UMI over all genes. Only ratios matter; they are rescaled to a geometric mean of one. |
 | `dispersion_scale` | Adjusted mode. Relative dispersion scale S<sub>g</sub> of each gene in `Y`, from `estimate_dispersion_scale()`. If named, names must match `colnames(Y)`. |
