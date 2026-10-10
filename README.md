@@ -94,6 +94,12 @@ SpaPath addresses a fundamental dependence problem in spatial pathway analysis.
 - uncertainty in cell type labels
 - future work
 
+SpaPath describes a pathway as a whole, so it cannot resolve changes carried by only a few of its genes. When only a few genes respond, the pathway-level difference is small relative to the variation among genes, and π stays close to 0.5 even though those genes differ between regions. Such changes are better described at the gene level. The posterior evidence measures only how certain the direction of the difference is, not how large the difference is. With thousands of spots it approaches 0 or 1 even for small differences, and the strength of a difference has to be read from π.
+
+The model also rests on assumptions that real data do not fully meet. Genes are treated as conditionally independent given the regional effects and their spatial fields, whereas genes in a pathway are co-regulated with sparse positive and negative correlations, so the posterior may understate the uncertainty. Each spatial field is a stationary Matérn field, which cannot follow abrupt changes in spatial dependence across tissue boundaries. Each pathway is fitted separately, so pathways that share genes give results that are not independent, and SpaPath cannot tell which of two overlapping pathways drives a shared signal. The composition-adjusted mode treats the estimated cell-type proportions and the reference expression profiles as known, so errors in deconvolution or differences between the reference and the spatial platform pass directly into the estimated pathway difference. Finally, every pathway requires its own model fit with one spatial field per gene, so the computational cost grows with the number of genes and spots and limits the size of the gene sets that can be analyzed.
+
+In the three-dimensional analysis, resolution along the anterior–posterior axis is limited by the spacing between sections. Biological variation along this axis on a scale shorter than about one to two section spacings cannot be distinguished from the independent section effects and is absorbed by them. Our atlas is reconstructed from two-dimensional sections, and resolving such fine variation will require more advanced three-dimensional spatial sequencing technologies. Genuine biological differences at the level of a single section, for example when a section happens to pass through a small structure, are likewise partly absorbed by the section effects and treated as nuisance.
+
 ## Methods
 ### SpaPath method
 
