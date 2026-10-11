@@ -1,13 +1,20 @@
 # Benchmark raw-count simulation: 3,639 spots x 10,000 genes, for evaluating
 # STpathway / GSDensity / PathwayLGM.
 #
-#   Y_gi ~ NB(mu_gi, theta_g),  mu_gi = c_i * m_g * exp(s_g * b_g * A_pi)
-#   Var(Y_gi) = mu_gi + mu_gi^2 / theta_g
+#   Y_gi ~ NB(mu_gi, theta_g),  Var(Y_gi) = mu_gi + mu_gi^2 / theta_g
+#   pathway genes:     mu_gi = c_i *       m_g * exp(s_g * b_g * A_pi + e_gi)
+#   background genes:  mu_gi = c_i * f_i * m_g * exp(s_g * b_g * A_gi + e_gi)
 #
 # (m_g, theta_g, c_i) come from real DLPFC 151673 via estimate_reference.R.
-# Genes 1-4,000: 40 disjoint pathways of 100 (4 response sizes x 5 activity
-# patterns x 2 effect profiles). Genes 4,001-10,000: background, 1,000 with
-# independent radial effects. sigma_eta = 0.
+# Genes 1-5,000: 50 disjoint pathways of 100 (5 response sizes x 5 activity
+# patterns x 2 effect profiles). The K0 group has no responsive gene, so its
+# pathways are true nulls. Genes 5,001-10,000: background, 1,000 with
+# independent radial effects.
+# e_gi: every gene has its own spatially autocorrelated noise field, drawn
+# independently of the activity maps and of the other genes.
+# f_i: background genes are rescaled at each spot so the expected spot total is
+# c_i times a constant. Total UMI therefore does not follow pathway activity,
+# and pathway genes keep their generating means.
 
 # ---- config ---------------------------------------------------------------------
 ref_dir  <- "../../analysis/simulation_data/reference_151673"
@@ -15,11 +22,12 @@ out_root <- "../../analysis/simulation_data"
 seeds    <- c(2020L, 2021L, 2022L, 2023L, 2024L, 2025L, 2026L)   # benchmark seeds
 
 n_genes      <- 10000L
-n_pathways   <- 40L
+n_pathways   <- 50L
 pathway_size <- 100L
-n_bg_genes   <- n_genes - n_pathways * pathway_size   # 6,000 background genes
+n_bg_genes   <- n_genes - n_pathways * pathway_size   # 5,000 background genes
 n_bg_svg     <- 1000L    # background genes with a radial spatial effect
-matern_ell   <- 0.25     # range of the Matern-3/2 field used for gradient maps
+matern_ell   <- 0.25     # range of the Matern-3/2 fields (gradient maps and noise)
+noise_sd     <- 0.25     # sd of the per-gene spatial noise e_gi (log-mean scale)
 
 # ---- helpers --------------------------------------------------------------------
 
@@ -45,7 +53,7 @@ coefficient_for_fc <- function(A, target, sign, L) {
 # Number of responsive genes, drawn uniformly within the pathway's group.
 draw_K <- function(group) {
   bounds <- switch(group,
-    K0_10   = 0:10,  K11_30  = 11:30,
+    K0      = 0L,    K1_10   = 1:10,  K11_30  = 11:30,
     K31_60  = 31:60, K61_100 = 61:100,
     stop("Unknown response group"))
   sample(bounds, 1L)
@@ -92,14 +100,15 @@ generate_dataset <- function(seed, out) {
   gene_ids <- paste0("g", seq_len(n_genes))
   rownames(param) <- gene_ids
 
-  # The first 4,000 genes form 40 pathways of 100 genes each.
+  # The first 5,000 genes form 50 pathways of 100 genes each.
   pathways <- split(gene_ids[seq_len(n_pathways * pathway_size)],
                     rep(sprintf("P%02d", seq_len(n_pathways)),
                         each = pathway_size))
 
-  # -- pathway design: 4 response sizes x 5 activity patterns x 2 effect profiles --
+  # -- pathway design: 5 response sizes x 5 activity patterns x 2 effect profiles --
+  # In K0 no gene responds, so its two effect profiles are simply replicates.
   design <- expand.grid(
-    response_group = c("K0_10", "K11_30", "K31_60", "K61_100"),
+    response_group = c("K0", "K1_10", "K11_30", "K31_60", "K61_100"),
     spatial_class  = c("domain", "gradient", "radial", "hotspot", "interface"),
     effect_profile = c("broad_weak", "narrow_strong"),
     KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
@@ -108,8 +117,8 @@ generate_dataset <- function(seed, out) {
                        "effect_profile")]
 
   # -- spatial activity maps A_pi --------------------------------------------------
-  # All gradient maps share one Matern-3/2 Cholesky factor; compute it once
-  # (no random sampling involved in this step).
+  # Gradient maps and noise fields share one Matern-3/2 Cholesky factor;
+  # compute it once (no random sampling involved in this step).
   d <- as.matrix(dist(xy))
   u <- sqrt(3) * d / matern_ell
   cov_mat <- (1 + u) * exp(-u)
@@ -167,12 +176,14 @@ generate_dataset <- function(seed, out) {
     target[, p] <- target_mask(activity[p, ], design$spatial_class[p])
   }
 
-  # -- pathway genes: assign response, direction and effect, then sample counts ---
+  # -- pathway genes: assign response, direction and effect -----------------------
   responsive <- logical(n_genes)    # is the gene responsive
   direction  <- integer(n_genes)    # +1 up / -1 down / 0 not responsive
   effect_L   <- numeric(n_genes)    # target/rest |log2FC|
   effect_b   <- numeric(n_genes)    # calibrated activity coefficient
-  Y <- matrix(0L, n_genes, n, dimnames = list(gene_ids, spot))
+  # Expected expression before depth, m_g * exp(s_g * b_g * A). Counts are
+  # sampled at the end, after the noise and the background factor are applied.
+  mean_expr <- matrix(0, n_genes, n, dimnames = list(gene_ids, spot))
 
   design$K <- integer(n_pathways)
   design$n_up <- integer(n_pathways)
@@ -203,14 +214,14 @@ generate_dataset <- function(seed, out) {
       corrected_mean <- param$m[g] * exp(direction[g] * effect_b[g] * A)
       expected_target[p] <- expected_target[p] + mean(corrected_mean[mask])
       expected_rest[p]   <- expected_rest[p]   + mean(corrected_mean[!mask])
-      Y[g, ] <- rnbinom(n, size = param$theta[g], mu = c_i * corrected_mean)
+      mean_expr[g, ] <- corrected_mean
     }
     design$K[p] <- K
     design$n_up[p] <- K - n_down
     design$n_down[p] <- n_down
   }
 
-  # -- background genes: 1,000 with independent radial effects, 5,000 flat --------
+  # -- background genes: 1,000 with independent radial effects, 4,000 flat --------
   background_svg <- logical(n_genes)
   bg_center_x <- rep(NA_real_, n_genes)
   bg_center_y <- rep(NA_real_, n_genes)
@@ -236,8 +247,38 @@ generate_dataset <- function(seed, out) {
     } else {
       corrected_mean <- rep(param$m[g], n)
     }
-    Y[g, ] <- rnbinom(n, size = param$theta[g], mu = c_i * corrected_mean)
+    mean_expr[g, ] <- corrected_mean
   }
+
+  # -- spatial noise: one independent Matern-3/2 field per gene -------------------
+  # e_g = noise_sd * z_g, with z_g a unit-variance field. Fields are drawn for
+  # 1,000 genes at a time (one column of z per gene) to limit memory.
+  gene_blocks <- split(seq_len(n_genes), ceiling(seq_len(n_genes) / 1000L))
+  for (block in gene_blocks) {
+    z <- crossprod(gradient_factor, matrix(rnorm(n * length(block)), n))
+    mean_expr[block, ] <- mean_expr[block, ] * exp(noise_sd * t(z))
+  }
+
+  # -- background factor f_i: fixed expected total per spot ------------------------
+  # Pathway genes keep their means; background genes are rescaled so that every
+  # spot has the same expected total before depth, which then becomes c_i
+  # times a constant.
+  pw <- seq_len(n_pathways * pathway_size)
+  bg <- (n_pathways * pathway_size + 1L):n_genes
+  pathway_total    <- colSums(mean_expr[pw, ])
+  background_total <- colSums(mean_expr[bg, ])
+  library_total    <- mean(pathway_total + background_total)
+  background_factor <- (library_total - pathway_total) / background_total
+  if (any(background_factor <= 0))
+    stop("Background genes cannot absorb the pathway expression")
+  for (g in bg)
+    mean_expr[g, ] <- mean_expr[g, ] * background_factor
+
+  # -- counts -----------------------------------------------------------------------
+  Y <- matrix(0L, n_genes, n, dimnames = list(gene_ids, spot))
+  for (g in seq_len(n_genes))
+    Y[g, ] <- rnbinom(n, size = param$theta[g], mu = c_i * mean_expr[g, ])
+  rm(mean_expr, z)
 
   # -- checks and output -----------------------------------------------------------
   design$all100_expected_log2FC <- log2(expected_target / expected_rest)
@@ -247,7 +288,6 @@ generate_dataset <- function(seed, out) {
 
   # Pathway genes must stay usable downstream: total count >= 10 and
   # detected in at least 3 spots.
-  pw <- seq_len(n_pathways * pathway_size)
   if (any(rowSums(Y[pw, , drop = FALSE]) < 10L) ||
       any(rowSums(Y[pw, , drop = FALSE] > 0) < 3L))
     stop("Generated dataset failed pathway-gene eligibility")
@@ -265,12 +305,14 @@ generate_dataset <- function(seed, out) {
   dataset <- list(
     counts = Y, xy = xy, c_i = c_i, pathways = pathways, activity = activity,
     oracle_target = target, gene_truth = gene_truth, pathway_truth = design,
-    reference_parameters = param, seed = seed, nuisance_strength = 0,
-    generator = "simulate_response_grid.R")
+    reference_parameters = param, seed = seed, nuisance_strength = noise_sd,
+    background_factor = background_factor, library_total = library_total,
+    generator = "simulation_data.R")
   saveRDS(dataset, file.path(out, "dataset.rds"), compress = "gzip")
   write.csv(design, file.path(out, "pathway_truth.csv"), row.names = FALSE)
   write.csv(gene_truth, file.path(out, "gene_truth.csv"), row.names = FALSE)
-  write.csv(data.frame(spot = spot, x = xy[,1L], y = xy[,2L], c_i = c_i),
+  write.csv(data.frame(spot = spot, x = xy[,1L], y = xy[,2L], c_i = c_i,
+                       background_factor = background_factor),
             file.path(out, "spots.csv"), row.names = FALSE)
   write.csv(data.frame(spot = spot, target*1L, check.names = FALSE),
             file.path(out, "oracle_target_masks.csv"), row.names = FALSE)
