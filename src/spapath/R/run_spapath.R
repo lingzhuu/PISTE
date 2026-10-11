@@ -63,7 +63,7 @@ run_spapath <- function(counts, xy, region, gene_sets,
                         mode = c("observed", "adjusted"), out = NULL,
                         normalized = FALSE, proportions = NULL,
                         reference = NULL, baseline = NULL, h = 0.3,
-                        min_genes = 5L, mesh_args = list(), cfg = list(),
+                        min_genes = 5, mesh_args = list(), cfg = list(),
                         verbose = TRUE) {
   mode <- match.arg(mode)
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
@@ -113,8 +113,8 @@ run_spapath <- function(counts, xy, region, gene_sets,
   # --- Gene sets -----------------------------------------------------------------
   status <- data.frame(gene_set = names(gene_sets),
                        genes_in_set = lengths(gene_sets),
-                       genes_used = NA_integer_, status = NA_character_,
-                       message = NA_character_, stringsAsFactors = FALSE)
+                       genes_used = NA, status = NA,
+                       message = NA, stringsAsFactors = FALSE)
   results <- list()
 
   for (s in seq_along(gene_sets)) {
@@ -122,9 +122,9 @@ run_spapath <- function(counts, xy, region, gene_sets,
     genes <- intersect(gene_sets[[s]], available)
     status$genes_used[s] <- length(genes)
     progress <- paste0("[", s, "/", length(gene_sets), "] ", set_name)
-    if (length(genes) < max(2L, min_genes)) {
+    if (length(genes) < max(2, min_genes)) {
       status$status[s] <- "skipped"
-      status$message[s] <- paste("fewer than", max(2L, min_genes), "usable genes")
+      status$message[s] <- paste("fewer than", max(2, min_genes), "usable genes")
       log_step(progress, ": skipped (", length(genes), " genes)")
       next
     }

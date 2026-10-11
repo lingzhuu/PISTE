@@ -19,13 +19,13 @@
 # ---- config ---------------------------------------------------------------------
 ref_dir  <- "../../analysis/simulation_data/reference_151673"
 out_root <- "../../analysis/simulation_data"
-seeds    <- c(2020L, 2021L, 2022L, 2023L, 2024L, 2025L, 2026L)   # benchmark seeds
+seeds    <- c(2020, 2021, 2022, 2023, 2024, 2025, 2026)   # benchmark seeds
 
-n_genes      <- 10000L
-n_pathways   <- 50L
-pathway_size <- 100L
+n_genes      <- 10000
+n_pathways   <- 50
+pathway_size <- 100
 n_bg_genes   <- n_genes - n_pathways * pathway_size   # 5,000 background genes
-n_bg_svg     <- 1000L    # background genes with a radial spatial effect
+n_bg_svg     <- 1000    # background genes with a radial spatial effect
 matern_ell   <- 0.25     # range of the Matern-3/2 fields (gradient maps and noise)
 noise_sd     <- 0.25     # sd of the per-gene spatial noise e_gi (log-mean scale)
 
@@ -53,16 +53,16 @@ coefficient_for_fc <- function(A, target, sign, L) {
 # Number of responsive genes, drawn uniformly within the pathway's group.
 draw_K <- function(group) {
   bounds <- switch(group,
-    K0      = 0L,    K1_10   = 1:10,  K11_30  = 11:30,
+    K0      = 0,    K1_10   = 1:10,  K11_30  = 11:30,
     K31_60  = 31:60, K61_100 = 61:100,
     stop("Unknown response group"))
-  sample(bounds, 1L)
+  sample(bounds, 1)
 }
 
 # Fixed number of down-regulated genes among K responsive genes.
 # Their identities are selected randomly downstream.
 draw_down_count <- function(K) {
-  as.integer(floor(0.4 * sqrt(K)))
+  floor(0.4 * sqrt(K))
 }
 
 # ---- main -----------------------------------------------------------------------
@@ -75,10 +75,10 @@ generate_dataset <- function(seed, out) {
   # -- reference from real data: spots, depth factors, per-gene (m, theta) --------
   ref <- read.csv(file.path(ref_dir, "reference_parameters.csv"))
   ref <- ref[is.finite(ref$m) & ref$m > 0 & is.finite(ref$theta) &
-               ref$theta > 0 & ref$detected >= 100L, , drop = FALSE]
+               ref$theta > 0 & ref$detected >= 100, , drop = FALSE]
   spots <- read.csv(file.path(ref_dir, "spots.csv"))
   depth <- read.csv(file.path(ref_dir, "reference_depth.csv"))
-  stopifnot(nrow(spots) == 3639L, identical(spots$spot, depth$spot))
+  stopifnot(nrow(spots) == 3639, identical(spots$spot, depth$spot))
 
   n <- nrow(spots)
   spot <- spots$spot
@@ -86,7 +86,7 @@ generate_dataset <- function(seed, out) {
   # Shift pixel coordinates to the origin and scale to [0, 1]
   # (one common scale for x and y keeps the tissue shape).
   xy <- as.matrix(spots[, c("pixel_col", "pixel_row")])
-  xy <- sweep(xy, 2L, apply(xy, 2L, min), "-")
+  xy <- sweep(xy, 2, apply(xy, 2, min), "-")
   xy <- xy / max(xy)
   dimnames(xy) <- list(spot, c("x", "y"))
 
@@ -130,25 +130,25 @@ generate_dataset <- function(seed, out) {
   make_map <- function(cl) {
     raw <- switch(cl,
       domain = {          # three horizontal bands with jittered boundaries
-        b1 <- .33 + runif(1L, -.08, .08) + .04 * sin(2*pi*xy[, 2L])
-        b2 <- .65 + runif(1L, -.08, .08) + .04 * sin(2*pi*xy[, 2L])
-        c(.1, .8, .3)[1L + (xy[, 1L] > b1) + (xy[, 1L] > b2)]
+        b1 <- .33 + runif(1, -.08, .08) + .04 * sin(2*pi*xy[, 2])
+        b2 <- .65 + runif(1, -.08, .08) + .04 * sin(2*pi*xy[, 2])
+        c(.1, .8, .3)[1 + (xy[, 1] > b1) + (xy[, 1] > b2)]
       },
       gradient = as.vector(crossprod(gradient_factor, rnorm(n))),
       radial = {          # exponential decay around a random spot
-        center <- xy[sample.int(n, 1L), ]
-        distance <- sqrt((xy[, 1L]-center[1L])^2 + (xy[, 2L]-center[2L])^2)
-        exp(-distance / runif(1L, .12, .24))
+        center <- xy[sample.int(n, 1), ]
+        distance <- sqrt((xy[, 1]-center[1])^2 + (xy[, 2]-center[2])^2)
+        exp(-distance / runif(1, .12, .24))
       },
       hotspot = {         # two Gaussian hotspots of different widths
-        center <- xy[sample.int(n, 2L), , drop = FALSE]
-        pmax(exp(-((xy[,1L]-center[1L,1L])^2 +
-                     (xy[,2L]-center[1L,2L])^2)/(2*.06^2)),
-             exp(-((xy[,1L]-center[2L,1L])^2 +
-                     (xy[,2L]-center[2L,2L])^2)/(2*.09^2)))
+        center <- xy[sample.int(n, 2), , drop = FALSE]
+        pmax(exp(-((xy[,1]-center[1,1])^2 +
+                     (xy[,2]-center[1,2])^2)/(2*.06^2)),
+             exp(-((xy[,1]-center[2,1])^2 +
+                     (xy[,2]-center[2,2])^2)/(2*.09^2)))
       },
       interface = {       # decaying band along a wavy boundary
-        distance <- abs(xy[,1L]-(.5 + .06*sin(2*pi*xy[,2L])))
+        distance <- abs(xy[,1]-(.5 + .06*sin(2*pi*xy[,2])))
         as.numeric(distance <= .14) * exp(-distance/.06)
       },
       stop("Unknown spatial class: ", cl))
@@ -167,7 +167,7 @@ generate_dataset <- function(seed, out) {
       stop("Unknown spatial class: ", cl))
   }
 
-  activity <- matrix(NA_real_, n_pathways, n,
+  activity <- matrix(NA, n_pathways, n,
                      dimnames = list(design$pathway, spot))
   target <- matrix(FALSE, n, n_pathways,
                    dimnames = list(spot, design$pathway))
@@ -188,18 +188,18 @@ generate_dataset <- function(seed, out) {
   design$K <- integer(n_pathways)
   design$n_up <- integer(n_pathways)
   design$n_down <- integer(n_pathways)
-  design$target_spots <- as.integer(colSums(target))
+  design$target_spots <- colSums(target)
   expected_target <- numeric(n_pathways)
   expected_rest   <- numeric(n_pathways)
 
   for (p in seq_len(n_pathways)) {
     K <- draw_K(design$response_group[p])
     n_down <- draw_down_count(K)
-    ids <- ((p-1L)*pathway_size + 1L):(p*pathway_size)   # the 100 member genes
+    ids <- ((p-1)*pathway_size + 1):(p*pathway_size)   # the 100 member genes
     chosen <- if (K) sample(ids, K) else integer()
     responsive[chosen] <- TRUE
-    direction[chosen] <- 1L                              # start all up
-    if (n_down) direction[chosen[sample.int(K, n_down)]] <- -1L
+    direction[chosen] <- 1                              # start all up
+    if (n_down) direction[chosen[sample.int(K, n_down)]] <- -1
     if (K) {          # |log2FC| from a log-normal, weaker or stronger profile
       if (design$effect_profile[p] == "broad_weak")
         effect_L[chosen] <- rlnorm(K, meanlog = log(.4), sdlog = .3)
@@ -223,25 +223,25 @@ generate_dataset <- function(seed, out) {
 
   # -- background genes: 1,000 with independent radial effects, 4,000 flat --------
   background_svg <- logical(n_genes)
-  bg_center_x <- rep(NA_real_, n_genes)
-  bg_center_y <- rep(NA_real_, n_genes)
-  bg_scale    <- rep(NA_real_, n_genes)
+  bg_center_x <- rep(NA, n_genes)
+  bg_center_y <- rep(NA, n_genes)
+  bg_scale    <- rep(NA, n_genes)
 
-  bg_first <- n_pathways * pathway_size + 1L
+  bg_first <- n_pathways * pathway_size + 1
   bg_ids <- sample.int(n_bg_genes, n_bg_svg) + n_pathways * pathway_size
   background_svg[bg_ids] <- TRUE
   for (g in bg_first:n_genes) {
     if (background_svg[g]) {
-      center <- xy[sample.int(n, 1L), ]
-      scale <- runif(1L, .08, .25)
-      A <- unit(exp(-sqrt((xy[,1L]-center[1L])^2 +
-                          (xy[,2L]-center[2L])^2) / scale))
+      center <- xy[sample.int(n, 1), ]
+      scale <- runif(1, .08, .25)
+      A <- unit(exp(-sqrt((xy[,1]-center[1])^2 +
+                          (xy[,2]-center[2])^2) / scale))
       mask <- seq_len(n) %in% order(A, decreasing = TRUE)[seq_len(ceiling(.2*n))]
-      bg_center_x[g] <- center[1L]
-      bg_center_y[g] <- center[2L]
+      bg_center_x[g] <- center[1]
+      bg_center_y[g] <- center[2]
       bg_scale[g] <- scale
-      direction[g] <- sample(c(-1L, 1L), 1L)
-      effect_L[g] <- rlnorm(1L, meanlog = log(.4), sdlog = .3)
+      direction[g] <- sample(c(-1, 1), 1)
+      effect_L[g] <- rlnorm(1, meanlog = log(.4), sdlog = .3)
       effect_b[g] <- coefficient_for_fc(A, mask, direction[g], effect_L[g])
       corrected_mean <- param$m[g] * exp(direction[g]*effect_b[g]*A)
     } else {
@@ -253,7 +253,7 @@ generate_dataset <- function(seed, out) {
   # -- spatial noise: one independent Matern-3/2 field per gene -------------------
   # e_g = noise_sd * z_g, with z_g a unit-variance field. Fields are drawn for
   # 1,000 genes at a time (one column of z per gene) to limit memory.
-  gene_blocks <- split(seq_len(n_genes), ceiling(seq_len(n_genes) / 1000L))
+  gene_blocks <- split(seq_len(n_genes), ceiling(seq_len(n_genes) / 1000))
   for (block in gene_blocks) {
     z <- crossprod(gradient_factor, matrix(rnorm(n * length(block)), n))
     mean_expr[block, ] <- mean_expr[block, ] * exp(noise_sd * t(z))
@@ -264,7 +264,7 @@ generate_dataset <- function(seed, out) {
   # spot has the same expected total before depth, which then becomes c_i
   # times a constant.
   pw <- seq_len(n_pathways * pathway_size)
-  bg <- (n_pathways * pathway_size + 1L):n_genes
+  bg <- (n_pathways * pathway_size + 1):n_genes
   pathway_total    <- colSums(mean_expr[pw, ])
   background_total <- colSums(mean_expr[bg, ])
   library_total    <- mean(pathway_total + background_total)
@@ -275,7 +275,7 @@ generate_dataset <- function(seed, out) {
     mean_expr[g, ] <- mean_expr[g, ] * background_factor
 
   # -- counts -----------------------------------------------------------------------
-  Y <- matrix(0L, n_genes, n, dimnames = list(gene_ids, spot))
+  Y <- matrix(0, n_genes, n, dimnames = list(gene_ids, spot))
   for (g in seq_len(n_genes))
     Y[g, ] <- rnbinom(n, size = param$theta[g], mu = c_i * mean_expr[g, ])
   rm(mean_expr, z)
@@ -284,18 +284,18 @@ generate_dataset <- function(seed, out) {
   design$all100_expected_log2FC <- log2(expected_target / expected_rest)
   design$all100_expected_fold_change <- expected_target / expected_rest
   design$down_fraction_among_responsive <-
-    ifelse(design$K > 0L, design$n_down / design$K, NA_real_)
+    ifelse(design$K > 0, design$n_down / design$K, NA)
 
   # Pathway genes must stay usable downstream: total count >= 10 and
   # detected in at least 3 spots.
-  if (any(rowSums(Y[pw, , drop = FALSE]) < 10L) ||
-      any(rowSums(Y[pw, , drop = FALSE] > 0) < 3L))
+  if (any(rowSums(Y[pw, , drop = FALSE]) < 10) ||
+      any(rowSums(Y[pw, , drop = FALSE] > 0) < 3))
     stop("Generated dataset failed pathway-gene eligibility")
 
   gene_truth <- data.frame(
     gene = gene_ids,
     pathway = c(rep(design$pathway, each = pathway_size),
-                rep(NA_character_, n_bg_genes)),
+                rep(NA, n_bg_genes)),
     responsive = responsive, direction = direction,
     target_rest_abs_log2FC = effect_L, activity_coefficient = effect_b,
     background_svg = background_svg,
@@ -311,10 +311,10 @@ generate_dataset <- function(seed, out) {
   saveRDS(dataset, file.path(out, "dataset.rds"), compress = "gzip")
   write.csv(design, file.path(out, "pathway_truth.csv"), row.names = FALSE)
   write.csv(gene_truth, file.path(out, "gene_truth.csv"), row.names = FALSE)
-  write.csv(data.frame(spot = spot, x = xy[,1L], y = xy[,2L], c_i = c_i,
+  write.csv(data.frame(spot = spot, x = xy[,1], y = xy[,2], c_i = c_i,
                        background_factor = background_factor),
             file.path(out, "spots.csv"), row.names = FALSE)
-  write.csv(data.frame(spot = spot, target*1L, check.names = FALSE),
+  write.csv(data.frame(spot = spot, target*1, check.names = FALSE),
             file.path(out, "oracle_target_masks.csv"), row.names = FALSE)
 }
 

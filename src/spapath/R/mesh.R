@@ -22,8 +22,8 @@
 build_mesh <- function(xy, max_edge = 0.25, cutoff = 0.08,
                        offset = c(0.1, 0.2)) {
   xy <- as.matrix(xy)
-  stopifnot(ncol(xy) == 2L, all(is.finite(xy)),
-            max_edge > 0, cutoff >= 0, length(offset) == 2L)
+  stopifnot(ncol(xy) == 2, all(is.finite(xy)),
+            max_edge > 0, cutoff >= 0, length(offset) == 2)
   fmesher::fm_mesh_2d(loc = xy, max.edge = max_edge, cutoff = cutoff,
                       offset = offset)
 }

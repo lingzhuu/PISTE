@@ -75,10 +75,10 @@ composition_offset <- function(proportions, reference) {
 #'   `eligible`, `dispersion` (alpha_g) and `dispersion_scale` (S_g; NA for
 #'   ineligible genes).
 #' @export
-estimate_dispersion_scale <- function(counts, library_size, min_total = 10L,
-                                      min_detected = 3L,
+estimate_dispersion_scale <- function(counts, library_size, min_total = 10,
+                                      min_detected = 3,
                                       fit_type = "parametric",
-                                      block_size = 256L) {
+                                      block_size = 256) {
   if (!requireNamespace("DESeq2", quietly = TRUE)) {
     stop("estimate_dispersion_scale() requires the Bioconductor package DESeq2.")
   }
@@ -100,7 +100,7 @@ estimate_dispersion_scale <- function(counts, library_size, min_total = 10L,
   total <- Matrix::colSums(counts)
   detected <- Matrix::colSums(counts > 0)
   eligible <- total >= min_total & detected >= min_detected
-  if (sum(eligible) < 30L) {
+  if (sum(eligible) < 30) {
     stop("Need at least 30 eligible genes; estimate on the whole transcriptome, not one gene set.")
   }
 
@@ -121,7 +121,7 @@ estimate_dispersion_scale <- function(counts, library_size, min_total = 10L,
 
   result <- data.frame(gene = colnames(counts), total = total,
                        detected = detected, eligible = eligible,
-                       dispersion = NA_real_, dispersion_scale = NA_real_,
+                       dispersion = NA, dispersion_scale = NA,
                        row.names = NULL)
   result$dispersion[eligible] <- alpha
   result$dispersion_scale[eligible] <- exp(mean(log(alpha)) - log(alpha))

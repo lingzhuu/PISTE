@@ -93,7 +93,7 @@ cli_parse_args <- function(args) {
     values[i] <- list(if (options$flag[i]) FALSE else if (is.na(default)) NULL else default)
   }
 
-  i <- 1L
+  i <- 1
   while (i <= length(args)) {
     arg <- args[i]
     if (!startsWith(arg, "--")) stop("Unexpected argument: ", arg)
@@ -110,13 +110,13 @@ cli_parse_args <- function(args) {
       values[[name]] <- TRUE
     } else {
       if (is.null(value)) {
-        i <- i + 1L
+        i <- i + 1
         if (i > length(args)) stop("Option --", name, " needs a value.")
         value <- args[i]
       }
       values[[name]] <- value
     }
-    i <- i + 1L
+    i <- i + 1
   }
   values
 }
@@ -145,7 +145,7 @@ cli_check_options <- function(opts) {
     if (!is.finite(opts[[name]]) || opts[[name]] <= 0) stop("--", name, " must be a positive number.")
   }
   opts$`mesh-offset` <- as.numeric(strsplit(opts$`mesh-offset`, ",")[[1]])
-  if (length(opts$`mesh-offset`) != 2L || any(!is.finite(opts$`mesh-offset`))) {
+  if (length(opts$`mesh-offset`) != 2 || any(!is.finite(opts$`mesh-offset`))) {
     stop("--mesh-offset must be two numbers separated by a comma, e.g. 0.1,0.2.")
   }
   opts$`min-genes` <- max(2, opts$`min-genes`)
@@ -198,7 +198,7 @@ cli_load_inputs <- function(opts) {
   region <- region[!is.na(region) & nzchar(region) & region != "NA"]
 
   spots <- Reduce(intersect, list(rownames(counts), rownames(xy), names(region)))
-  if (length(spots) < 10L) {
+  if (length(spots) < 10) {
     stop("Only ", length(spots), " spots have expression, coordinates and a region label; check that the spot IDs match.")
   }
   dropped <- nrow(counts) - length(spots)
@@ -209,7 +209,7 @@ cli_load_inputs <- function(opts) {
     if (!opts$target %in% region) stop("--target ", opts$target, " is not a region label.")
     region <- ifelse(region == opts$target, opts$target, "rest")
   }
-  if (length(unique(region)) < 2L) stop("At least two regions are needed.")
+  if (length(unique(region)) < 2) stop("At least two regions are needed.")
   cli_log("Regions: ", paste(names(table(region)), table(region), sep = "=", collapse = ", "))
 
   list(counts = counts[spots, , drop = FALSE],
@@ -310,19 +310,19 @@ cli_run <- function(opts) {
 spapath_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
   if (!length(args) || args[1] %in% c("-h", "--help", "help")) {
     writeLines(cli_usage())
-    return(invisible(0L))
+    return(invisible(0))
   }
   if (args[1] %in% c("--version", "version")) {
     writeLines(paste("SpaPath (PathwayLGM)", as.character(utils::packageVersion("PathwayLGM"))))
-    return(invisible(0L))
+    return(invisible(0))
   }
   if (args[1] != "run") stop("Unknown command '", args[1], "'. Use: spapath run [options]")
 
   opts <- cli_parse_args(args[-1])
   if (isTRUE(opts$help)) {
     writeLines(cli_usage())
-    return(invisible(0L))
+    return(invisible(0))
   }
   status <- cli_run(opts)
-  invisible(if (any(status$status == "done")) 0L else 1L)
+  invisible(if (any(status$status == "done")) 0 else 1)
 }

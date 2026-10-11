@@ -24,8 +24,8 @@ for (p in names(labels)) {
     rest_positive = tab["rest", "positive"], rest_negative = tab["rest", "negative"],
     target_positive_fraction = tab["target", "positive"] / sum(tab["target", ]),
     rest_positive_fraction = tab["rest", "positive"] / sum(tab["rest", ]),
-    odds_ratio = NA_real_, chi_square = NA_real_, df = NA_integer_,
-    p_value = NA_real_, min_expected_count = NA_real_)
+    odds_ratio = NA, chi_square = NA, df = NA,
+    p_value = NA, min_expected_count = NA)
   row$target_minus_rest_fraction <- row$target_positive_fraction - row$rest_positive_fraction
   if (all(rowSums(tab) > 0) && all(colSums(tab) > 0)) {
     test <- chisq.test(tab, correct = TRUE)

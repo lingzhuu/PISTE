@@ -120,13 +120,13 @@ require_hdf5r <- function() {
 #' @param compressed "csr" (rows indexed by indptr) or "csc".
 #' @noRd
 hdf5_sparse <- function(data, indices, indptr, shape, compressed) {
-  pointer_dim <- if (compressed == "csr") 1L else 2L
+  pointer_dim <- if (compressed == "csr") 1 else 2
   index <- rep(seq_len(shape[pointer_dim]), diff(indptr))
   if (compressed == "csr") {
-    Matrix::sparseMatrix(i = index, j = indices + 1L, x = as.numeric(data),
+    Matrix::sparseMatrix(i = index, j = indices + 1, x = as.numeric(data),
                          dims = shape)
   } else {
-    Matrix::sparseMatrix(i = indices + 1L, j = index, x = as.numeric(data),
+    Matrix::sparseMatrix(i = indices + 1, j = index, x = as.numeric(data),
                          dims = shape)
   }
 }
@@ -222,12 +222,12 @@ h5ad_dataframe <- function(group) {
       if (!item$exists("codes")) next
       codes <- item[["codes"]]$read()
       categories <- as.character(item[["categories"]]$read())
-      values <- categories[ifelse(codes < 0L, NA_integer_, codes + 1L)]   # -1 = missing
+      values <- categories[ifelse(codes < 0, NA_integer_, codes + 1)]   # -1 = missing; integer NA keeps the index length
     } else {
       values <- item$read()
       if (!is.null(old_categories) && old_categories$exists(name)) {
         values <- as.character(old_categories[[name]]$read())[
-          ifelse(values < 0L, NA_integer_, values + 1L)]
+          ifelse(values < 0, NA_integer_, values + 1)]
       }
     }
     if (length(values) == length(index)) frame[[name]] <- values
@@ -250,7 +250,7 @@ h5ad_dataframe <- function(group) {
 #' @noRd
 read_coordinates <- function(path) {
   table <- read_delimited(path)
-  if (ncol(table) == 6L && !"pxl_row_in_fullres" %in% names(table) &&
+  if (ncol(table) == 6 && !"pxl_row_in_fullres" %in% names(table) &&
       is.numeric(table[[5]]) && is.numeric(table[[6]]) &&
       !any(c("x", "y") %in% names(table))) {
     # Headerless tissue_positions_list.csv: the first row was read as header.
@@ -265,8 +265,8 @@ read_coordinates <- function(path) {
   } else if (all(c("pxl_col_in_fullres", "pxl_row_in_fullres") %in% names(table))) {
     xy <- cbind(table$pxl_col_in_fullres, table$pxl_row_in_fullres)
   } else {
-    numeric_columns <- which(vapply(table[-1], is.numeric, logical(1))) + 1L
-    if (length(numeric_columns) < 2L) stop("No coordinate columns found in ", path)
+    numeric_columns <- which(vapply(table[-1], is.numeric, logical(1))) + 1
+    if (length(numeric_columns) < 2) stop("No coordinate columns found in ", path)
     xy <- as.matrix(table[numeric_columns[1:2]])
   }
   xy <- matrix(as.numeric(xy), ncol = 2, dimnames = list(spots, c("x", "y")))
@@ -278,7 +278,7 @@ read_coordinates <- function(path) {
 #' @noRd
 read_spot_table <- function(path) {
   table <- read_delimited(path)
-  if (ncol(table) < 2L) stop(path, " needs a spot ID column and a value column.")
+  if (ncol(table) < 2) stop(path, " needs a spot ID column and a value column.")
   setNames(as.character(table[[2]]), as.character(table[[1]]))
 }
 
@@ -287,7 +287,7 @@ read_spot_table <- function(path) {
 #' @noRd
 read_gmt <- function(path) {
   fields <- strsplit(readLines(path, warn = FALSE), "\t")
-  fields <- fields[lengths(fields) >= 3L]
+  fields <- fields[lengths(fields) >= 3]
   sets <- lapply(fields, function(x) unique(x[-(1:2)][nzchar(x[-(1:2)])]))
   names(sets) <- vapply(fields, `[`, "", 1)
   sets

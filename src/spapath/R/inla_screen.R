@@ -52,8 +52,8 @@ screen_default_cfg <- function(mode) {
   list(
     # Directional probability (pi) inference
     pi = TRUE,
-    pi_nodes = 4096L,
-    pi_max_nodes = 65536L,
+    pi_nodes = 4096,
+    pi_max_nodes = 65536,
     pi_tolerance = .002,
 
     # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
@@ -130,9 +130,9 @@ screen_check_integration_cfg <- function(cfg) {
 #' @noRd
 screen_region_labels <- function(region, baseline_region) {
   found_labels <- unique(as.character(region))
-  baseline <- if (is.null(baseline_region)) found_labels[1L] else
+  baseline <- if (is.null(baseline_region)) found_labels[1] else
     as.character(baseline_region)
-  stopifnot(length(baseline) == 1L, baseline %in% found_labels)
+  stopifnot(length(baseline) == 1, baseline %in% found_labels)
   c(baseline, setdiff(found_labels, baseline))
 }
 
@@ -147,7 +147,7 @@ screen_region_labels <- function(region, baseline_region) {
 #'   effect / weight names of the gene-specific slopes.
 #' @noRd
 screen_prepare_covariates <- function(X, N, cfg) {
-  if (is.null(X)) X <- matrix(numeric(), N, 0L)
+  if (is.null(X)) X <- matrix(numeric(), N, 0)
   X <- as.matrix(X)
   stopifnot(nrow(X) == N, all(is.finite(X)))
 
@@ -155,7 +155,7 @@ screen_prepare_covariates <- function(X, N, cfg) {
     X <- cbind(intercept = rep(1, N), X)
   }
   stopifnot(all(X[, "intercept"] == 1),
-            sum(colSums(X == 1) == N) == 1L)
+            sum(colSums(X == 1) == N) == 1)
 
   if (anyDuplicated(colnames(X)) || any(!nzchar(colnames(X)))) {
     stop("X must have unique, non-empty column names.")
@@ -167,7 +167,7 @@ screen_prepare_covariates <- function(X, N, cfg) {
   stopifnot(!anyNA(gene_x),
             !anyDuplicated(gene_x),
             !(match("intercept", colnames(X)) %in% gene_x),
-            length(cfg$gene_covariate_prior_sd) == 1L,
+            length(cfg$gene_covariate_prior_sd) == 1,
             is.finite(cfg$gene_covariate_prior_sd),
             cfg$gene_covariate_prior_sd > 0)
 
@@ -200,7 +200,7 @@ screen_fixed_range_spde <- function(mesh, kappa) {
     B.kappa = matrix(c(log(kappa), 0), 1, 2),
     theta.prior.mean = 0, theta.prior.prec = 1
   )
-  stopifnot(spde$n.theta == 1L)
+  stopifnot(spde$n.theta == 1)
   spde
 }
 
@@ -225,13 +225,13 @@ screen_effects_table <- function(covariates, site, gene, region_long,
     effects[[covariates$slope_weight_names[j]]] <- X[site, covariates$gene_specific[j]]
   }
   for (r in seq_len(n_regions)) {
-    if (r > 1L) effects[[offset_names[r - 1L]]] <- as.numeric(region_long == r)
-    effects[[gene_names[r]]] <- ifelse(region_long == r, gene, NA_integer_)
+    if (r > 1) effects[[offset_names[r - 1]]] <- as.numeric(region_long == r)
+    effects[[gene_names[r]]] <- ifelse(region_long == r, gene, NA)
   }
   effects$row <- NULL
 
   # Every observation belongs to exactly one regional gene effect.
-  stopifnot(all(rowSums(!is.na(effects[gene_names])) == 1L))
+  stopifnot(all(rowSums(!is.na(effects[gene_names])) == 1))
   effects
 }
 
@@ -309,7 +309,7 @@ screen_formula_text <- function(covariates, offset_names, gene_names,
 #'   contrast and the `rest_weights` used for each region.
 #' @noRd
 screen_region_lincombs <- function(counts, other_weights, intercept_name,
-                                   offset_names, n_genes = 0L) {
+                                   offset_names, n_genes = 0) {
   R <- length(counts)
   lincombs <- list()
   coefficients <- list()
@@ -318,16 +318,16 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
   # INLA linear combination of the relative offsets for coefficients z.
   offset_lincomb <- function(z, name) {
     setNames(do.call(inla.make.lincomb,
-                     as.list(setNames(z[-1L], offset_names))), name)
+                     as.list(setNames(z[-1], offset_names))), name)
   }
 
   # Region r versus the rest.
   for (r in seq_len(R)) {
     rest <- setdiff(seq_len(R), r)
     a <- counts[rest] / sum(counts[rest])
-    if (r == 1L && !is.null(other_weights)) {
+    if (r == 1 && !is.null(other_weights)) {
       a <- other_weights
-      stopifnot(length(a) == R - 1L, all(is.finite(a)), all(a >= 0),
+      stopifnot(length(a) == R - 1, all(is.finite(a)), all(a >= 0),
                 sum(a) > 0)
       a <- a / sum(a)
     }
@@ -351,10 +351,10 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
 
   # Absolute regional means: intercept (+ mean(u)) + offset_r.
   for (r in seq_len(R)) {
-    z <- c(1, as.numeric(seq.int(2L, R) == r))
+    z <- c(1, as.numeric(seq.int(2, R) == r))
     names(z) <- c(intercept_name, offset_names)
     z <- as.list(z)
-    if (n_genes > 0L) z$gene_intercept <- rep(1 / n_genes, n_genes)
+    if (n_genes > 0) z$gene_intercept <- rep(1 / n_genes, n_genes)
     lincombs <- c(lincombs, setNames(do.call(inla.make.lincomb, z),
                                      paste0("absolute_mu_r", r)))
   }
@@ -414,7 +414,7 @@ screen_check_adjusted_inputs <- function(Y, library_size, dispersion_scale,
 #' mainly by its prior.
 #' @noRd
 screen_composition_diagnostics <- function(composition_offset, X, region_index) {
-  region_indicators <- outer(region_index, seq.int(2L, max(region_index)), "==") * 1
+  region_indicators <- outer(region_index, seq.int(2, max(region_index)), "==") * 1
   design <- qr(cbind(X, region_indicators))
   if (design$rank < ncol(design$qr)) {
     stop("X is rank deficient with the intercept/region indicators; remove duplicate region or constant columns.")
@@ -515,8 +515,8 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   region_index <- match(as.character(region), labels)
   R <- length(labels)
 
-  stopifnot(N == nrow(xy), ncol(xy) == 2L, length(region) == N,
-            R >= 2L, K >= 2L,
+  stopifnot(N == nrow(xy), ncol(xy) == 2, length(region) == N,
+            R >= 2, K >= 2,
             all(is.finite(Y)), all(is.finite(xy)), !anyNA(region),
             is.finite(h), h > 0,
             cfg$kappa_h >= 2.3, cfg$kappa_h <= 3.2,
@@ -525,7 +525,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
             cfg$tau_logprecision_sd > 0,
             cfg$tau_prior %in% c("normal", "inla_default", "pc", "flat"),
             is.null(cfg$initial_theta) ||
-              (length(cfg$initial_theta) == R + 2L &&
+              (length(cfg$initial_theta) == R + 2 &&
                  all(is.finite(cfg$initial_theta))))
 
   covariates <- screen_prepare_covariates(X, N, cfg)
@@ -558,13 +558,13 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
 
   # Each row of A must only touch its own gene's replicate and sum to one.
   nz <- summary(A)  # non-zero entries (i, j, x)
-  stopifnot(all((nz$j - 1L) %/% mesh$n + 1L == gene[nz$i]),
+  stopifnot(all((nz$j - 1) %/% mesh$n + 1 == gene[nz$i]),
             max(abs(rowSums(A) - 1)) < 1e-9)
 
   # --- Effects and data stack ------------------------------------------------
   # The intercept in X is the baseline regional mean. Other mu coefficients
   # are offsets from that baseline, with delta_1 fixed at zero.
-  offset_names <- paste0("mu_r", seq.int(2L, R))
+  offset_names <- paste0("mu_r", seq.int(2, R))
   intercept_name <- covariates$names[match("intercept", colnames(X))]
   gene_names <- paste0("gene_r", seq_len(R))
 
@@ -610,11 +610,11 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   counts <- as.numeric(table(factor(region_index, levels = seq_len(R))))
   contrasts <- screen_region_lincombs(counts, cfg$other_weights,
                                       intercept_name, offset_names,
-                                      n_genes = if (adjusted) K else 0L)
+                                      n_genes = if (adjusted) K else 0)
 
   # --- Run INLA --------------------------------------------------------------
   observation_family <- if (adjusted) {
-    list(variant = 2L, hyper = list(theta = list(
+    list(variant = 2, hyper = list(theta = list(
       prior = "normal", param = c(cfg$nb_logsize_mean, 1 / cfg$nb_logsize_sd^2))))
   } else {
     list(hyper = list(prec = list(prior = "pc.prec", param = c(2, .05))))
@@ -687,8 +687,8 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
             all(vapply(fit$summary.random[gene_names], nrow,
                        integer(1)) == K))
   if (is.null(.fixed_theta)) {
-    stopifnot(length(fit$mode$theta) == R + 2L,
-              nrow(fit$summary.hyperpar) == R + 2L)
+    stopifnot(length(fit$mode$theta) == R + 2,
+              nrow(fit$summary.hyperpar) == R + 2)
   }
 
   # --- Result ----------------------------------------------------------------
@@ -714,19 +714,19 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
     cfg = cfg,
     family = family,
     fit_seconds = fit_seconds,
-    hyperparameters = R + 2L,
+    hyperparameters = R + 2,
     tau_prior = list(
       internal_parameter = "log precision",
       prior = cfg$tau_prior,
-      mean = if (is_normal_prior) cfg$tau_logprecision_mean else NA_real_,
-      sd = if (is_normal_prior) cfg$tau_logprecision_sd else NA_real_,
+      mean = if (is_normal_prior) cfg$tau_logprecision_mean else NA,
+      sd = if (is_normal_prior) cfg$tau_logprecision_sd else NA,
       parameters = iid_hyper$prec$param
     ),
     nb_prior = if (adjusted) observation_family$hyper else NULL,
     dispersion_scale = if (adjusted) dispersion_scale else NULL,
     composition_diagnostics = composition,
     composition_slope_prior = if (adjusted) list(mean = 1, sd = .25) else NULL,
-    baseline_region = labels[1L],
+    baseline_region = labels[1],
     intercept_name = intercept_name,
     gene_intercept_name = gene_intercept_name,
     regional_offset_names = offset_names,
@@ -1009,8 +1009,8 @@ screen_summarize <- function(result) {
     # posterior. Do not multiply marginal densities or substitute modal ratios.
     variance_contrast = data.frame(
       quantity = "log_tau2_1_over_weighted_within_rest",
-      mean = NA_real_, lower = NA_real_, median = NA_real_, upper = NA_real_,
-      p_gt_zero = NA_real_,
+      mean = NA, lower = NA, median = NA, upper = NA,
+      p_gt_zero = NA,
       status = "not_computed_from_separate_marginals"
     ),
     fixed_marginals = fixed_marginals,

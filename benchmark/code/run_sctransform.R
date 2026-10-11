@@ -39,6 +39,6 @@ saveRDS(residual, file.path(out, "pearson_residuals.rds"), compress = "xz")
 saveRDS(corrected, file.path(out, "corrected_counts.rds"), compress = "xz")
 # Column-major float32 dump for non-R readers; genes.txt/spots.txt give the order.
 writeBin(as.numeric(residual), file.path(out, "pearson_residuals_f32.bin"),
-         size = 4L, endian = "little")
+         size = 4, endian = "little")
 writeLines(rownames(residual), file.path(out, "genes.txt"))
 writeLines(colnames(residual), file.path(out, "spots.txt"))

@@ -60,7 +60,7 @@ pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0,
                                     extra_variance = 0) {
   sizes <- lengths(list(mr, ms, vr, vs, covariance, extra_variance))
   n <- max(sizes)
-  if (n == 0L || any(!sizes %in% c(1L, n))) {
+  if (n == 0 || any(!sizes %in% c(1, n))) {
     stop("Probability inputs must be scalar or have a common positive length.")
   }
 
@@ -176,7 +176,7 @@ pi_regional_state_map <- function(configs, n_latent, effect_names,
   }
 
   selected <- match(effect_names, contents$tag)
-  if (anyNA(selected) || any(contents$length[selected] != 1L)) {
+  if (anyNA(selected) || any(contents$length[selected] != 1)) {
     stop("Cannot identify intercept and regional offsets in INLA configuration.")
   }
   rows <- starts[selected]
@@ -187,12 +187,12 @@ pi_regional_state_map <- function(configs, n_latent, effect_names,
     block <- match(gene_intercept_name, contents$tag)
     if (is.na(block)) stop("Cannot identify the gene intercepts in INLA configuration.")
     n_genes <- contents$length[block]
-    rows <- c(rows, starts[block] + seq_len(n_genes) - 1L)
-    cols <- c(cols, rep(1L, n_genes))
+    rows <- c(rows, starts[block] + seq_len(n_genes) - 1)
+    cols <- c(cols, rep(1, n_genes))
     values <- c(values, rep(1 / n_genes, n_genes))
   }
 
-  if (any(rows < 1L | rows > n_latent)) {
+  if (any(rows < 1 | rows > n_latent)) {
     stop("INLA compact precision and mean layout do not agree.")
   }
   list(map = Matrix::sparseMatrix(i = rows, j = cols, x = values,
@@ -222,8 +222,8 @@ pi_configuration_weights <- function(configs) {
 #' @noRd
 pi_absolute_mean_transform <- function(n_regions) {
   transform <- matrix(0, n_regions, n_regions)
-  transform[, 1L] <- 1
-  for (r in seq.int(2L, n_regions)) transform[r, r] <- 1
+  transform[, 1] <- 1
+  for (r in seq.int(2, n_regions)) transform[r, r] <- 1
   transform
 }
 
@@ -256,7 +256,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
   started <- proc.time()[["elapsed"]]
 
   configs <- fit$misc$configs
-  if (is.null(configs) || length(configs$config) < 2L) {
+  if (is.null(configs) || length(configs$config) < 2) {
     stop("Pi inference requires multiple saved CCD configurations.")
   }
   if (!is.null(configs$constr) && length(configs$constr$A) > 0) {
@@ -326,7 +326,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     region_labels = region_labels,
     region_spots = region_spots,
     estimand = PI_ESTIMAND,
-    baseline_region = region_labels[1L],
+    baseline_region = region_labels[1],
     approximation = "CCD mixture of improved-mean conditional multivariate Gaussians; no skew transform",
     weight_source = "normalized exp(config$log.posterior), as used by INLA's configuration mixture",
     max_reported_mean_skewness = max_skewness,
@@ -385,7 +385,7 @@ pi_mixture_diagnostic <- function(fit, mixture, weights, region_labels) {
 #' @return A list with data frames `pairwise` (one row per ordered pair) and
 #'   `overall` (one row per region), and a list of `diagnostics`.
 #' @export
-pathway_pi_integrate <- function(joint, nodes = 4096L, max_nodes = 65536L,
+pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
                                  tolerance = 0.002) {
   started <- proc.time()[["elapsed"]]
 
@@ -404,7 +404,7 @@ pathway_pi_integrate <- function(joint, nodes = 4096L, max_nodes = 65536L,
   score <- analytic$score
   rest_score <- rowSums(replace(score, is.na(score), 0) * rest_weights)
 
-  if (n_regions == 2L) {
+  if (n_regions == 2) {
     evidence <- pi_two_region_evidence(mixture, weights)
 
     tables <- pi_result_tables(
@@ -415,9 +415,9 @@ pathway_pi_integrate <- function(joint, nodes = 4096L, max_nodes = 65536L,
       rest_boundary = evidence$boundary_mass
     )
     diagnostics <- list(
-      converged = TRUE, nodes = 0L,
+      converged = TRUE, nodes = 0,
       integration = "analytic two-region Gaussian-mixture calculation",
-      refinement = data.frame(nodes = 0L,
+      refinement = data.frame(nodes = 0,
                               evidence_refinement_difference = 0,
                               analytic_score_check = 0),
       configurations = length(weights),
@@ -466,7 +466,7 @@ pi_validate_mixture <- function(joint, nodes, max_nodes, tolerance) {
   n_regions <- length(joint$region_labels)
   weights <- joint$weights
 
-  if (n_regions < 2L ||
+  if (n_regions < 2 ||
       length(weights) != length(joint$configurations) ||
       any(!is.finite(weights) | weights < 0) ||
       abs(sum(weights) - 1) > 1e-8 ||
@@ -554,7 +554,7 @@ pi_analytic_scores <- function(mixture, weights, pairs, n_regions) {
     }
   }
 
-  diag(score) <- NA_real_
+  diag(score) <- NA
   list(score = score, roots = roots)
 }
 
@@ -591,8 +591,8 @@ pi_two_region_evidence <- function(mixture, weights) {
   evidence_21 <- mass[["second"]]
 
   list(
-    pairwise = matrix(c(NA_real_, evidence_21,
-                        evidence_12, NA_real_), 2, 2),
+    pairwise = matrix(c(NA, evidence_21,
+                        evidence_12, NA), 2, 2),
     overall = c(evidence_12, evidence_21),
     boundary_mass = mass[["tie"]]
   )
@@ -629,8 +629,8 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
                                    rest_weights, nodes, max_nodes, tolerance) {
   n_regions <- nrow(score)
   history <- list()
-  stable_refinements <- 0L
-  n <- as.integer(nodes)
+  stable_refinements <- 0
+  n <- nodes
 
   repeat {
     normal <- pi_antithetic_sobol_normals(n, n_regions)
@@ -680,22 +680,22 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
     refinement_difference <- max(abs(evidence - coarse),
                                  abs(rest_evidence - rest_coarse))
     score_check <- max(abs(quadrature_score - score), na.rm = TRUE)
-    history[[length(history) + 1L]] <- data.frame(
+    history[[length(history) + 1]] <- data.frame(
       nodes = n,
       evidence_refinement_difference = refinement_difference,
       analytic_score_check = score_check
     )
 
     is_stable <- refinement_difference <= tolerance && score_check <= tolerance
-    stable_refinements <- if (is_stable) stable_refinements + 1L else 0L
-    if (stable_refinements >= 2L || n >= max_nodes) break
-    n <- n * 2L
+    stable_refinements <- if (is_stable) stable_refinements + 1 else 0
+    if (stable_refinements >= 2 || n >= max_nodes) break
+    n <- n * 2
   }
 
   list(
     pairwise = evidence, pairwise_tie = tie,
     overall = rest_evidence, overall_tie = rest_tie,
-    converged = stable_refinements >= 2L,
+    converged = stable_refinements >= 2,
     nodes = n,
     refinement = do.call(rbind, history)
   )
