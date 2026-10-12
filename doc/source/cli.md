@@ -78,8 +78,8 @@ dispersions are estimated once on all genes with DESeq2.
 
 | File | Content |
 |------|---------|
-| `overall_scores.csv` | π score and evidence of each region against the rest, for every gene set |
-| `pairwise_scores.csv` | π score and evidence for every pair of regions, for every gene set |
+| `overall_scores.csv` | π score, evidence, δ evidence and call of each region against the rest, for every gene set |
+| `pairwise_scores.csv` | π score, evidence, δ evidence and call for every pair of regions, for every gene set |
 | `gene_sets.csv` | Number of genes used and status (`done`, `skipped`, `failed`) of each gene set |
 | `<gene set>/` | All files written by [`screen_write()`](api.md#screen_write) for that gene set |
 
@@ -108,5 +108,6 @@ dispersions are estimated once on all genes with DESeq2.
 --cutoff CUTOFF                Minimum distance between mesh nodes. [default: 0.08]
 --mesh-offset MESH_OFFSET      Inner and outer mesh extension around the spots. [default: 0.1,0.2]
 --threads THREADS              INLA threads, e.g. 4:1 (default: 1:1).
+--delta DELTA                  Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95. [default: 0.1]
 --no-pi                        Skip pi scores and evidence; report regional means only.
 ```

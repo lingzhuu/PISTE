@@ -52,6 +52,8 @@ screen_default_cfg <- function(mode) {
   list(
     # Directional probability (pi) inference
     pi = TRUE,
+    pi_delta = .1,
+    pi_level = .95,
     pi_nodes = 4096,
     pi_max_nodes = 65536,
     pi_tolerance = .002,
@@ -458,8 +460,9 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   expression log m[i, g] from [composition_offset()], with the dimnames of
 #'   `Y`.
 #' @param cfg List of options overriding the defaults:
-#'   * `pi` (TRUE), `pi_nodes`, `pi_max_nodes`, `pi_tolerance`: directional
-#'     probability inference, see [pathway_pi_integrate()].
+#'   * `pi` (TRUE), `pi_delta` (0.1), `pi_level` (0.95), `pi_nodes`,
+#'     `pi_max_nodes`, `pi_tolerance`: directional probability inference,
+#'     see [pathway_pi_integrate()].
 #'   * `threads` ("1:1"), `strategy` ("gaussian" in observed mode,
 #'     "simplified.laplace" in adjusted mode): INLA settings.
 #'   * `kappa_h` (`sqrt(8)`): kappa * h, must lie in \[2.3, 3.2\].
@@ -989,6 +992,8 @@ screen_summarize <- function(result) {
 
   pi_result <- if (!is.null(result$joint)) {
     pathway_pi_integrate(result$joint,
+                         delta = metadata$cfg$pi_delta,
+                         level = metadata$cfg$pi_level,
                          nodes = metadata$cfg$pi_nodes,
                          max_nodes = metadata$cfg$pi_max_nodes,
                          tolerance = metadata$cfg$pi_tolerance)

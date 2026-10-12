@@ -12,6 +12,14 @@
 #                                           sqrt(tau2_r + tau2_s + kappa2_rs))
 #   evidence P( pi_rs > 0.5 )    i.e. the posterior probability that r is
 #                                enriched relative to s
+#   evidence_higher  P( pi_rs > 0.5 + delta )
+#   evidence_lower   P( pi_rs < 0.5 - delta )
+#
+# delta is a minimal effect fixed in advance by the user (default 0.1). A
+# region pair is called different when evidence_higher or evidence_lower
+# exceeds `level` (default 0.95). With thousands of spots the evidence
+# approaches 0 or 1 even for differences close to 0.5; the delta evidence asks
+# for a difference of at least delta.
 #
 # kappa2_rs = sigma_e2 * (1 / n_r + 1 / n_s) is the measurement error of a
 # gene's regional means (n_r spots in region r). It keeps pi_rs near 0.5 when
@@ -369,7 +377,11 @@ pi_mixture_diagnostic <- function(fit, mixture, weights, region_labels) {
 #' For every ordered region pair (r, s) computes
 #' * **score**: the posterior mean of pi_rs = P(Z_r > Z_s), obtained
 #'   analytically for each mixture component;
-#' * **evidence**: the posterior probability that pi_rs > 0.5.
+#' * **evidence**: the posterior probability that pi_rs > 0.5;
+#' * **evidence_higher**, **evidence_lower**: the posterior probabilities
+#'   that pi_rs > 0.5 + delta and pi_rs < 0.5 - delta;
+#' * **call**: `"higher"` or `"lower"` when the corresponding probability
+#'   exceeds `level`, otherwise `"none"`.
 #'
 #' The "overall" table compares each region with a spot-count-weighted average
 #' of all other regions. With two regions the evidence is computed
@@ -379,17 +391,24 @@ pi_mixture_diagnostic <- function(fit, mixture, weights, region_labels) {
 #' the RNG state.
 #'
 #' @param joint The `joint` element returned by [screen_joint_fit()].
+#' @param delta Minimal effect on the pi scale, in \[0, 0.5).
+#' @param level Posterior probability required for a call, in (0.5, 1).
 #' @param nodes Initial number of quadrature nodes (power of two, >= 16).
 #' @param max_nodes Maximum number of nodes (power of two, >= 2 * nodes).
 #' @param tolerance Convergence tolerance for refinement differences.
 #' @return A list with data frames `pairwise` (one row per ordered pair) and
 #'   `overall` (one row per region), and a list of `diagnostics`.
 #' @export
-pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
+pathway_pi_integrate <- function(joint, delta = 0.1, level = 0.95,
+                                 nodes = 4096, max_nodes = 65536,
                                  tolerance = 0.002) {
   started <- proc.time()[["elapsed"]]
 
   pi_validate_mixture(joint, nodes, max_nodes, tolerance)
+  if (!is.finite(delta) || delta < 0 || delta >= 0.5 ||
+      !is.finite(level) || level <= 0.5 || level >= 1) {
+    stop("Use 0 <= delta < 0.5 and 0.5 < level < 1.")
+  }
 
   n_regions <- length(joint$region_labels)
   weights <- joint$weights
@@ -405,14 +424,16 @@ pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
   rest_score <- rowSums(replace(score, is.na(score), 0) * rest_weights)
 
   if (n_regions == 2) {
-    evidence <- pi_two_region_evidence(mixture, weights)
+    evidence <- pi_two_region_evidence(mixture, weights, delta)
 
     tables <- pi_result_tables(
       joint$region_labels, counts,
       score = score, evidence = evidence$pairwise,
       boundary = evidence$boundary_mass,
       rest_score = rest_score, rest_evidence = evidence$overall,
-      rest_boundary = evidence$boundary_mass
+      rest_boundary = evidence$boundary_mass,
+      higher = evidence$higher, rest_higher = evidence$overall_higher,
+      rest_lower = evidence$overall_lower, level = level
     )
     diagnostics <- list(
       converged = TRUE, nodes = 0,
@@ -422,7 +443,7 @@ pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
                               analytic_score_check = 0),
       configurations = length(weights),
       approximation = joint$approximation,
-      estimand = PI_ESTIMAND, boundary = 0.5,
+      estimand = PI_ESTIMAND, boundary = 0.5, delta = delta, level = level,
       strict_inequality = TRUE, deterministic = TRUE,
       posterior_sampling = FALSE,
       seconds = proc.time()[["elapsed"]] - started
@@ -431,7 +452,7 @@ pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
   }
 
   evidence <- pi_quadrature_evidence(mixture, weights, analytic$roots,
-                                     score, pairs, rest_weights,
+                                     score, pairs, rest_weights, delta,
                                      nodes, max_nodes, tolerance)
   if (!evidence$converged) {
     warning("Pi quadrature reached max_nodes without two stable refinements.")
@@ -442,7 +463,9 @@ pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
     score = score, evidence = evidence$pairwise,
     boundary = evidence$pairwise_tie,
     rest_score = rest_score, rest_evidence = evidence$overall,
-    rest_boundary = evidence$overall_tie
+    rest_boundary = evidence$overall_tie,
+    higher = evidence$higher, rest_higher = evidence$overall_higher,
+    rest_lower = evidence$overall_lower, level = level
   )
   diagnostics <- list(
     converged = evidence$converged, nodes = evidence$nodes,
@@ -450,7 +473,8 @@ pathway_pi_integrate <- function(joint, nodes = 4096, max_nodes = 65536,
     refinement = evidence$refinement,
     configurations = length(weights),
     approximation = joint$approximation,
-    estimand = PI_ESTIMAND, boundary = 0.5, strict_inequality = TRUE,
+    estimand = PI_ESTIMAND, boundary = 0.5, delta = delta, level = level,
+    strict_inequality = TRUE,
     boundary_roundoff_tolerance = PI_TIE_TOLERANCE,
     deterministic = TRUE, posterior_sampling = FALSE,
     numerical_difference_is_not_error_bound = TRUE,
@@ -561,13 +585,17 @@ pi_analytic_scores <- function(mixture, weights, pairs, n_regions) {
 
 #' Evidence for exactly two regions, computed analytically
 #'
-#' With two regions, pi_12 > 0.5 iff mu_1 > mu_2. Integrate this event
-#' analytically over each CCD conditional Gaussian and mix the weights.
+#' With two regions, pi_12 > 0.5 iff mu_1 > mu_2, and pi_12 > 0.5 + delta iff
+#' mu_1 - mu_2 > qnorm(0.5 + delta) * d, where d is the denominator of pi_12 in
+#' that CCD configuration. Integrate these events analytically over each CCD
+#' conditional Gaussian and mix the weights.
 #'
 #' @return List with `pairwise` (2 x 2 evidence matrix, NA diagonal),
-#'   `overall` (evidence per region) and `boundary_mass` (P(mu_1 == mu_2)).
+#'   `overall` (evidence per region), `boundary_mass` (P(mu_1 == mu_2)),
+#'   `higher` (2 x 2 matrix of P(pi_rs > 0.5 + delta)) and `overall_higher`,
+#'   `overall_lower` per region.
 #' @noRd
-pi_two_region_evidence <- function(mixture, weights) {
+pi_two_region_evidence <- function(mixture, weights, delta) {
   per_component <- lapply(mixture, function(component) {
     covariance <- component$covariance
     difference_variance <- covariance[1, 1] + covariance[2, 2] -
@@ -577,24 +605,38 @@ pi_two_region_evidence <- function(mixture, weights) {
     }
 
     difference <- component$mu[1] - component$mu[2]
+    threshold <- stats::qnorm(0.5 + delta) *
+      sqrt(sum(component$tau2) + component$kappa2[1, 2])
     if (difference_variance == 0) {
       return(c(first = as.numeric(difference > 0),
                second = as.numeric(difference < 0),
-               tie = as.numeric(difference == 0)))
+               tie = as.numeric(difference == 0),
+               first_delta = as.numeric(difference > threshold),
+               second_delta = as.numeric(difference < -threshold)))
     }
-    p <- stats::pnorm(difference / sqrt(difference_variance))
-    c(first = p, second = 1 - p, tie = 0)
+    sd <- sqrt(difference_variance)
+    p <- stats::pnorm(difference / sd)
+    c(first = p, second = 1 - p, tie = 0,
+      first_delta = stats::pnorm((difference - threshold) / sd),
+      second_delta = stats::pnorm((-threshold - difference) / sd))
   })
 
   mass <- colSums(do.call(rbind, per_component) * weights)
   evidence_12 <- mass[["first"]]
   evidence_21 <- mass[["second"]]
 
+  higher_12 <- mass[["first_delta"]]
+  higher_21 <- mass[["second_delta"]]
+
   list(
     pairwise = matrix(c(NA, evidence_21,
                         evidence_12, NA), 2, 2),
     overall = c(evidence_12, evidence_21),
-    boundary_mass = mass[["tie"]]
+    boundary_mass = mass[["tie"]],
+    higher = matrix(c(NA, higher_21,
+                      higher_12, NA), 2, 2),
+    overall_higher = c(higher_12, higher_21),
+    overall_lower = c(higher_21, higher_12)
   )
 }
 
@@ -622,11 +664,13 @@ pi_antithetic_sobol_normals <- function(n, d) {
 #' within `tolerance` for two consecutive refinements, or `max_nodes` is
 #' reached.
 #'
-#' @return List with pairwise and overall evidence and tie mass, convergence
+#' @return List with pairwise and overall evidence and tie mass, the delta
+#'   evidence (`higher`, `overall_higher`, `overall_lower`), convergence
 #'   status, the final node count and the refinement history.
 #' @noRd
 pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
-                                   rest_weights, nodes, max_nodes, tolerance) {
+                                   rest_weights, delta, nodes, max_nodes,
+                                   tolerance) {
   n_regions <- nrow(score)
   history <- list()
   stable_refinements <- 0
@@ -638,7 +682,10 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
 
     # "coarse" uses only the first half of the nodes.
     evidence <- coarse <- tie <- matrix(0, n_regions, n_regions)
+    higher <- higher_coarse <- matrix(0, n_regions, n_regions)
     rest_evidence <- rest_coarse <- rest_tie <- numeric(n_regions)
+    rest_higher <- rest_higher_coarse <- numeric(n_regions)
+    rest_lower <- rest_lower_coarse <- numeric(n_regions)
     quadrature_score <- matrix(0, n_regions, n_regions)
 
     for (k in seq_along(mixture)) {
@@ -660,6 +707,12 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
         evidence[s, r] <- evidence[s, r] + w * mean(p < 0.5)
         coarse[r, s] <- coarse[r, s] + w * mean(p[first_half] > 0.5)
         coarse[s, r] <- coarse[s, r] + w * mean(p[first_half] < 0.5)
+        higher[r, s] <- higher[r, s] + w * mean(p > 0.5 + delta)
+        higher[s, r] <- higher[s, r] + w * mean(p < 0.5 - delta)
+        higher_coarse[r, s] <- higher_coarse[r, s] +
+          w * mean(p[first_half] > 0.5 + delta)
+        higher_coarse[s, r] <- higher_coarse[s, r] +
+          w * mean(p[first_half] < 0.5 - delta)
         tie[r, s] <- tie[r, s] + w * mean(p == 0.5)
         tie[s, r] <- tie[r, s]
         quadrature_score[r, s] <- quadrature_score[r, s] + w * mean(p)
@@ -675,10 +728,20 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
       rest_coarse <- rest_coarse +
         w * colMeans(rest_pi[first_half, , drop = FALSE] > 0.5)
       rest_tie <- rest_tie + w * colMeans(rest_pi == 0.5)
+      first_rest <- rest_pi[first_half, , drop = FALSE]
+      rest_higher <- rest_higher + w * colMeans(rest_pi > 0.5 + delta)
+      rest_lower <- rest_lower + w * colMeans(rest_pi < 0.5 - delta)
+      rest_higher_coarse <- rest_higher_coarse +
+        w * colMeans(first_rest > 0.5 + delta)
+      rest_lower_coarse <- rest_lower_coarse +
+        w * colMeans(first_rest < 0.5 - delta)
     }
 
     refinement_difference <- max(abs(evidence - coarse),
-                                 abs(rest_evidence - rest_coarse))
+                                 abs(rest_evidence - rest_coarse),
+                                 abs(higher - higher_coarse),
+                                 abs(rest_higher - rest_higher_coarse),
+                                 abs(rest_lower - rest_lower_coarse))
     score_check <- max(abs(quadrature_score - score), na.rm = TRUE)
     history[[length(history) + 1]] <- data.frame(
       nodes = n,
@@ -695,6 +758,7 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
   list(
     pairwise = evidence, pairwise_tie = tie,
     overall = rest_evidence, overall_tie = rest_tie,
+    higher = higher, overall_higher = rest_higher, overall_lower = rest_lower,
     converged = stable_refinements >= 2,
     nodes = n,
     refinement = do.call(rbind, history)
@@ -705,17 +769,27 @@ pi_quadrature_evidence <- function(mixture, weights, roots, score, pairs,
 #' Assemble the pairwise and overall result tables
 #'
 #' @param boundary Scalar or R x R matrix of tie mass for each ordered pair.
+#' @param higher R x R matrix of P(pi_rs > 0.5 + delta); P(pi_rs < 0.5 -
+#'   delta) is its transpose.
+#' @param rest_higher,rest_lower The same for each region against the rest.
+#' @param level Posterior probability required for a call.
 #' @noRd
 pi_result_tables <- function(region_labels, counts, score, evidence, boundary,
-                             rest_score, rest_evidence, rest_boundary) {
+                             rest_score, rest_evidence, rest_boundary,
+                             higher, rest_higher, rest_lower, level) {
   ordered <- which(row(score) != col(score), arr.ind = TRUE)
   pair_boundary <- if (is.matrix(boundary)) boundary[ordered] else boundary
+  pair_higher <- higher[ordered]
+  pair_lower <- t(higher)[ordered]
 
   pairwise <- data.frame(
     region = region_labels[ordered[, 1]],
     reference_region = region_labels[ordered[, 2]],
     score = score[ordered],
     evidence = evidence[ordered],
+    evidence_higher = pair_higher,
+    evidence_lower = pair_lower,
+    call = pi_call(pair_higher, pair_lower, level),
     boundary_mass = pair_boundary,
     row.names = NULL
   )
@@ -724,7 +798,17 @@ pi_result_tables <- function(region_labels, counts, score, evidence, boundary,
     spots = counts,
     score = rest_score,
     evidence = rest_evidence,
+    evidence_higher = rest_higher,
+    evidence_lower = rest_lower,
+    call = pi_call(rest_higher, rest_lower, level),
     boundary_mass = rest_boundary
   )
   list(pairwise = pairwise, overall = overall)
+}
+
+
+#' "higher", "lower" or "none" from the delta evidence
+#' @noRd
+pi_call <- function(higher, lower, level) {
+  ifelse(higher > level, "higher", ifelse(lower > level, "lower", "none"))
 }

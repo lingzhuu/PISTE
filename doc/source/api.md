@@ -189,6 +189,8 @@ hyperparameters with a CCD design. The mode chooses the model:
 |--------|---------|-------------|
 | `baseline_region` | first label | Region whose mean is the model intercept. |
 | `pi` | `TRUE` | Compute π scores and evidence. |
+| `pi_delta` | `0.1` | Minimal effect δ: `evidence_higher` is P(π > 0.5 + δ) and `evidence_lower` is P(π < 0.5 − δ). |
+| `pi_level` | `0.95` | Posterior probability that `evidence_higher` or `evidence_lower` must exceed for a call. |
 | `pi_nodes` | `4096` | Initial number of quadrature nodes for the evidence with three or more regions (power of two, ≥ 16). |
 | `pi_max_nodes` | `65536` | Maximum number of quadrature nodes (power of two, ≥ 2 × `pi_nodes`). |
 | `pi_tolerance` | `0.002` | Convergence tolerance between quadrature refinements. |
@@ -239,9 +241,10 @@ A list with
 
 - `pi$overall`: one row per region, compared with the spot-weighted average of
   all other regions. Columns `region`, `spots`, `score`, `evidence`,
-  `boundary_mass`.
+  `evidence_higher`, `evidence_lower`, `call`, `boundary_mass`.
 - `pi$pairwise`: one row per ordered pair of regions. Columns `region`,
-  `reference_region`, `score`, `evidence`, `boundary_mass`.
+  `reference_region`, `score`, `evidence`, `evidence_higher`,
+  `evidence_lower`, `call`, `boundary_mass`.
 - `pi$diagnostics`: quadrature convergence, number of nodes and refinement
   history.
 - `parameters`: posterior mean, 2.5 %, 50 % and 97.5 % quantiles of
@@ -272,7 +275,12 @@ A list with
 state in the region exceeds that in the reference, with the measurement error
 of a gene's regional means added to the gene-to-gene variance (Gaussian model);
 0.5 means no difference.
-`evidence` is the posterior probability that π > 0.5. Region indices in
+`evidence` is the posterior probability that π > 0.5. With thousands of spots
+it approaches 0 or 1 even for differences close to 0.5, so differences are
+called with a minimal effect δ fixed in advance (`pi_delta`, default 0.1):
+`evidence_higher` = P(π > 0.5 + δ), `evidence_lower` = P(π < 0.5 − δ), and
+`call` is `"higher"` or `"lower"` when the corresponding probability exceeds
+`pi_level` (0.95), otherwise `"none"`. Region indices in
 parameter and contrast names follow `metadata$region_labels`.
 
 ---
@@ -300,13 +308,15 @@ also written.
 ## pathway_pi_integrate
 
 ```r
-pathway_pi_integrate(joint, nodes = 4096L, max_nodes = 65536L,
-                     tolerance = 0.002)
+pathway_pi_integrate(joint, delta = 0.1, level = 0.95, nodes = 4096,
+                     max_nodes = 65536, tolerance = 0.002)
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `joint` | The `joint` element of `screen_joint_fit()`. |
+| `delta` | Minimal effect δ on the π scale, in [0, 0.5). |
+| `level` | Posterior probability required for a call, in (0.5, 1). |
 | `nodes` | Initial number of quadrature nodes (power of two, ≥ 16). |
 | `max_nodes` | Maximum number of nodes (power of two, ≥ 2 × `nodes`). |
 | `tolerance` | Convergence tolerance between refinements. |

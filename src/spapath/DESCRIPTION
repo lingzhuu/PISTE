@@ -1,7 +1,7 @@
 Package: PathwayLGM
 Type: Package
 Title: Spatial Pathway Inference with INLA
-Version: 0.6.1
+Version: 0.6.1.1
 Authors@R: c(
     person("PathwayLGM research contributors", role = "aut"),
     person("Research handoff maintainer", role = "cre",

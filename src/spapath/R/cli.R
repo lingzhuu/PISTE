@@ -48,6 +48,7 @@ cli_option_table <- function() {
     c("cutoff", "0.08", FALSE, "Minimum distance between mesh nodes."),
     c("mesh-offset", "0.1,0.2", FALSE, "Inner and outer mesh extension around the spots."),
     c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
+    c("delta", "0.1", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95."),
     c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "Show this help.")
   )
@@ -149,6 +150,10 @@ cli_check_options <- function(opts) {
     stop("--mesh-offset must be two numbers separated by a comma, e.g. 0.1,0.2.")
   }
   opts$`min-genes` <- max(2, opts$`min-genes`)
+  opts$delta <- as.numeric(opts$delta)
+  if (!is.finite(opts$delta) || opts$delta < 0 || opts$delta >= 0.5) {
+    stop("--delta must lie in [0, 0.5).")
+  }
   opts
 }
 
@@ -272,6 +277,7 @@ cli_run <- function(opts) {
   tables <- if (opts$mode == "adjusted") cli_adjusted_tables(opts) else list()
   cfg <- list()
   if (isTRUE(opts$`no-pi`)) cfg$pi <- FALSE
+  cfg$pi_delta <- opts$delta
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
   res <- run_spapath(inputs$counts, inputs$xy, inputs$region, gene_sets,
