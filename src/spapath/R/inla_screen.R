@@ -52,7 +52,7 @@ screen_default_cfg <- function(mode) {
   list(
     # Directional probability (pi) inference
     pi = TRUE,
-    pi_delta = .1,
+    pi_delta = .05,
     pi_level = .95,
     pi_nodes = 4096,
     pi_max_nodes = 65536,
@@ -460,7 +460,7 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   expression log m[i, g] from [composition_offset()], with the dimnames of
 #'   `Y`.
 #' @param cfg List of options overriding the defaults:
-#'   * `pi` (TRUE), `pi_delta` (0.1), `pi_level` (0.95), `pi_nodes`,
+#'   * `pi` (TRUE), `pi_delta` (0.05), `pi_level` (0.95), `pi_nodes`,
 #'     `pi_max_nodes`, `pi_tolerance`: directional probability inference,
 #'     see [pathway_pi_integrate()].
 #'   * `threads` ("1:1"), `strategy` ("gaussian" in observed mode,

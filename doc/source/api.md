@@ -189,7 +189,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 |--------|---------|-------------|
 | `baseline_region` | first label | Region whose mean is the model intercept. |
 | `pi` | `TRUE` | Compute π scores and evidence. |
-| `pi_delta` | `0.1` | Minimal effect δ: `evidence_higher` is P(π > 0.5 + δ) and `evidence_lower` is P(π < 0.5 − δ). |
+| `pi_delta` | `0.05` | Minimal effect δ: `evidence_higher` is P(π > 0.5 + δ) and `evidence_lower` is P(π < 0.5 − δ). |
 | `pi_level` | `0.95` | Posterior probability that `evidence_higher` or `evidence_lower` must exceed for a call. |
 | `pi_nodes` | `4096` | Initial number of quadrature nodes for the evidence with three or more regions (power of two, ≥ 16). |
 | `pi_max_nodes` | `65536` | Maximum number of quadrature nodes (power of two, ≥ 2 × `pi_nodes`). |
@@ -277,7 +277,7 @@ of a gene's regional means added to the gene-to-gene variance (Gaussian model);
 0.5 means no difference.
 `evidence` is the posterior probability that π > 0.5. With thousands of spots
 it approaches 0 or 1 even for differences close to 0.5, so differences are
-called with a minimal effect δ fixed in advance (`pi_delta`, default 0.1):
+called with a minimal effect δ fixed in advance (`pi_delta`, default 0.05):
 `evidence_higher` = P(π > 0.5 + δ), `evidence_lower` = P(π < 0.5 − δ), and
 `call` is `"higher"` or `"lower"` when the corresponding probability exceeds
 `pi_level` (0.95), otherwise `"none"`. Region indices in
@@ -308,7 +308,7 @@ also written.
 ## pathway_pi_integrate
 
 ```r
-pathway_pi_integrate(joint, delta = 0.1, level = 0.95, nodes = 4096,
+pathway_pi_integrate(joint, delta = 0.05, level = 0.95, nodes = 4096,
                      max_nodes = 65536, tolerance = 0.002)
 ```
 

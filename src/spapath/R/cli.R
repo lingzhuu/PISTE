@@ -48,7 +48,7 @@ cli_option_table <- function() {
     c("cutoff", "0.08", FALSE, "Minimum distance between mesh nodes."),
     c("mesh-offset", "0.1,0.2", FALSE, "Inner and outer mesh extension around the spots."),
     c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
-    c("delta", "0.1", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95."),
+    c("delta", "0.05", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95."),
     c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "Show this help.")
   )

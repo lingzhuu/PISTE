@@ -15,7 +15,7 @@
 #   evidence_higher  P( pi_rs > 0.5 + delta )
 #   evidence_lower   P( pi_rs < 0.5 - delta )
 #
-# delta is a minimal effect fixed in advance by the user (default 0.1). A
+# delta is a minimal effect fixed in advance by the user (default 0.05). A
 # region pair is called different when evidence_higher or evidence_lower
 # exceeds `level` (default 0.95). With thousands of spots the evidence
 # approaches 0 or 1 even for differences close to 0.5; the delta evidence asks
@@ -399,7 +399,7 @@ pi_mixture_diagnostic <- function(fit, mixture, weights, region_labels) {
 #' @return A list with data frames `pairwise` (one row per ordered pair) and
 #'   `overall` (one row per region), and a list of `diagnostics`.
 #' @export
-pathway_pi_integrate <- function(joint, delta = 0.1, level = 0.95,
+pathway_pi_integrate <- function(joint, delta = 0.05, level = 0.95,
                                  nodes = 4096, max_nodes = 65536,
                                  tolerance = 0.002) {
   started <- proc.time()[["elapsed"]]
