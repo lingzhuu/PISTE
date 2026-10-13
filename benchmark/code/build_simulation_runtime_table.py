@@ -1,4 +1,4 @@
-"""Supplementary table of SpaPath run time on the simulated data sets.
+"""Supplementary table of SpaPath run time (per data set) on the simulated data sets.
 
 Reads only the saved fits of a finished run (nothing is rerun): fit_seconds of
 the latest successful fit of every gene set in
@@ -22,15 +22,7 @@ def read(path):
         return list(csv.DictReader(f))
 
 
-def quantile(v, p):
-    v = sorted(v)
-    k = (len(v) - 1) * p
-    i = int(k)
-    return v[i] + (v[min(i + 1, len(v) - 1)] - v[i]) * (k - i)
-
-
-def mid(v):
-    return f"{st.median(v):.0f} ({quantile(v, .25):.0f}-{quantile(v, .75):.0f})"
+CORES = 2  # run_v2_methods.py restricts each job to two cores; INLA threads "2:1"
 
 
 fits = []
@@ -88,37 +80,27 @@ def sheet(ws, title, header, rows, notes, widths, bold_last=False):
 NOTES = [
     "One fit is the joint model of the 100 genes of one gene set (Gaussian observed mode, SCT Pearson residuals, "
     "oracle target-versus-rest regions, SPDE mesh with maximum edge 0.25 and cutoff 0.08, CCD integration). "
-    "Time is the elapsed time of the fit and of computing pi and evidence; reading the data is not included.",
+    "Wall time is the sum over the 50 gene sets of the elapsed time of the fit and of computing pi and evidence; reading the data is not included.",
     "Each simulated data set has 10,000 genes, 3,639 spots and 50 gene sets of 100 genes; 7 data sets (seeds 2020-2026). "
-    "Gene sets were fitted one after another.",
+    "Gene sets were fitted one after another on 2 CPU cores (INLA with 2 threads).",
     "Hardware and software: Intel Core i7-13700K, 32 GB RAM, Windows 11 x64; R 4.6.1, PathwayLGM 0.6.3, INLA 26.08.07. "
     "Peak memory of one fit was about 4.3 GB (R process 2.7 GB, sampled every 30 s, plus the INLA process, about 1.6 GB in a spot check).",
 ]
 
 wb = Workbook()
 ws = wb.active
-ws.title = "Per data set"
+ws.title = "SpaPath run time"
 rows = []
-for s in seeds:
-    v = [f["seconds"] for f in fits if f["seed"] == s]
-    rows.append([s, len(v), round(sum(v) / 60, 1), mid(v)])
-v = [f["seconds"] for f in fits]
-rows.append(["All", len(v), round(sum(v) / 60, 1), mid(v)])
+for s_ in seeds:
+    v = [f["seconds"] for f in fits if f["seed"] == s_]
+    rows.append([s_, len(v), CORES, round(sum(v) / 60, 1), round(st.mean(v))])
+per_seed = [r[3] for r in rows]
+per_set = [f["seconds"] for f in fits]
+rows.append(["Mean (SD)", 50, CORES, f"{st.mean(per_seed):.1f} ({st.stdev(per_seed):.1f})",
+             f"{st.mean(per_set):.0f} ({st.stdev(per_set):.0f})"])
 sheet(ws, "Supplementary Table X. SpaPath run time on the simulated data sets.",
-      ["Seed", "Gene sets", "Total time (min)", "Seconds per gene set: median (IQR)"],
-      rows, NOTES, [10, 11, 16, 30], bold_last=True)
-
-ws = wb.create_sheet("By group")
-GROUPS = [("K0", "0 (null)"), ("K1_10", "1-10"), ("K11_30", "11-30"), ("K31_60", "31-60"), ("K61_100", "61-100")]
-PROFILES = [("broad_weak", "broad, weak-effect"), ("narrow_strong", "narrow, strong-effect")]
-rows = []
-for pkey, pname in PROFILES:
-    for gkey, gname in GROUPS:
-        v = [f["seconds"] for f in fits if f["effect_profile"] == pkey and f["response_group"] == gkey]
-        rows.append([pname, gname, len(v), mid(v), f"{min(v):.0f}-{max(v):.0f}"])
-sheet(ws, "Supplementary Table X (continued). SpaPath run time per gene set by effect distribution and number of responding genes K.",
-      ["Effect distribution", "Responding genes K", "Gene sets", "Seconds per gene set: median (IQR)", "Range (s)"],
-      rows, NOTES, [22, 18, 11, 30, 13])
+      ["Seed", "Gene sets", "CPU cores", "Wall time per data set (min)", "Mean time per gene set (s)"],
+      rows, NOTES, [12, 11, 11, 24, 24], bold_last=True)
 
 wb.save(out)
-print("saved", out, "fits", len(fits), "total h", round(sum(f["seconds"] for f in fits) / 3600, 2))
+print("saved", out, "mean min", round(st.mean(per_seed), 1), "sd", round(st.stdev(per_seed), 1))
