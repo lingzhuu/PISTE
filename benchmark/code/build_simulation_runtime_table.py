@@ -1,4 +1,4 @@
-"""Supplementary table of SpaPath run time (per data set) on the simulated data sets.
+"""Supplementary table of SpaPath run time on the simulated data sets, by K group.
 
 Reads only the saved fits of a finished run (nothing is rerun): fit_seconds of
 the latest successful fit of every gene set in
@@ -80,7 +80,7 @@ def sheet(ws, title, header, rows, notes, widths, bold_last=False):
 NOTES = [
     "One fit is the joint model of the 100 genes of one gene set (Gaussian observed mode, SCT Pearson residuals, "
     "oracle target-versus-rest regions, SPDE mesh with maximum edge 0.25 and cutoff 0.08, CCD integration). "
-    "Wall time is the sum over the 50 gene sets of the elapsed time of the fit and of computing pi and evidence; reading the data is not included.",
+    "Time is the elapsed time of the fit and of computing pi and evidence for one gene set; reading the data is not included. Each K group has 70 gene sets (10 per data set).",
     "Each simulated data set has 10,000 genes, 3,639 spots and 50 gene sets of 100 genes; 7 data sets (seeds 2020-2026). "
     "Gene sets were fitted one after another on 2 CPU cores (INLA with 2 threads).",
     "Hardware and software: Intel Core i7-13700K, 32 GB RAM, Windows 11 x64; R 4.6.1, PathwayLGM 0.6.3, INLA 26.08.07. "
@@ -90,17 +90,16 @@ NOTES = [
 wb = Workbook()
 ws = wb.active
 ws.title = "SpaPath run time"
+GROUPS = [("K0", "0 (null)"), ("K1_10", "1-10"), ("K11_30", "11-30"), ("K31_60", "31-60"), ("K61_100", "61-100")]
 rows = []
-for s_ in seeds:
-    v = [f["seconds"] for f in fits if f["seed"] == s_]
-    rows.append([s_, len(v), CORES, round(sum(v) / 60, 1), round(st.mean(v))])
-per_seed = [r[3] for r in rows]
-per_set = [f["seconds"] for f in fits]
-rows.append(["Mean (SD)", 50, CORES, f"{st.mean(per_seed):.1f} ({st.stdev(per_seed):.1f})",
-             f"{st.mean(per_set):.0f} ({st.stdev(per_set):.0f})"])
-sheet(ws, "Supplementary Table X. SpaPath run time on the simulated data sets.",
-      ["Seed", "Gene sets", "CPU cores", "Wall time per data set (min)", "Mean time per gene set (s)"],
-      rows, NOTES, [12, 11, 11, 24, 24], bold_last=True)
+for key, label in GROUPS:
+    v = [f["seconds"] for f in fits if f["response_group"] == key]
+    rows.append([label, len(v), CORES, f"{st.mean(v):.0f} ({st.stdev(v):.0f})", round(sum(v) / 60, 1)])
+v = [f["seconds"] for f in fits]
+rows.append(["All", len(v), CORES, f"{st.mean(v):.0f} ({st.stdev(v):.0f})", round(sum(v) / 60, 1)])
+sheet(ws, "Supplementary Table X. SpaPath run time on the simulated data sets by number of responding genes K.",
+      ["Responding genes K", "Gene sets", "CPU cores", "Time per gene set, s: mean (SD)", "Total time (min)"],
+      rows, NOTES, [20, 11, 11, 28, 16], bold_last=True)
 
 wb.save(out)
-print("saved", out, "mean min", round(st.mean(per_seed), 1), "sd", round(st.stdev(per_seed), 1))
+print("saved", out, "mean s", round(st.mean(v)), "total h", round(sum(v) / 3600, 2))
