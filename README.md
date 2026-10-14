@@ -53,7 +53,7 @@ With $\delta=0.05$ ([Fig. 2e, f](benchmark/analysis/simulation_data/result/simul
 
 To evaluate the performance of these methods on real data, we analyzed the human dorsolateral prefrontal cortex (DLPFC) Visium dataset of Maynard et al. (2021), because its six cortical layers and white matter (WM) were manually annotated and the molecular functions of each layer are well documented. The dataset consists of 12 sections from three donors, four from each. The four sections of a donor form two pairs: the two sections of a pair are spatially adjacent, about 10 µm apart, and the two pairs are about 300 µm apart along the anterior–posterior axis. In every section we compared WM with all other annotated spots, using a prespecified panel of 30 MSigDB gene sets (Methods; Supplementary Table 2), and applied SpaPath, GSVA, STpathway and GSDensity to each section separately (Supplementary Table 3). For SpaPath, a difference was called when the evidence with δ = 0.05 exceeded 0.9, that is, when P(π > 0.55) or P(π < 0.45) was above 0.9.
 
-[Supplementary Table 2. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt)
+[Supplementary Table 2. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_30.xlsx)
 
 [Supplementary Table 3. WM-versus-rest results of SpaPath, STpathway, GSDensity and GSVA for the 30 gene sets in each of the 12 DLPFC sections.](benchmark/analysis/DLPFC/DLPFC12_pathway_results.xlsx)
 
