@@ -273,8 +273,8 @@ A list with
 
 `score` is the posterior mean of π, the probability that a gene's expression
 state in the region exceeds that in the reference, with the measurement error
-of a gene's regional means added to the gene-to-gene variance (Gaussian model);
-0.5 means no difference.
+of a gene's regional means added to the gene-to-gene variance; 0.5 means no
+difference.
 `evidence` is the posterior probability that π > 0.5. With thousands of spots
 it approaches 0 or 1 even for differences close to 0.5, so differences are
 called with a minimal effect δ fixed in advance (`pi_delta`, default 0.05):
@@ -338,13 +338,19 @@ pathway_pi(mu_r, mu_s, tau2_r, tau2_s, kappa2 = 0)
 |----------|-------------|
 | `mu_r`, `mu_s` | Regional means. |
 | `tau2_r`, `tau2_s` | Regional between-gene variances. |
-| `kappa2` | Measurement error of a gene's regional means, σ<sub>ε</sub><sup>2</sup>(1/n<sub>r</sub> + 1/n<sub>s</sub>). |
+| `kappa2` | Measurement error of a gene's regional means, e.g. σ<sub>ε</sub><sup>2</sup>(1/n<sub>r</sub> + 1/n<sub>s</sub>) in the Gaussian model. |
 
 Returns π = Φ((`mu_r` − `mu_s`) / √(`tau2_r` + `tau2_s` + `kappa2`)).
 With `kappa2 = 0` this is P(Z<sub>r</sub> > Z<sub>s</sub>) for independent
 Z<sub>r</sub> ~ N(`mu_r`, `tau2_r`) and Z<sub>s</sub> ~ N(`mu_s`, `tau2_s`).
 Fits of the Gaussian model use σ<sub>ε</sub><sup>2</sup> from each CCD
-configuration; the negative binomial model uses `kappa2 = 0`.
+configuration. In the negative binomial model each count carries the
+information w<sub>ig</sub> = 1/(1/m<sub>ig</sub> + 1/size<sub>g</sub>), where
+m<sub>ig</sub> is its expected count without regional effects and
+size<sub>g</sub> = nb_size0 · S<sub>g</sub> in that configuration; gene g has
+κ<sub>g</sub><sup>2</sup> = 1/W<sub>gr</sub> + 1/W<sub>gs</sub>, with
+W<sub>gr</sub> the sum of w<sub>ig</sub> over the spots of region r, and
+`kappa2` is the harmonic mean of κ<sub>g</sub><sup>2</sup> over genes.
 Vectorised over its arguments.
 
 ---

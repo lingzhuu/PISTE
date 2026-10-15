@@ -409,6 +409,22 @@ screen_check_adjusted_inputs <- function(Y, library_size, dispersion_scale,
 }
 
 
+#' Expected counts without regional effects, for the NB measurement error
+#'
+#' m[i, g] = c_g L_i exp(offset_i) m_composition[i, g], where the gene scale
+#' c_g matches the expected to the observed total count of gene g. The
+#' composition slope is taken at its prior mean lambda_g = 1.
+#' @noRd
+screen_expected_counts <- function(Y, library_size, offset, composition_offset,
+                                   dispersion_scale, region_index) {
+  expected <- library_size * exp(offset + composition_offset)
+  gene_scale <- colSums(Y) / colSums(expected)
+  list(expected = sweep(expected, 2, gene_scale, "*"),
+       dispersion_scale = as.numeric(dispersion_scale),
+       region_index = region_index)
+}
+
+
 #' Per-gene diagnostics of the composition offset
 #'
 #' `within_region_sd` is the standard deviation of log m[i, g] after removing
@@ -680,8 +696,13 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   config_bytes <- 0
   if (isTRUE(cfg$pi)) {
     config_bytes <- as.numeric(object.size(fit$misc$configs))
+    nb_counts <- if (adjusted) {
+      screen_expected_counts(Y, library_size, offset, composition_offset,
+                             dispersion_scale, region_index)
+    }
     joint <- pi_extract_joint(fit, labels, counts, intercept_name, offset_names,
-                              gene_intercept_name)
+                              gene_intercept_name, nb_counts)
+    rm(nb_counts)
     fit$misc$configs <- NULL
   }
 

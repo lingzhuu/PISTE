@@ -21,10 +21,24 @@
 # approaches 0 or 1 even for differences close to 0.5; the delta evidence asks
 # for a difference of at least delta.
 #
-# kappa2_rs = sigma_e2 * (1 / n_r + 1 / n_s) is the measurement error of a
-# gene's regional means (n_r spots in region r). It keeps pi_rs near 0.5 when
-# both the regional difference and tau2 are at the noise level. The negative
-# binomial model has no sigma_e2, so there kappa2_rs = 0.
+# kappa2_rs is the measurement error of a gene's regional means. It keeps
+# pi_rs near 0.5 when both the regional difference and tau2 are at the noise
+# level.
+#
+#   Gaussian model           kappa2_rs = sigma_e2 * (1 / n_r + 1 / n_s),
+#                            with n_r spots in region r.
+#   Negative binomial model  each count carries the information
+#                            w_ig = 1 / (1 / m_ig + 1 / size_g) on the log
+#                            scale, where m_ig is its expected count without
+#                            regional effects and size_g = nb_size0 * S_g.
+#                            Gene g has kappa2_g = 1 / W_gr + 1 / W_gs, with
+#                            W_gr the sum of w_ig over the spots of region r,
+#                            and kappa2_rs is the harmonic mean of kappa2_g
+#                            over genes. This weights genes by their
+#                            information, as the model does when it estimates
+#                            the regional means, so that nearly empty genes do
+#                            not dominate. With equal noise in every spot and
+#                            gene it reduces to the Gaussian formula.
 #
 # The expectation / probability is over the posterior of the regional
 # means. That posterior is approximated by a mixture of multivariate Gaussians,
@@ -106,8 +120,9 @@ pi_gaussian_directional <- function(mr, ms, vr, vs, covariance = 0,
 #'
 #' @param mu_r,mu_s Regional means.
 #' @param tau2_r,tau2_s Regional (between-gene) variances.
-#' @param kappa2 Measurement-error variance sigma_e2 * (1 / n_r + 1 / n_s);
-#'   0 gives P(Z_r > Z_s).
+#' @param kappa2 Measurement-error variance of a gene's regional means, e.g.
+#'   sigma_e2 * (1 / n_r + 1 / n_s) in the Gaussian model; 0 gives
+#'   P(Z_r > Z_s).
 #' @return Numeric vector of probabilities in \[0, 1\].
 #' @export
 pathway_pi <- function(mu_r, mu_s, tau2_r, tau2_s, kappa2 = 0) {
@@ -236,13 +251,51 @@ pi_absolute_mean_transform <- function(n_regions) {
 }
 
 
+#' Negative binomial measurement error of a gene's regional means
+#'
+#' Each count carries the log-scale information w = 1 / (1 / m + 1 / size).
+#' For every gene and region pair (r, s) the measurement error is
+#' kappa2_g = 1 / W_gr + 1 / W_gs, where W_gr sums w over the spots of region
+#' r; the pathway value is the harmonic mean of kappa2_g over genes.
+#'
+#' @param expected N x K matrix of expected counts m without regional effects.
+#' @param size Length-K NB sizes, nb_size0 * S_g.
+#' @param region_index Length-N region index in 1..n_regions.
+#' @param n_regions Number of regions.
+#' @return n_regions x n_regions matrix with a zero diagonal.
+#' @noRd
+pi_nb_kappa2 <- function(expected, size, region_index, n_regions) {
+  information <- expected * rep(size, each = nrow(expected)) /
+    (expected + rep(size, each = nrow(expected)))
+  region_information <- rowsum(information, region_index, reorder = TRUE)
+  if (nrow(region_information) != n_regions) {
+    stop("Every region needs at least one spot.")
+  }
+
+  kappa2 <- matrix(0, n_regions, n_regions)
+  for (r in seq_len(n_regions - 1)) {
+    for (s in seq.int(r + 1, n_regions)) {
+      # 1 / kappa2_g = W_gr W_gs / (W_gr + W_gs); zero for a gene without counts.
+      total <- region_information[r, ] + region_information[s, ]
+      gene_information <- ifelse(total > 0,
+                                 region_information[r, ] *
+                                   region_information[s, ] / total, 0)
+      if (mean(gene_information) <= 0) {
+        stop("No gene carries counts in both regions.")
+      }
+      kappa2[r, s] <- kappa2[s, r] <- 1 / mean(gene_information)
+    }
+  }
+  kappa2
+}
+
+
 #' Extract the CCD mixture of regional means from an INLA fit
 #'
 #' For every saved CCD hyperparameter configuration, takes the conditional
 #' Gaussian of (baseline intercept, relative regional offsets), maps it to the
 #' absolute regional means and records the regional variances tau2_r and the
-#' measurement-error variances kappa2_rs (zero without a Gaussian likelihood
-#' precision). The fit
+#' measurement-error variances kappa2_rs. The fit
 #' must have been run with `control.compute = list(config = TRUE)` and an
 #' unconstrained latent model.
 #'
@@ -253,6 +306,9 @@ pi_absolute_mean_transform <- function(n_regions) {
 #' @param regional_offset_names Names of the relative offsets mu_r2..mu_rR.
 #' @param gene_intercept_name Name of the auxiliary gene-intercept effect in
 #'   adjusted mode, NULL in observed mode.
+#' @param nb_counts Adjusted mode: list with `expected` (N x K expected counts
+#'   without regional effects), `dispersion_scale` (S_g) and `region_index`,
+#'   used for the negative binomial kappa2_rs. NULL in observed mode.
 #' @return A list with `configurations` (each with `mu`, `covariance`, `tau2`,
 #'   `kappa2`, `theta`), normalised `weights`, region information and a
 #'   `marginal_diagnostic` table comparing mixture moments with INLA's own
@@ -260,7 +316,7 @@ pi_absolute_mean_transform <- function(n_regions) {
 #' @noRd
 pi_extract_joint <- function(fit, region_labels, region_spots,
                              intercept_name, regional_offset_names,
-                             gene_intercept_name = NULL) {
+                             gene_intercept_name = NULL, nb_counts = NULL) {
   started <- proc.time()[["elapsed"]]
 
   configs <- fit$misc$configs
@@ -302,9 +358,24 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
     tau2 <- exp(-config$theta[precision_index])
     if (any(!is.finite(tau2) | tau2 <= 0)) stop("Invalid regional variance.")
 
-    # Measurement error of a gene's regional means: sigma_e2 / n_r + sigma_e2 / n_s.
-    log_noise_precision <- config$theta["Log precision for the Gaussian observations"]
-    sigma_e2 <- if (is.na(log_noise_precision)) 0 else exp(-log_noise_precision)
+    # Measurement error of a gene's regional means.
+    if (is.null(nb_counts)) {
+      log_noise_precision <- config$theta["Log precision for the Gaussian observations"]
+      if (is.na(log_noise_precision)) {
+        stop("Cannot identify the Gaussian observation precision.")
+      }
+      kappa2 <- exp(-log_noise_precision) * spot_error
+    } else {
+      size_index <- grep("size for the nbinomial observations",
+                         names(config$theta), fixed = TRUE)
+      if (length(size_index) != 1) {
+        stop("Cannot identify the negative binomial size.")
+      }
+      kappa2 <- pi_nb_kappa2(nb_counts$expected,
+                             exp(config$theta[[size_index]]) *
+                               nb_counts$dispersion_scale,
+                             nb_counts$region_index, n_regions)
+    }
 
     covariance <- pi_selected_covariance(config$Q, states$map)
     if (any(!is.finite(covariance)) || any(diag(covariance) <= 0)) {
@@ -318,7 +389,7 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
                         as.numeric(Matrix::crossprod(states$map, config$improved.mean))),
       covariance = to_absolute %*% covariance %*% t(to_absolute),
       tau2 = as.numeric(tau2),
-      kappa2 = sigma_e2 * spot_error,
+      kappa2 = kappa2,
       theta = config$theta
     )
 
