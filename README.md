@@ -170,7 +170,7 @@ To compare a region with the rest of the tissue, we average the pairwise scores 
 
 #### Tissue layout and genes
 
-We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Seven independent datasets were generated with random seeds 2020 to 2026.
+We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect.
 
 #### Pathway design
 
@@ -222,7 +222,7 @@ for background genes, where $b_g\ge 0$ was calibrated numerically so that the ta
 
 #### Evaluation on simulated data
 
-Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. All methods used random seed 42. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
+Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
 
 
 ### Simulation of cell composition
