@@ -243,7 +243,7 @@ where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in c
 
 The true composition-adjusted score of a pathway is computed from the per-gene regional means of the log fold change relative to the composition-predicted expression $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$. This is $d_g b_g R_i$ in scenarios A and B; in scenario C it is $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$, where $s_{ig}$ is the share of Excit in $m_{ig}$, and in scenario D the same with the share of Oligo. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
 
-Cell-type proportions were estimated with RCTD in full mode (REF) with the two-type reference built from the same LIBD profiles. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on the spots retained by RCTD, with the target region against the rest, $h=0.3$ and random seed 42. A pathway was considered different between the regions when the evidence exceeded 0.9 with $\delta=0.05$. Seven datasets were generated with random seeds 2020 to 2026.
+Cell-type proportions were estimated with RCTD in full mode (REF) with the two-type reference built from the same LIBD profiles. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on the spots retained by RCTD, with the target region against the rest.
 
 ### Compared methods and benchmarking
 
