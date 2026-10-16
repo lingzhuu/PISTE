@@ -170,7 +170,7 @@ To compare a region with the rest of the tissue, we average the pairwise scores 
 
 #### Tissue layout and genes
 
-We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Seven independent datasets were generated with random seeds 2020 to 2026.
+We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Seven independent datasets were generated.
 
 #### Pathway design
 
@@ -222,7 +222,7 @@ for background genes, where $b_g\ge 0$ was calibrated numerically so that the ta
 
 #### Evaluation on simulated data
 
-Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. All methods used random seed 42. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
+Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
 
 
 #### Cell composition
@@ -242,6 +242,7 @@ where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in c
 The true composition-adjusted score is computed from the per-gene regional means of the log fold change relative to $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$, which is $d_g b_g R_i$ in scenarios A and B and $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$ in scenarios C and D, where $s_{ig}$ is the share of the affected cell type in $m_{ig}$. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
 
 Cell-type proportions were estimated with RCTD in full mode (REF) with a two-type reference built from the same LIBD profiles. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on the spots retained by RCTD, with the target region against the rest.
+
 ### Compared methods and benchmarking
 
 #### Benchmarking design
