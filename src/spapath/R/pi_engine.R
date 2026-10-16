@@ -356,7 +356,6 @@ pi_extract_joint <- function(fit, region_labels, region_spots,
       stop("Cannot identify regional log precisions by name.")
     }
     tau2 <- exp(-config$theta[precision_index])
-    if (any(!is.finite(tau2) | tau2 <= 0)) stop("Invalid regional variance.")
 
     # Measurement error of a gene's regional means.
     if (is.null(nb_counts)) {

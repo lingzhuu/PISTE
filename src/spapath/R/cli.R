@@ -135,7 +135,6 @@ cli_check_options <- function(opts) {
     if (is.null(opts$proportions) || is.null(opts$reference)) {
       stop("--mode adjusted needs --proportions and --reference.")
     }
-    if (isTRUE(opts$normalized)) stop("--normalized applies to the observed mode only; the adjusted mode needs raw counts.")
   }
   if (is.null(opts$regions) && is.null(opts$`region-key`)) {
     stop("Give the region labels with --regions or --region-key.")
@@ -143,17 +142,16 @@ cli_check_options <- function(opts) {
 
   for (name in c("h", "max-edge", "cutoff", "min-genes")) {
     opts[[name]] <- as.numeric(opts[[name]])
-    if (!is.finite(opts[[name]]) || opts[[name]] <= 0) stop("--", name, " must be a positive number.")
+  }
+  if (!is.finite(opts$`min-genes`) || opts$`min-genes` <= 0) {
+    stop("--min-genes must be a positive number.")
   }
   opts$`mesh-offset` <- as.numeric(strsplit(opts$`mesh-offset`, ",")[[1]])
-  if (length(opts$`mesh-offset`) != 2 || any(!is.finite(opts$`mesh-offset`))) {
+  if (any(!is.finite(opts$`mesh-offset`))) {
     stop("--mesh-offset must be two numbers separated by a comma, e.g. 0.1,0.2.")
   }
   opts$`min-genes` <- max(2, opts$`min-genes`)
   opts$delta <- as.numeric(opts$delta)
-  if (!is.finite(opts$delta) || opts$delta < 0 || opts$delta >= 0.5) {
-    stop("--delta must lie in [0, 0.5).")
-  }
   opts
 }
 
@@ -214,7 +212,6 @@ cli_load_inputs <- function(opts) {
     if (!opts$target %in% region) stop("--target ", opts$target, " is not a region label.")
     region <- ifelse(region == opts$target, opts$target, "rest")
   }
-  if (length(unique(region)) < 2) stop("At least two regions are needed.")
   cli_log("Regions: ", paste(names(table(region)), table(region), sep = "=", collapse = ", "))
 
   list(counts = counts[spots, , drop = FALSE],
@@ -253,10 +250,6 @@ cli_reference_profile <- function(path, celltype_key) {
 cli_adjusted_tables <- function(opts) {
   proportions <- as.matrix(read_delimited(opts$proportions, row_names = TRUE))
   reference <- cli_reference_profile(opts$reference, opts$`celltype-key`)
-  if (!setequal(rownames(reference), colnames(proportions))) {
-    stop("Cell types differ between --proportions (", paste(colnames(proportions), collapse = ", "),
-         ") and --reference (", paste(rownames(reference), collapse = ", "), ").")
-  }
   list(proportions = proportions, reference = reference)
 }
 

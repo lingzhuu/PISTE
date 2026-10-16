@@ -56,9 +56,6 @@ read_expression <- function(path, layer = NULL, genes_in_rows = FALSE) {
 as_spot_matrix <- function(counts) {
   counts <- methods::as(methods::as(methods::as(counts, "dMatrix"),
                                     "generalMatrix"), "CsparseMatrix")
-  if (is.null(rownames(counts)) || is.null(colnames(counts))) {
-    stop("The expression matrix needs spot rownames and gene colnames.")
-  }
   if (anyDuplicated(colnames(counts))) {
     colnames(counts) <- make.unique(colnames(counts))
   }

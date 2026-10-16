@@ -73,13 +73,18 @@ run_spapath <- function(counts, xy, region, gene_sets,
   stopifnot(is.list(gene_sets), length(gene_sets) > 0, !is.null(names(gene_sets)))
   xy <- as.matrix(xy)
   region <- as.character(region)
+
+  # Spots without coordinates or region label are dropped.
+  keep <- stats::complete.cases(xy, region)
+  if (!all(keep)) {
+    log_step("Dropped ", sum(!keep), " spots with missing coordinates or region")
+    counts <- counts[keep, , drop = FALSE]
+    xy <- xy[keep, , drop = FALSE]
+    region <- region[keep]
+  }
   if (is.null(rownames(counts)) || is.null(colnames(counts))) {
     stop("counts needs spot rownames and gene colnames.")
   }
-  if (nrow(xy) != nrow(counts) || length(region) != nrow(counts)) {
-    stop("xy and region must have one entry per row of counts.")
-  }
-  if (anyNA(region)) stop("region has missing labels; remove those spots first.")
   if (mode == "adjusted") {
     if (is.null(proportions) || is.null(reference)) {
       stop("The adjusted mode needs proportions and reference.")

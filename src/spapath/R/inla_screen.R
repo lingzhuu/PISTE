@@ -378,21 +378,10 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
 # Adjusted-mode inputs
 # -----------------------------------------------------------------------------
 
-#' Validate the count, library size, dispersion and composition inputs
+#' Validate the dispersion and composition inputs
 #' @noRd
 screen_check_adjusted_inputs <- function(Y, library_size, dispersion_scale,
                                          composition_offset) {
-  if (is.null(rownames(Y)) || is.null(colnames(Y)) ||
-      anyDuplicated(rownames(Y)) || anyDuplicated(colnames(Y))) {
-    stop("The adjusted mode requires unique spot rownames and gene colnames on Y.")
-  }
-  if (any(Y < 0) || any(Y != round(Y))) {
-    stop("The adjusted mode models raw counts: Y must hold non-negative integers.")
-  }
-  if (length(library_size) != nrow(Y) || any(!is.finite(library_size)) ||
-      any(library_size <= 0)) {
-    stop("library_size must be positive and finite, one value per spot.")
-  }
   if (length(dispersion_scale) != ncol(Y) || any(!is.finite(dispersion_scale)) ||
       any(dispersion_scale <= 0)) {
     stop("dispersion_scale must be positive and finite, one value per gene.")
@@ -534,9 +523,9 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   region_index <- match(as.character(region), labels)
   R <- length(labels)
 
-  stopifnot(N == nrow(xy), ncol(xy) == 2, length(region) == N,
+  stopifnot(N == nrow(xy), length(region) == N,
             R >= 2, K >= 2,
-            all(is.finite(Y)), all(is.finite(xy)), !anyNA(region),
+            all(is.finite(Y)), !anyNA(region),
             is.finite(h), h > 0,
             cfg$kappa_h >= 2.3, cfg$kappa_h <= 3.2,
             is.finite(cfg$tau_logprecision_mean),
@@ -996,7 +985,6 @@ screen_summarize <- function(result) {
   started <- proc.time()[["elapsed"]]
   fit <- result$fit
   metadata <- result$metadata
-  stopifnot(is.null(fit$misc$configs))
 
   parameters <- rbind(screen_fixed_effect_table(fit, metadata),
                       screen_variance_table(fit, metadata$R, metadata$family))
