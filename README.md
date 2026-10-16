@@ -170,7 +170,7 @@ To compare a region with the rest of the tissue, we average the pairwise scores 
 
 #### Tissue layout and genes
 
-We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect.
+We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Seven independent datasets were generated with random seeds 2020 to 2026.
 
 #### Pathway design
 
@@ -222,29 +222,26 @@ for background genes, where $b_g\ge 0$ was calibrated numerically so that the ta
 
 #### Evaluation on simulated data
 
-Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
+Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. All methods used random seed 42. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
 
 
-### Simulation of cell composition
+#### Cell composition
 
-To evaluate the composition-adjusted mode, we simulated a second set of datasets on the same 3,639 spots of section 151673, in which every spot is a mixture of two cell types, oligodendrocytes (Oligo) and excitatory neurons (Excit). The reference expression $\nu_{kg}$ of cell type $k$ is the pooled count per 10,000 of the LIBD spatialDLPFC snRNA-seq data (cellType_broad_hc) (REF), and the 10,000 simulated genes were sampled from genes expressed in both types, each keeping its dispersion $\theta_g$ from section 151673.
+To evaluate the composition-adjusted mode, we simulated a second set of datasets on the same spots, in which every spot is a mixture of oligodendrocytes (Oligo) and excitatory neurons (Excit). The expression $\nu_{kg}$ of cell type $k$ is the pooled count per 10,000 of the LIBD spatialDLPFC snRNA-seq data (cellType_broad_hc) (REF), and the 10,000 genes were sampled from genes expressed in both types.
 
-The tissue was split into a target region and the rest by a wavy line at a random angle, with the target region holding 40–60% of the spots. The Excit proportion of spot $i$ was drawn as $\omega_{iE}\sim\mathrm{Beta}(p_R\phi,(1-p_R)\phi)$, with $\omega_{iO}=1-\omega_{iE}$, $p_R=0.5+\Delta/2$ in the target region and $0.5-\Delta/2$ in the rest, and $\phi=12$, the median concentration of the RCTD proportions within the cortical layers of section 151673. We used $\Delta=0$, 0.2, 0.4 and 0.6; at $\Delta=0.6$ the target region is on average 80% Excit and the rest 20%. Within a dataset everything except $\Delta$ is shared, including the uniform draws behind the proportions, so the four values of $\Delta$ are paired.
+A wavy line at a random angle split the tissue into a target region, holding 40–60% of the spots, and the rest. The Excit proportion of spot $i$ was drawn as $\omega_{iE}\sim\mathrm{Beta}(p_R\phi,(1-p_R)\phi)$, with $\omega_{iO}=1-\omega_{iE}$, $p_R=0.5+\Delta/2$ in the target region and $0.5-\Delta/2$ in the rest, and $\phi=12$, the median concentration of the RCTD proportions within the cortical layers of section 151673. We used $\Delta=0$, 0.2, 0.4 and 0.6; at $\Delta=0.6$ the target region is on average 80% Excit and the rest 20%. Everything else is shared across the four values of $\Delta$ within a dataset, so they are paired.
 
-Each dataset contains 20 pathways of 100 genes in four scenarios. Scenario A has five pathways without an effect in either cell type. In scenarios B, C and D the effect is present in both cell types, in Excit only and in Oligo only, with one pathway per response group, $K=0$, 1–10, 11–30, 31–60 or 61–100 responsive genes. The number of downregulated genes is $\lfloor 0.4\sqrt{K}\rfloor$ as in the main simulation, the absolute log2 fold change of each responsive gene follows a log-normal distribution with median 0.6 and log-scale standard deviation 0.4, and the effect is uniform within the target region. The remaining 8,000 genes are background genes: 1,000 with a radial spatial effect that is the same in both cell types and 7,000 without an effect.
-
-The expected count of gene $g$ in spot $i$ is
+Each dataset contains 20 pathways of 100 genes. Scenario A has five pathways without an effect, and scenarios B, C and D have one pathway per response group, with the effect in both cell types, in Excit only and in Oligo only. Response groups and downregulated genes follow the main simulation, the absolute log2 fold change of each responsive gene follows a log-normal distribution with median 0.6 and log-scale standard deviation 0.4, and the effect is uniform within the target region. Of the 8,000 background genes, 1,000 have a radial effect that is the same in both cell types. Counts were generated as in the main simulation, with
 
 $$
 \mu_{ig}=c_i L_0\sum_k\omega_{ik}\nu_{kg}\exp(d_g b_{kg}R_i)\exp(e_{ig}),
 $$
 
-where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in cell type $k$ (zero in the cell types without an effect), $L_0$ is the expected total count of a spot of section 151673, and $c_i$, $e_{ig}$ and the background factor are as in the main simulation. Counts were drawn from $\mathrm{NB}(\mu_{ig},\theta_g)$.
+where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in cell type $k$ (zero in the cell types without an effect) and $L_0$ is the expected total count of a spot.
 
-The true composition-adjusted score of a pathway is computed from the per-gene regional means of the log fold change relative to the composition-predicted expression $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$. This is $d_g b_g R_i$ in scenarios A and B; in scenario C it is $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$, where $s_{ig}$ is the share of Excit in $m_{ig}$, and in scenario D the same with the share of Oligo. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
+The true composition-adjusted score is computed from the per-gene regional means of the log fold change relative to $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$, which is $d_g b_g R_i$ in scenarios A and B and $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$ in scenarios C and D, where $s_{ig}$ is the share of the affected cell type in $m_{ig}$. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
 
-Cell-type proportions were estimated with RCTD in full mode (REF) with the two-type reference built from the same LIBD profiles. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on the spots retained by RCTD, with the target region against the rest.
-
+Cell-type proportions were estimated with RCTD in full mode (REF) with a two-type reference built from the same LIBD profiles. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on the spots retained by RCTD, with the target region against the rest.
 ### Compared methods and benchmarking
 
 #### Benchmarking design
