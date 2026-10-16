@@ -71,7 +71,7 @@ Cell composition acts on the expected counts of a spot, which are a mixture of c
 
 We applied this mode to the WM-versus-rest comparison for the same 20 gene sets (Fig. 3). The myelin and lipid sets remained more active in WM, with evidence between 0.86 and 0.997, indicating that these differences are not explained by the higher oligodendrocyte proportion of WM alone. The exception was cholesterol biosynthesis, whose π score decreased to 0.42 after adjustment. Oxidative phosphorylation remained lower in WM (evidence 2.2 × 10⁻⁹). Synaptic vesicle exocytosis, the glutamate release cycle and NMDA receptor activation remained lower in WM (evidence ≤ 0.023), whereas glutamatergic transmission, GABAergic transmission and voltage-gated potassium channel activity had adjusted π scores between 0.49 and 0.51. Among the five basic cellular process sets, all except mRNA splicing no longer showed higher activity in WM, supporting the hypothesis that their observed-mode differences arise from cell composition.
 
-[Figure 3. WM-versus-rest π scores and posterior evidence of the 20 DLPFC gene sets in the observed and composition-adjusted modes](benchmark/analysis/DLPFC/figure/adjust_vs_observe.png)
+[Figure 3. WM-versus-rest π scores and posterior evidence of the 20 DLPFC gene sets in the observed and composition-adjusted modes](analysis/DLPFC/adjusted/adjust_vs_observe.png)
 
 ### Mapping pathway activity in 3D mouse brain
 
