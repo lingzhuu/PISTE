@@ -18,7 +18,7 @@
 #' from `h` with the usual SPDE rules of thumb,
 #' * `max_edge = c(h / 3, h)`: inner edge at most a third of the range, outer
 #'   extension edge equal to the range;
-#' * `cutoff = h / 8`: spots closer than this share a node (also prevents
+#' * `cutoff = h / 9`: spots closer than this share a node (also prevents
 #'   tiny triangles);
 #' * `offset = c(h / 2, 1.5 * h)`: inner and outer extension, the outer at
 #'   least the range so that boundary effects stay outside the tissue.
@@ -41,7 +41,7 @@ build_mesh <- function(xy, h = 0.3, max_edge = NULL, cutoff = NULL,
   xy <- as.matrix(xy)
   stopifnot(is.numeric(h), length(h) == 1, is.finite(h), h > 0)
   if (is.null(max_edge)) max_edge <- c(h / 3, h)
-  if (is.null(cutoff)) cutoff <- h / 8
+  if (is.null(cutoff)) cutoff <- h / 9
   if (is.null(offset)) offset <- c(h / 2, 1.5 * h)
   stopifnot(all(max_edge > 0), length(max_edge) %in% 1:2,
             cutoff >= 0, length(offset) == 2)

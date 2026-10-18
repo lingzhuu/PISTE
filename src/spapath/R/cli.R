@@ -45,7 +45,7 @@ cli_option_table <- function() {
     c("min-genes", "5", FALSE, "Skip gene sets with fewer usable genes than this (at least 2)."),
     c("h", "0.3", FALSE, "Spatial length scale, in units of the coordinates scaled to the unit square."),
     c("max-edge", NA, FALSE, "Largest mesh triangle edge, one value or inner,outer (default: h/3,h)."),
-    c("cutoff", NA, FALSE, "Minimum distance between mesh nodes (default: h/8)."),
+    c("cutoff", NA, FALSE, "Minimum distance between mesh nodes (default: h/9)."),
     c("mesh-offset", NA, FALSE, "Inner and outer mesh extension around the spots (default: h/2,1.5h)."),
     c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
     c("delta", "0.05", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > LEVEL and lower when P(pi < 0.5 - DELTA) > LEVEL."),
