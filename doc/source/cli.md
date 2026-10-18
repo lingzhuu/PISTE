@@ -104,10 +104,11 @@ dispersions are estimated once on all genes with DESeq2.
 --baseline BASELINE            Baseline region of the model (default: the first label found).
 --min-genes MIN_GENES          Skip gene sets with fewer usable genes than this (at least 2). [default: 5]
 --h H                          Spatial length scale, in coordinates scaled to the unit square. [default: 0.3]
---max-edge MAX_EDGE            Largest mesh triangle edge. [default: 0.25]
---cutoff CUTOFF                Minimum distance between mesh nodes. [default: 0.08]
---mesh-offset MESH_OFFSET      Inner and outer mesh extension around the spots. [default: 0.1,0.2]
+--max-edge MAX_EDGE            Largest mesh triangle edge, one value or inner,outer (default: h/3,h).
+--cutoff CUTOFF                Minimum distance between mesh nodes (default: h/8).
+--mesh-offset MESH_OFFSET      Inner and outer mesh extension around the spots (default: h/2,1.5h).
 --threads THREADS              INLA threads, e.g. 4:1 (default: 1:1).
---delta DELTA                  Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95. [default: 0.05]
+--delta DELTA                  Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > LEVEL and lower when P(pi < 0.5 - DELTA) > LEVEL. [default: 0.05]
+--level LEVEL                  Posterior probability required for a call (see --delta). [default: 0.9]
 --no-pi                        Skip pi scores and evidence; report regional means only.
 ```

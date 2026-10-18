@@ -7,13 +7,22 @@
 #
 # Observed mode (Gaussian response, normalised expression)
 #
-#   y[i, g] = x_i' beta          shared covariates, including the baseline
-#                                intercept (mean of region 1)
+#   y[i, g] = a_g                gene intercept shared by all regions,
+#                                a_g = alpha0 + u_g (see below)
+#           + x_i' beta          shared covariates other than the intercept
 #           + mu_r(i)            relative regional offset, mu_1 = 0
-#           + gene_r(i)[g]       region-specific iid gene effect, variance tau2_r
+#           + gene_r(i)[g]       region-specific iid gene deviation from a_g,
+#                                variance tau2_r
 #           + x_i' slope_g       optional gene-specific covariate slopes
 #           + spatial_g(s_i)     replicated per-gene SPDE Matern field
 #           + e[i, g]            Gaussian noise, variance sigma_e2
+#
+#   The shared gene intercept a_g is essential for pi: without it a gene's
+#   overall level enters both gene_r[g] and gene_s[g], inflates tau2_r and
+#   tau2_s, and pulls pi towards 0.5. With a_g, gene_r[g] and gene_s[g] are
+#   conditionally independent and Var(Delta_g) = tau2_r + tau2_s for the
+#   paired contrast Delta_g = (mu_r + gene_r[g]) - (mu_s + gene_s[g]), which
+#   is the quantity pi is defined on.
 #
 # Adjusted mode (negative binomial response, raw counts)
 #
@@ -24,11 +33,13 @@
 #   L_i      library size; S_g relative dispersion scale of gene g
 #   m[i, g]  expression predicted from the spot's cell-type composition
 #   a_g      gene intercept, a_g = alpha0 + u_g with alpha0 ~ N(0, 100 (1 - 1/K))
-#            and u_g ~ N(0, 100); x_i' beta holds the other covariates
+#            and u_g ~ N(0, 100); x_i' beta holds the other covariates.
+#            The same a_g is used in both modes.
 #   lambda_g composition slope, lambda_g = 1 + v_g with v_g ~ N(0, 0.25^2)
 #
-# The baseline state is alpha0 + mean(u), and alpha0 + mean(u) + mu_r is the
-# pathway state of region r adjusted for cell-type composition.
+# In both modes the baseline state is alpha0 + mean(u), and
+# alpha0 + mean(u) + mu_r is the pathway state of region r (adjusted for
+# cell-type composition in the adjusted mode).
 #
 # Free hyperparameters (R + 2): the R gene-effect precisions, one SPDE
 # variance parameter (the range is fixed through h) and the Gaussian
@@ -53,7 +64,7 @@ screen_default_cfg <- function(mode) {
     # Directional probability (pi) inference
     pi = TRUE,
     pi_delta = .05,
-    pi_level = .95,
+    pi_level = .9,
     pi_nodes = 4096,
     pi_max_nodes = 65536,
     pi_tolerance = .002,
@@ -275,19 +286,21 @@ screen_formula_text <- function(covariates, offset_names, gene_names,
   } else {
     character()
   }
-  # Adjusted mode: auxiliary gene intercepts u_g and composition slopes v_g,
-  # the latter multiplying log m[i, g].
+  # Both modes: auxiliary gene intercepts u_g (a_g = alpha0 + u_g), shared by
+  # all regions, so that gene_r[g] are deviations from the gene's own level.
+  gene_intercept_term <-
+    'f(gene_intercept,model="iid",n=K,constr=FALSE,hyper=gene_intercept_hyper)'
+  # Adjusted mode: composition slopes v_g multiplying log m[i, g].
   composition_terms <- if (adjusted) {
-    c('f(gene_intercept,model="iid",n=K,constr=FALSE,hyper=gene_intercept_hyper)',
-      'f(composition_slope,composition_weight,model="iid",n=K,constr=FALSE,hyper=composition_hyper)')
+    'f(composition_slope,composition_weight,model="iid",n=K,constr=FALSE,hyper=composition_hyper)'
   } else {
     character()
   }
   spatial_term <- 'f(spatial,model=spde,replicate=spatial.repl,nrep=K,constr=FALSE)'
 
   paste("y ~ -1 +", paste(c(covariates$names[covariates$shared], offset_names,
-                            gene_terms, slope_terms, composition_terms,
-                            spatial_term),
+                            gene_terms, slope_terms, gene_intercept_term,
+                            composition_terms, spatial_term),
                           collapse = " + "))
 }
 
@@ -583,19 +596,15 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
     # INLA offset below, v_g multiplies log m[i, g] here.
     effects$composition_slope <- gene
     effects$composition_weight <- as.vector(composition_offset)
-
-    # Auxiliary gene intercepts u_g, one per observation's gene.
-    gene_map <- Matrix::sparseMatrix(i = seq_len(N * K), j = gene, x = 1,
-                                     dims = c(N * K, K))
-    stack <- inla.stack(list(y = as.vector(Y)), A = list(1, gene_map, A),
-                        effects = list(effects, list(gene_intercept = seq_len(K)),
-                                       spatial_index),
-                        compress = FALSE, remove.unused = FALSE)
-  } else {
-    stack <- inla.stack(list(y = as.vector(Y)), A = list(1, A),
-                        effects = list(effects, spatial_index),
-                        compress = FALSE, remove.unused = FALSE)
   }
+
+  # Auxiliary gene intercepts u_g, one per observation's gene (both modes).
+  gene_map <- Matrix::sparseMatrix(i = seq_len(N * K), j = gene, x = 1,
+                                   dims = c(N * K, K))
+  stack <- inla.stack(list(y = as.vector(Y)), A = list(1, gene_map, A),
+                      effects = list(effects, list(gene_intercept = seq_len(K)),
+                                     spatial_index),
+                      compress = FALSE, remove.unused = FALSE)
 
   # --- Priors and formula ----------------------------------------------------
   # `iid_hyper`, `slope_hyper`, `gene_intercept_hyper`, `composition_hyper`,
@@ -618,7 +627,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   counts <- as.numeric(table(factor(region_index, levels = seq_len(R))))
   contrasts <- screen_region_lincombs(counts, cfg$other_weights,
                                       intercept_name, offset_names,
-                                      n_genes = if (adjusted) K else 0)
+                                      n_genes = K)
 
   # --- Run INLA --------------------------------------------------------------
   observation_family <- if (adjusted) {
@@ -643,11 +652,11 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
     num.threads = cfg$threads,
     verbose = isTRUE(cfg$verbose)
   )
+  # alpha0 ~ N(0, 100 (1 - 1/K)), so that alpha0 + mean(u) ~ N(0, 100).
+  inla_args$control.fixed$prec <- c(list(default = .01),
+                                    setNames(list(1 / (100 * (1 - 1 / K))),
+                                             intercept_name))
   if (adjusted) {
-    # alpha0 ~ N(0, 100 (1 - 1/K)), so that alpha0 + mean(u) ~ N(0, 100).
-    inla_args$control.fixed$prec <- c(list(default = .01),
-                                      setNames(list(1 / (100 * (1 - 1 / K))),
-                                               intercept_name))
     inla_args$E <- library_size[site]
     inla_args$scale <- as.numeric(dispersion_scale[gene])
     inla_args$offset <- offset[site] + as.vector(composition_offset)
@@ -670,8 +679,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
 
   # The data and predictor matrix are now in inla_args; free the intermediates
   # before INLA starts.
-  rm(stack, A, effects, nz, spatial_index)
-  if (adjusted) rm(gene_map)
+  rm(stack, A, effects, nz, spatial_index, gene_map)
   gc(FALSE)
 
   started <- proc.time()[["elapsed"]]
@@ -680,7 +688,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   gc(FALSE)
 
   # --- Extract the low-dimensional joint posterior, then drop configs --------
-  gene_intercept_name <- if (adjusted) "gene_intercept" else NULL
+  gene_intercept_name <- "gene_intercept"
   joint <- NULL
   config_bytes <- 0
   if (isTRUE(cfg$pi)) {
@@ -820,8 +828,9 @@ screen_fixed_effect_table <- function(fit, metadata) {
   absolute <- screen_summary_frame(fit$summary.lincomb.derived[
     paste0("absolute_mu_r", seq_len(metadata$R)), , drop = FALSE])
 
+  # The baseline intercept is alpha0 + mean(u) in both modes.
   is_intercept <- table$parameter == intercept_name
-  if (adjusted) table[is_intercept, -1] <- absolute[1, -1]
+  table[is_intercept, -1] <- absolute[1, -1]
 
   is_offset <- table$parameter %in% offset_names
   table$parameter[is_intercept] <- "baseline_intercept"
@@ -946,22 +955,27 @@ screen_gene_slope_table <- function(result) {
 }
 
 
-#' Gene intercepts a_g and composition slopes lambda_g (adjusted mode only)
+#' Gene intercepts a_g (both modes) and composition slopes lambda_g
+#' (adjusted mode only)
 #' @noRd
 screen_gene_coefficient_table <- function(result) {
-  if (result$metadata$mode != "adjusted") return(NULL)
   fit <- result$fit
   K <- result$metadata$K
 
   intercepts <- screen_summary_frame(
     fit$summary.lincomb.derived[paste0("gene_intercept_g", seq_len(K)), , drop = FALSE])
-  slopes <- screen_summary_frame(fit$summary.random$composition_slope)
-  stopifnot(nrow(slopes) == K)
-  slopes[, -1] <- 1 + slopes[, -1]  # lambda_g = 1 + v_g
+  table <- transform(intercepts, parameter = "a_g")
+  genes <- result$metadata$gene_labels
 
-  cbind(gene = result$metadata$gene_labels,
-        rbind(transform(intercepts, parameter = "a_g"),
-              transform(slopes, parameter = "lambda_g")))
+  if (result$metadata$mode == "adjusted") {
+    slopes <- screen_summary_frame(fit$summary.random$composition_slope)
+    stopifnot(nrow(slopes) == K)
+    slopes[, -1] <- 1 + slopes[, -1]  # lambda_g = 1 + v_g
+    table <- rbind(table, transform(slopes, parameter = "lambda_g"))
+    genes <- c(genes, result$metadata$gene_labels)
+  }
+
+  cbind(gene = genes, table)
 }
 
 
@@ -992,12 +1006,10 @@ screen_summarize <- function(result) {
   domains <- screen_domain_calls(contrasts, metadata$region_labels)
   gene_slopes <- screen_gene_slope_table(result)
 
-  # In adjusted mode the intercept's marginal is that of alpha0 + mean(u).
+  # The intercept's marginal is that of alpha0 + mean(u) in both modes.
   fixed_marginals <- fit$marginals.fixed
-  if (metadata$mode == "adjusted") {
-    fixed_marginals[[metadata$intercept_name]] <-
-      fit$marginals.lincomb.derived[["absolute_mu_r1"]]
-  }
+  fixed_marginals[[metadata$intercept_name]] <-
+    fit$marginals.lincomb.derived[["absolute_mu_r1"]]
 
   pi_result <- if (!is.null(result$joint)) {
     pathway_pi_integrate(result$joint,

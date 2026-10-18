@@ -48,7 +48,8 @@
 #' @param baseline Baseline region of the model (default: the first label).
 #' @param h Spatial length scale in unit-square units.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
-#' @param mesh_args List of arguments passed to [build_mesh()].
+#' @param mesh_args List of arguments passed to [build_mesh()] (`max_edge`,
+#'   `cutoff`, `offset`); by default they are derived from `h`.
 #' @param cfg List of options passed to [screen_joint_fit()], e.g.
 #'   `list(threads = "8:1")`.
 #' @param verbose Print progress messages.
@@ -104,7 +105,7 @@ run_spapath <- function(counts, xy, region, gene_sets,
     available <- colnames(expression)
   } else {
     log_step("Estimating gene dispersions and the composition offset")
-    adjusted <- adjusted_inputs(counts, proportions, reference)
+    adjusted <- adjusted_inputs(counts, proportions, reference, region)
     available <- adjusted$usable
   }
   log_step(length(intersect(pathway_genes, available)), " of ",
@@ -112,8 +113,11 @@ run_spapath <- function(counts, xy, region, gene_sets,
 
   # --- Mesh --------------------------------------------------------------------
   xy <- unit_square(xy)
-  mesh <- do.call(build_mesh, c(list(xy), mesh_args))
-  log_step("Mesh with ", mesh$n, " nodes")
+  mesh <- do.call(build_mesh, c(list(xy, h = h), mesh_args))
+  margs <- attr(mesh, "spapath_mesh_args")
+  log_step("Mesh with ", mesh$n, " nodes (h = ", h, ", max_edge = ",
+           paste(signif(margs$max_edge, 3), collapse = "/"), ", cutoff = ",
+           signif(margs$cutoff, 3), ")")
 
   # --- Gene sets -----------------------------------------------------------------
   status <- data.frame(gene_set = names(gene_sets),
@@ -225,7 +229,10 @@ unit_square <- function(xy) {
 #' SCTransform Pearson residuals for selected genes
 #'
 #' Runs sctransform v2 on all genes (as Seurat's SCTransform does) and keeps
-#' the residuals of `genes`, clipped at +-sqrt(N / 30) like Seurat.
+#' the residuals of `genes`, clipped at +-sqrt(N / 30) like Seurat. Unlike
+#' Seurat's SCTransform() (do.center = TRUE) the residuals are not centred
+#' per gene; the model's shared gene intercept a_g absorbs each gene's
+#' overall level, so centring is unnecessary.
 #' @return Dense spots x genes matrix.
 #' @noRd
 sctransform_residuals <- function(counts, genes) {
@@ -246,7 +253,7 @@ sctransform_residuals <- function(counts, genes) {
 #'   counts and the reference, with a dispersion scale and positive predicted
 #'   expression in every spot.
 #' @noRd
-adjusted_inputs <- function(counts, proportions, reference) {
+adjusted_inputs <- function(counts, proportions, reference, region = NULL) {
   proportions <- as.matrix(proportions)
   if (is.null(rownames(proportions))) {
     stopifnot(nrow(proportions) == nrow(counts))
@@ -257,7 +264,7 @@ adjusted_inputs <- function(counts, proportions, reference) {
   proportions <- proportions[rownames(counts), , drop = FALSE]
 
   library_size <- Matrix::rowSums(counts)
-  dispersion <- estimate_dispersion_scale(counts, library_size)
+  dispersion <- estimate_dispersion_scale(counts, library_size, region = region)
   scale <- setNames(dispersion$dispersion_scale, dispersion$gene)
 
   shared <- intersect(colnames(counts), colnames(reference))

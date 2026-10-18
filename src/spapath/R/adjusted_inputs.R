@@ -66,6 +66,12 @@ composition_offset <- function(proportions, reference) {
 #' @param counts Raw counts, spots x genes (dense or sparse), with unique
 #'   spot rownames and gene colnames. Use all genes, not only pathway genes.
 #' @param library_size Length-N library sizes, e.g. total UMI per spot.
+#' @param region Optional length-N region labels. When given, DESeq2 uses the
+#'   design `~ region`, so that regional mean differences are not counted as
+#'   over-dispersion; with an intercept-only design, genes with strong
+#'   regional differences would receive inflated dispersions and be
+#'   down-weighted in the model. Regions with a single spot are pooled into
+#'   the largest region for this estimation only.
 #' @param min_total,min_detected A gene is eligible when its total count is
 #'   at least `min_total` and it is detected in at least `min_detected` spots.
 #'   At least 30 genes must be eligible.
@@ -75,8 +81,8 @@ composition_offset <- function(proportions, reference) {
 #'   `eligible`, `dispersion` (alpha_g) and `dispersion_scale` (S_g; NA for
 #'   ineligible genes).
 #' @export
-estimate_dispersion_scale <- function(counts, library_size, min_total = 10,
-                                      min_detected = 3,
+estimate_dispersion_scale <- function(counts, library_size, region = NULL,
+                                      min_total = 10, min_detected = 3,
                                       fit_type = "parametric",
                                       block_size = 256) {
   if (!requireNamespace("DESeq2", quietly = TRUE)) {
@@ -104,11 +110,29 @@ estimate_dispersion_scale <- function(counts, library_size, min_total = 10,
     stop("Need at least 30 eligible genes; estimate on the whole transcriptome, not one gene set.")
   }
 
+  # Sample table and design: ~ region when labels are given, else ~ 1.
+  col_data <- data.frame(row.names = rownames(counts))
+  design <- ~1
+  if (!is.null(region)) {
+    if (length(region) != nrow(counts) || anyNA(region)) {
+      stop("region must have one non-missing label per spot.")
+    }
+    region <- as.character(region)
+    sizes <- table(region)
+    if (any(sizes < 2)) {
+      # A single-spot region leaves no residual degree of freedom; pool it.
+      region[region %in% names(sizes)[sizes < 2]] <- names(which.max(sizes))
+    }
+    if (length(unique(region)) > 1) {
+      col_data$region <- factor(region)
+      design <- ~region
+    }
+  }
+
   # DESeq2 works on genes x samples.
   gene_counts <- t(as.matrix(counts[, eligible, drop = FALSE]))
   storage.mode(gene_counts) <- "integer"
-  dds <- DESeq2::DESeqDataSetFromMatrix(
-    gene_counts, data.frame(row.names = rownames(counts)), design = ~1)
+  dds <- DESeq2::DESeqDataSetFromMatrix(gene_counts, col_data, design = design)
   DESeq2::sizeFactors(dds) <- library_size / exp(mean(log(library_size)))
   rm(gene_counts)
   gc(FALSE)

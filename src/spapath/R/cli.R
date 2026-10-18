@@ -44,11 +44,12 @@ cli_option_table <- function() {
     c("baseline", NA, FALSE, "Baseline region of the model (default: the first label found)."),
     c("min-genes", "5", FALSE, "Skip gene sets with fewer usable genes than this (at least 2)."),
     c("h", "0.3", FALSE, "Spatial length scale, in units of the coordinates scaled to the unit square."),
-    c("max-edge", "0.25", FALSE, "Largest mesh triangle edge."),
-    c("cutoff", "0.08", FALSE, "Minimum distance between mesh nodes."),
-    c("mesh-offset", "0.1,0.2", FALSE, "Inner and outer mesh extension around the spots."),
+    c("max-edge", NA, FALSE, "Largest mesh triangle edge, one value or inner,outer (default: h/3,h)."),
+    c("cutoff", NA, FALSE, "Minimum distance between mesh nodes (default: h/8)."),
+    c("mesh-offset", NA, FALSE, "Inner and outer mesh extension around the spots (default: h/2,1.5h)."),
     c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
-    c("delta", "0.05", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > 0.95 and lower when P(pi < 0.5 - DELTA) > 0.95."),
+    c("delta", "0.05", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > LEVEL and lower when P(pi < 0.5 - DELTA) > LEVEL."),
+    c("level", "0.9", FALSE, "Posterior probability required for a call (see --delta)."),
     c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "Show this help.")
   )
@@ -140,18 +141,35 @@ cli_check_options <- function(opts) {
     stop("Give the region labels with --regions or --region-key.")
   }
 
-  for (name in c("h", "max-edge", "cutoff", "min-genes")) {
+  for (name in c("h", "min-genes")) {
     opts[[name]] <- as.numeric(opts[[name]])
   }
+  if (!is.finite(opts$h) || opts$h <= 0) stop("--h must be a positive number.")
+  # Mesh parameters: NULL means "derive from h" in build_mesh().
+  parse_numbers <- function(value, name, n_allowed) {
+    if (is.null(value)) return(NULL)
+    x <- as.numeric(strsplit(as.character(value), ",")[[1]])
+    if (any(!is.finite(x)) || !length(x) %in% n_allowed) {
+      stop("--", name, " must be ", paste(n_allowed, collapse = " or "),
+           " number(s) separated by a comma.")
+    }
+    x
+  }
+  opts$`max-edge` <- parse_numbers(opts$`max-edge`, "max-edge", 1:2)
+  opts$cutoff <- parse_numbers(opts$cutoff, "cutoff", 1)
   if (!is.finite(opts$`min-genes`) || opts$`min-genes` <= 0) {
     stop("--min-genes must be a positive number.")
   }
-  opts$`mesh-offset` <- as.numeric(strsplit(opts$`mesh-offset`, ",")[[1]])
-  if (any(!is.finite(opts$`mesh-offset`))) {
-    stop("--mesh-offset must be two numbers separated by a comma, e.g. 0.1,0.2.")
-  }
+  opts$`mesh-offset` <- parse_numbers(opts$`mesh-offset`, "mesh-offset", 2)
   opts$`min-genes` <- max(2, opts$`min-genes`)
   opts$delta <- as.numeric(opts$delta)
+  opts$level <- as.numeric(opts$level)
+  if (!is.finite(opts$delta) || opts$delta < 0 || opts$delta >= 0.5) {
+    stop("--delta must satisfy 0 <= delta < 0.5.")
+  }
+  if (!is.finite(opts$level) || opts$level <= 0.5 || opts$level >= 1) {
+    stop("--level must satisfy 0.5 < level < 1.")
+  }
   opts
 }
 
@@ -271,6 +289,7 @@ cli_run <- function(opts) {
   cfg <- list()
   if (isTRUE(opts$`no-pi`)) cfg$pi <- FALSE
   cfg$pi_delta <- opts$delta
+  cfg$pi_level <- opts$level
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
   res <- run_spapath(inputs$counts, inputs$xy, inputs$region, gene_sets,
@@ -280,9 +299,10 @@ cli_run <- function(opts) {
                      reference = tables$reference,
                      baseline = opts$baseline, h = opts$h,
                      min_genes = opts$`min-genes`,
-                     mesh_args = list(max_edge = opts$`max-edge`,
-                                      cutoff = opts$cutoff,
-                                      offset = opts$`mesh-offset`),
+                     mesh_args = Filter(Negate(is.null),
+                                        list(max_edge = opts$`max-edge`,
+                                             cutoff = opts$cutoff,
+                                             offset = opts$`mesh-offset`)),
                      cfg = cfg)
   cli_log("Results in ", opts$out)
   invisible(res$gene_sets)
