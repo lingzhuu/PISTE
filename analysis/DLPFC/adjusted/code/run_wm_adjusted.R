@@ -24,6 +24,7 @@
 # and reused. screen_summary.rds keeps `joint` (CCD weights, regional means
 # and kappa2 per configuration), so pi and evidence can be recomputed without
 # refitting.
+# The three myelin gene sets run first in all 12 sections, then the rest.
 # Usage: Rscript run_wm_adjusted.R [SECTION ...]   (default: all 12)
 Sys.setenv(OMP_NUM_THREADS = "2", OPENBLAS_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 Sys.setlocale("LC_CTYPE", "English_United States.utf8")
@@ -90,10 +91,13 @@ read_counts <- function(file) {
   counts
 }
 
-for (section in sections) {
+jobs <- sprintf("P%02d", seq_along(pathways))
+first <- jobs[names(pathways) %in% c("GOBP_AXON_ENSHEATHMENT_IN_CENTRAL_NERVOUS_SYSTEM",
+                                     "GOBP_MYELIN_MAINTENANCE", "GOCC_MYELIN_SHEATH")]
+stopifnot(length(first) == 3)
+for (pass_jobs in list(first, jobs)) for (section in sections) {
   out <- file.path(out_root, section)
-  jobs <- sprintf("P%02d", seq_along(pathways))
-  if (all(dir.exists(file.path(out, jobs)))) {log_line(section, "already complete"); next}
+  if (all(dir.exists(file.path(out, pass_jobs)))) next
   dir.create(out, recursive = TRUE, showWarnings = FALSE)
   sec_dir <- file.path(data_root, section)
 
@@ -170,7 +174,7 @@ for (section in sections) {
   for (i in seq_along(sets)) {
     job <- jobs[i]; p <- names(sets)[i]; genes <- sets[[p]]
     final <- file.path(out, job)
-    if (dir.exists(final)) next
+    if (!job %in% pass_jobs || dir.exists(final)) next
     partial <- paste0(final, ".partial")
     for (attempt in 1:2) {
       unlink(partial, recursive = TRUE)
@@ -215,6 +219,6 @@ for (section in sections) {
   }
   rm(Y, log_m); gc(FALSE)
   done <- sum(dir.exists(file.path(out, jobs)))
-  log_line(section, "finished", done, "of", length(jobs), "gene sets")
+  log_line(section, "has", done, "of", length(jobs), "gene sets")
 }
 log_line("Run ended")
