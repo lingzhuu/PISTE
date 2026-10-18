@@ -241,7 +241,7 @@ where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in c
 
 The true composition-adjusted score is computed from the per-gene regional means of the log fold change relative to $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$, which is $d_g b_g R_i$ in scenarios A, B and D and $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$ in scenario C, where $s_{ig}$ is the share of Excit in $m_{ig}$. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
 
-Each dataset was analyzed with SpaPath in the composition-adjusted mode using the true proportions and the simulated profiles, and in the observed mode on SCTransform residuals, on all spots, with the target region against the rest.
+Cell-type proportions were estimated with RCTD in full mode (REF), with the simulated profiles as the reference. Each dataset was analyzed with SpaPath in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on all spots, with the target region against the rest.
 
 ### Compared methods and benchmarking
 
