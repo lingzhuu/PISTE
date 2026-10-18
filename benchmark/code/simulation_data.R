@@ -26,8 +26,9 @@ n_pathways   <- 50
 pathway_size <- 100
 n_bg_genes   <- n_genes - n_pathways * pathway_size   # 5,000 background genes
 n_bg_svg     <- 1000    # background genes with a radial spatial effect
-matern_ell   <- 0.25     # range of the Matern-3/2 fields (gradient maps and noise)
-noise_sd     <- 0.25     # sd of the per-gene spatial noise e_gi (log-mean scale)
+matern_ell   <- 0.25     # range of the Matern-3/2 gradient maps
+noise_ell    <- 0.075    # range of the per-gene spatial noise e_gi
+noise_sd     <- 0.13     # sd of the per-gene spatial noise e_gi (log-mean scale)
 
 # ---- helpers --------------------------------------------------------------------
 
@@ -117,14 +118,18 @@ generate_dataset <- function(seed, out) {
                        "effect_profile")]
 
   # -- spatial activity maps A_pi --------------------------------------------------
-  # Gradient maps and noise fields share one Matern-3/2 Cholesky factor;
-  # compute it once (no random sampling involved in this step).
+  # Matern-3/2 Cholesky factors for the gradient maps and the noise fields;
+  # computed once (no random sampling involved in this step).
   d <- as.matrix(dist(xy))
-  u <- sqrt(3) * d / matern_ell
-  cov_mat <- (1 + u) * exp(-u)
-  diag(cov_mat) <- diag(cov_mat) + 1e-7
-  gradient_factor <- chol(cov_mat)
-  rm(d, u, cov_mat)
+  matern_factor <- function(ell) {
+    u <- sqrt(3) * d / ell
+    cov_mat <- (1 + u) * exp(-u)
+    diag(cov_mat) <- diag(cov_mat) + 1e-7
+    chol(cov_mat)
+  }
+  gradient_factor <- matern_factor(matern_ell)
+  noise_factor <- matern_factor(noise_ell)
+  rm(d)
 
   # Draw one activity map of the requested class, scaled to [0, 1].
   make_map <- function(cl) {
@@ -255,7 +260,7 @@ generate_dataset <- function(seed, out) {
   # 1,000 genes at a time (one column of z per gene) to limit memory.
   gene_blocks <- split(seq_len(n_genes), ceiling(seq_len(n_genes) / 1000))
   for (block in gene_blocks) {
-    z <- crossprod(gradient_factor, matrix(rnorm(n * length(block)), n))
+    z <- crossprod(noise_factor, matrix(rnorm(n * length(block)), n))
     mean_expr[block, ] <- mean_expr[block, ] * exp(noise_sd * t(z))
   }
 
@@ -306,6 +311,7 @@ generate_dataset <- function(seed, out) {
     counts = Y, xy = xy, c_i = c_i, pathways = pathways, activity = activity,
     oracle_target = target, gene_truth = gene_truth, pathway_truth = design,
     reference_parameters = param, seed = seed, nuisance_strength = noise_sd,
+    nuisance_range = noise_ell,
     background_factor = background_factor, library_total = library_total,
     generator = "simulation_data.R")
   saveRDS(dataset, file.path(out, "dataset.rds"), compress = "gzip")
