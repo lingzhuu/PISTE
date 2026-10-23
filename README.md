@@ -259,7 +259,7 @@ On the DLPFC data, all methods were applied to each of the 12 sections of Maynar
 
 #### Preprocessing
 
-Following Maynard et al. (2021), we used the Space Ranger filtered count matrix and retained all spots with a layer annotation. No additional spot-level filtering was applied, because it can preferentially remove spots from biologically distinct regions and the genuine signal they carry (Totty et al., 2025). Mitochondrial genes were removed, and genes detected in fewer than five spots were excluded before normalization, as they carry too little information to be modelled. The same preprocessing was applied to all datasets.
+Following Maynard et al. (2021), we used the Space Ranger filtered count matrix and retained all spots with a layer annotation. No additional spot-level filtering was applied, because it can preferentially remove spots from biologically distinct regions and the genuine signal they carry (Totty et al., 2025). Mitochondrial genes were removed, and genes detected in fewer than five spots were excluded before normalization. The same preprocessing was applied to all datasets.
 
 #### Normalization
 
