@@ -4,10 +4,10 @@
 #
 #   1. Spots: keep the spots named in `spots` (those with a region/layer annotation);
 #      no further spot-level filtering (Totty et al., 2025; Maynard et al., 2021).
-#   2. Genes: drop mitochondrial genes (names starting MT- or mt-), whose share of the
-#      library differs systematically between regions and would shift the normalized
-#      values of every other gene in the same direction; then drop genes detected in
-#      fewer than 5 of the retained spots (SCTransform's own minimum, min_cells = 5).
+#   2. Genes: keep mitochondrial genes (some gene sets, e.g. oxidative phosphorylation,
+#      contain mitochondrially encoded genes); drop genes detected in fewer than 5 of the
+#      retained spots (SCTransform's own minimum, min_cells = 5). drop_mito = TRUE removes
+#      MT- genes as well (not used in the paper).
 #      Duplicate gene symbols are summed when the matrix is read from the 10x h5 file.
 #
 # preprocess_counts(counts, spots) returns list(counts = genes x spots sparse matrix,
@@ -17,7 +17,7 @@
 # <out_prefix>_manifest.csv; spots.csv needs a column `spot` (barcode).
 suppressPackageStartupMessages(library(Matrix))
 
-preprocess_counts <- function(counts, spots = colnames(counts), drop_mito = TRUE, min_spots = 5,
+preprocess_counts <- function(counts, spots = colnames(counts), drop_mito = FALSE, min_spots = 5,
                               mito_pattern = "^(MT|mt)-") {
   spots <- intersect(spots, colnames(counts))
   counts <- counts[, spots, drop = FALSE]
