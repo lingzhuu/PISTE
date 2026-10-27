@@ -70,7 +70,7 @@ Runs SpaPath on every gene set of a panel in one call:
 | `reference` | Adjusted mode. Cell types x genes matrix of reference mean expression on a linear scale, e.g. from `reference_profile()`. |
 | `baseline` | Baseline region of the model. Default: the first label in `region`. |
 | `h` | Spatial length scale in unit-square units; the practical range of the spatial fields with the default `kappa_h`. |
-| `spatial_field` | Add the gene-specific spatial fields. By default (`FALSE`) the model is fitted without them: no mesh is built and `h` and `mesh_args` are ignored. `TRUE` adds the fields, which is slower. |
+| `spatial_field` | Add the gene-specific spatial fields. By default (`FALSE`) the model is fitted without them: no mesh is built, `h` and `mesh_args` are ignored, and in observed mode the fit uses the closed-form engine ([`closed_form_joint_fit()`](#closed_form_joint_fit)) instead of INLA. `TRUE` adds the fields, which is slower and fitted with INLA. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `mesh_args` | List of arguments passed to `build_mesh()`, e.g. `list(cutoff = 0.05)`. |
 | `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). |
@@ -198,6 +198,10 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `threads` | `"1:1"` | INLA `num.threads`, as `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each evaluation uses B threads. |
 | `strategy` | `"gaussian"`; `"simplified.laplace"` in adjusted mode | INLA approximation strategy. |
 | `spatial_field` | `FALSE` | Add the gene-specific spatial fields (one more hyperparameter, `sigma_s2` in the output, slower). |
+| `closed_form_grid_points` | `7` | Closed-form engine: grid points per hyperparameter axis. |
+| `closed_form_grid_halfwidth` | `3` | Closed-form engine: half width of the grid in posterior standard deviations of the hyperparameters. |
+| `closed_form_weight_threshold` | `1e-10` | Closed-form engine: relative posterior weight below which a grid point is dropped. |
+| `closed_form_max_points` | `1e5` | Closed-form engine: largest grid allowed; the grid has `closed_form_grid_points`^(R + 1) points. |
 | `kappa_h` | `sqrt(8)` | SPDE scale times `h`; must lie in [2.3, 3.2]. |
 | `tau_prior` | `"normal"` | Prior on the log precision of the regional gene effects: `"normal"`, `"inla_default"` (log-gamma(1, 5e-5) on the precision), `"pc"` or `"flat"`. |
 | `tau_logprecision_mean` | `0` | Mean of the normal prior. |
@@ -224,6 +228,49 @@ A list with
   `composition_diagnostics`: per gene, the standard deviation of
   log m<sub>ig</sub> within regions (small values mean λ<sub>g</sub> is
   informed mainly by its prior) and its mean.
+
+---
+
+## closed_form_joint_fit
+
+```r
+closed_form_joint_fit(Y, xy = NULL, region, mesh = NULL, h = NULL,
+                      mode = "observed", X = NULL, offset = NULL, cfg = list())
+closed_form_applies(mode, cfg = list())
+```
+
+Fits the observed-mode model without the gene-specific spatial fields in
+closed form, without INLA. Given the hyperparameters (the error variance and
+the gene-effect variance of every region) the posterior of the regional means
+is Gaussian and is computed from the per-gene regional means, the spot counts
+and the within-region sum of squares, so one evaluation costs O(K R²). The
+R + 1 hyperparameters are integrated on a regular grid around their posterior
+mode, with weights proportional to the posterior (options
+`closed_form_grid_*` above). Same model, priors and π computation as
+[`screen_joint_fit()`](#screen_joint_fit) with `spatial_field = FALSE`; on
+440 DLPFC and simulated gene sets the two engines agree in every call, with π
+within 0.009 and evidence within 0.03 (the differences come from INLA's
+central composite design, which is the coarser integration). A fit takes a
+fraction of a second instead of tens of seconds.
+
+[`run_spapath()`](#run_spapath) uses this engine whenever
+`closed_form_applies()` is `TRUE`: observed mode, no spatial fields,
+`tau_prior = "normal"`, no gene-specific covariates. Otherwise it uses INLA.
+
+### Arguments
+
+As [`screen_joint_fit()`](#screen_joint_fit); `xy`, `mesh` and `h` are accepted
+and ignored, `X` may only be an intercept and `offset` must be absent.
+
+### Value
+
+As [`screen_joint_fit()`](#screen_joint_fit), with `fit = NULL`,
+`metadata$engine = "closed_form"`, `metadata$grid` (points per axis, half
+width, points kept, hyperparameter mode) and `closed_form` (the conditional
+Gaussians, grid points and weights). Pass it to
+[`screen_summarize()`](#screen_summarize), whose output then also holds
+`theta_grid` (the grid points and weights) and `NULL` in place of the INLA
+marginals.
 
 ---
 

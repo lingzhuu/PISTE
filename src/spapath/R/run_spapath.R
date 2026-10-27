@@ -49,7 +49,9 @@
 #' @param h Spatial length scale in unit-square units.
 #' @param spatial_field Add the gene-specific spatial fields. By default
 #'   (`FALSE`) the model is fitted without them: no mesh is built and `h` and
-#'   `mesh_args` are ignored. `TRUE` adds the fields, which is slower.
+#'   `mesh_args` are ignored, and in observed mode the fit uses the closed-form
+#'   engine ([closed_form_joint_fit()]) instead of INLA. `TRUE` adds the
+#'   fields, which is slower and fitted with INLA.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
 #' @param mesh_args List of arguments passed to [build_mesh()] (`max_edge`,
 #'   `cutoff`, `offset`); by default they are derived from `h`.
@@ -130,6 +132,10 @@ run_spapath <- function(counts, xy, region, gene_sets,
   } else {
     log_step("Fitting without the gene-specific spatial fields")
   }
+  closed_form <- closed_form_applies(mode, cfg)
+  if (closed_form) {
+    log_step("Observed mode without spatial fields: closed-form engine, no INLA")
+  }
 
   # --- Gene sets -----------------------------------------------------------------
   status <- data.frame(gene_set = names(gene_sets),
@@ -153,7 +159,10 @@ run_spapath <- function(counts, xy, region, gene_sets,
     log_step(progress, ": ", length(genes), " genes")
     set_cfg <- modifyList(if (is.null(baseline)) list() else list(baseline_region = baseline), cfg)
     summary <- tryCatch({
-      fit <- if (mode == "observed") {
+      fit <- if (mode == "observed" && closed_form) {
+        closed_form_joint_fit(expression[, genes, drop = FALSE], xy, region,
+                              mode = "observed", cfg = set_cfg)
+      } else if (mode == "observed") {
         screen_joint_fit(expression[, genes, drop = FALSE], xy, region, mesh, h,
                          mode = "observed", cfg = set_cfg)
       } else {

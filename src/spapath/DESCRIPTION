@@ -11,9 +11,10 @@ Description: Fits spatial pathway models with a shared baseline intercept,
     effects and replicated gene-specific spatial fields. The observed mode
     models normalised expression as Gaussian; the adjusted mode models raw
     counts as negative binomial with a cell-type composition offset, so that
-    regional differences are adjusted for composition. Computes directional
-    pathway probabilities and posterior evidence using compact CCD
-    configuration mixtures. Includes a command-line interface that runs
+    regional differences are adjusted for composition. Without the spatial
+    fields the observed mode is fitted in closed form, without INLA. Computes
+    directional pathway probabilities and posterior evidence from Gaussian
+    mixtures over the hyperparameters. Includes a command-line interface that runs
     every gene set of a GMT file.
 License: file LICENSE
 Encoding: UTF-8
@@ -26,6 +27,7 @@ Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
     'pi_engine.R'
     'inla_screen.R'
+    'closed_form_screen.R'
     'mesh.R'
     'run_spapath.R'
     'adjusted_inputs.R'

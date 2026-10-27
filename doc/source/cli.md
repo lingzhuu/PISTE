@@ -103,7 +103,7 @@ dispersions are estimated once on all genes with DESeq2.
 --target TARGET                Compare this region with all other spots, pooled into 'rest'.
 --baseline BASELINE            Baseline region of the model (default: the first label found).
 --min-genes MIN_GENES          Skip gene sets with fewer usable genes than this (at least 2). [default: 5]
---spatial-field                Add the gene-specific spatial fields (slower). Without it --h and the mesh options are ignored.
+--spatial-field                Add the gene-specific spatial fields (slower, fitted with INLA). Without it --h and the mesh options are ignored and the observed mode is fitted in closed form without INLA.
 --h H                          Spatial length scale of the spatial fields, in coordinates scaled to the unit square. [default: 0.3]
 --max-edge MAX_EDGE            Largest mesh triangle edge, one value or inner,outer (default: h/3,h).
 --cutoff CUTOFF                Minimum distance between mesh nodes (default: h/9).

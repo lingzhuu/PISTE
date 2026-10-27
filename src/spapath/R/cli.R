@@ -43,7 +43,7 @@ cli_option_table <- function() {
     c("target", NA, FALSE, "Compare this region with all other spots, which are pooled into 'rest'."),
     c("baseline", NA, FALSE, "Baseline region of the model (default: the first label found)."),
     c("min-genes", "5", FALSE, "Skip gene sets with fewer usable genes than this (at least 2)."),
-    c("spatial-field", "false", TRUE, "Add the gene-specific spatial fields (slower). Without it --h and the mesh options are ignored."),
+    c("spatial-field", "false", TRUE, "Add the gene-specific spatial fields (slower, fitted with INLA). Without it --h and the mesh options are ignored and the observed mode is fitted in closed form without INLA."),
     c("h", "0.3", FALSE, "Spatial length scale of the spatial fields, in units of the coordinates scaled to the unit square."),
     c("max-edge", NA, FALSE, "Largest mesh triangle edge, one value or inner,outer (default: h/3,h)."),
     c("cutoff", NA, FALSE, "Minimum distance between mesh nodes (default: h/9)."),

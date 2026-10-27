@@ -74,6 +74,14 @@ screen_default_cfg <- function(mode) {
     # Gene-specific spatial fields w_g; off by default, TRUE adds them
     spatial_field = FALSE,
 
+    # Hyperparameter grid of the closed-form engine (observed mode without
+    # spatial fields): points per axis, half width in posterior standard
+    # deviations, relative weight below which a point is dropped, largest grid
+    closed_form_grid_points = 7,
+    closed_form_grid_halfwidth = 3,
+    closed_form_weight_threshold = 1e-10,
+    closed_form_max_points = 1e5,
+
     # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
     threads = "1:1",
     kappa_h = sqrt(8),
@@ -314,36 +322,24 @@ screen_formula_text <- function(covariates, offset_names, gene_names,
 }
 
 
-#' Linear combinations of the regional means
+#' Coefficients of the regional mean contrasts
 #'
-#' Builds three groups of INLA linear combinations:
+#' Two groups of contrasts on the absolute regional means (length-R
+#' coefficient vectors):
 #' * `dmu_<r>_vs_rest`: region r minus a weighted average of all other regions
 #'   (weights proportional to spot counts, or `other_weights` for region 1);
-#' * `dmu_<r>_vs_<s>`: every pairwise difference;
-#' * `absolute_mu_r<r>`: absolute regional means, reported as diagnostics
-#'   while mu_r2, ..., mu_rR stay the primary relative coefficients.
+#' * `dmu_<r>_vs_<s>`: every pairwise difference.
 #'
-#' Contrasts are expressed on the relative offsets only (region 1 has offset
-#' zero, so its coefficient is dropped). In adjusted mode (`n_genes` > 0) the
-#' absolute means also include mean(u) of the auxiliary gene intercepts, and
-#' `gene_intercept_g<g>` = intercept + u_g gives each gene intercept a_g.
+#' Shared by the INLA linear combinations ([screen_region_lincombs()]) and the
+#' closed-form engine, which needs no INLA.
 #'
-#' @param n_genes Number of auxiliary gene intercepts (0 in observed mode).
-#' @return List with `lincombs`, the full length-R `coefficients` of each
-#'   contrast and the `rest_weights` used for each region.
+#' @return List with the full length-R `coefficients` of each contrast and the
+#'   `rest_weights` used for each region.
 #' @noRd
-screen_region_lincombs <- function(counts, other_weights, intercept_name,
-                                   offset_names, n_genes = 0) {
+screen_region_contrasts <- function(counts, other_weights) {
   R <- length(counts)
-  lincombs <- list()
   coefficients <- list()
   rest_weights <- vector("list", R)
-
-  # INLA linear combination of the relative offsets for coefficients z.
-  offset_lincomb <- function(z, name) {
-    setNames(do.call(inla.make.lincomb,
-                     as.list(setNames(z[-1], offset_names))), name)
-  }
 
   # Region r versus the rest.
   for (r in seq_len(R)) {
@@ -359,19 +355,49 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
     z[r] <- 1
     z[rest] <- -a
     rest_weights[[r]] <- a
-    name <- paste0("dmu_", r, "_vs_rest")
-    lincombs <- c(lincombs, offset_lincomb(z, name))
-    coefficients[[name]] <- z
+    coefficients[[paste0("dmu_", r, "_vs_rest")]] <- z
   }
 
   # All pairwise differences.
   for (pair in combn(seq_len(R), 2, simplify = FALSE)) {
     z <- numeric(R)
     z[pair] <- c(1, -1)
-    name <- paste0("dmu_", pair[1], "_vs_", pair[2])
-    lincombs <- c(lincombs, offset_lincomb(z, name))
-    coefficients[[name]] <- z
+    coefficients[[paste0("dmu_", pair[1], "_vs_", pair[2])]] <- z
   }
+
+  list(coefficients = coefficients, rest_weights = rest_weights)
+}
+
+
+#' Linear combinations of the regional means
+#'
+#' Builds three groups of INLA linear combinations:
+#' * the contrasts of [screen_region_contrasts()] (`dmu_<r>_vs_rest` and
+#'   `dmu_<r>_vs_<s>`);
+#' * `absolute_mu_r<r>`: absolute regional means, reported as diagnostics
+#'   while mu_r2, ..., mu_rR stay the primary relative coefficients.
+#'
+#' Contrasts are expressed on the relative offsets only (region 1 has offset
+#' zero, so its coefficient is dropped). In adjusted mode (`n_genes` > 0) the
+#' absolute means also include mean(u) of the auxiliary gene intercepts, and
+#' `gene_intercept_g<g>` = intercept + u_g gives each gene intercept a_g.
+#'
+#' @param n_genes Number of auxiliary gene intercepts (0 in observed mode).
+#' @return List with `lincombs`, the full length-R `coefficients` of each
+#'   contrast and the `rest_weights` used for each region.
+#' @noRd
+screen_region_lincombs <- function(counts, other_weights, intercept_name,
+                                   offset_names, n_genes = 0) {
+  R <- length(counts)
+  contrasts <- screen_region_contrasts(counts, other_weights)
+
+  # INLA linear combination of the relative offsets for coefficients z.
+  offset_lincomb <- function(z, name) {
+    setNames(do.call(inla.make.lincomb,
+                     as.list(setNames(z[-1], offset_names))), name)
+  }
+  lincombs <- do.call(c, unname(Map(offset_lincomb, contrasts$coefficients,
+                                    names(contrasts$coefficients))))
 
   # Absolute regional means: intercept (+ mean(u)) + offset_r.
   for (r in seq_len(R)) {
@@ -391,8 +417,8 @@ screen_region_lincombs <- function(counts, other_weights, intercept_name,
                                      paste0("gene_intercept_g", g)))
   }
 
-  list(lincombs = lincombs, coefficients = coefficients,
-       rest_weights = rest_weights)
+  list(lincombs = lincombs, coefficients = contrasts$coefficients,
+       rest_weights = contrasts$rest_weights)
 }
 
 
@@ -765,6 +791,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   metadata <- list(
     N = N, K = K, R = R,
     mode = mode,
+    engine = "inla",
     region_labels = labels,
     region_spots = counts,
     other_weights = contrasts$rest_weights[[1]],
@@ -1039,6 +1066,9 @@ screen_gene_coefficient_table <- function(result) {
 #'   * the raw INLA marginals, `metadata`, INLA `warnings` and timing.
 #' @export
 screen_summarize <- function(result) {
+  if (identical(result$metadata$engine, "closed_form")) {
+    return(closed_form_summarize(result))
+  }
   started <- proc.time()[["elapsed"]]
   fit <- result$fit
   metadata <- result$metadata
@@ -1143,7 +1173,12 @@ screen_write <- function(summary, out) {
 
   pi_status <- if (is.null(summary$pi)) "Pi inference disabled." else
     paste("Pi numerical refinement converged:", summary$pi$diagnostics$converged)
-  writeLines(c("CCD screening completed; config=FALSE; no posterior sampling.",
+  engine_line <- if (identical(summary$metadata$engine, "closed_form")) {
+    "Closed-form screening completed; hyperparameters integrated on a grid; no INLA."
+  } else {
+    "CCD screening completed; config=FALSE; no posterior sampling."
+  }
+  writeLines(c(engine_line,
                paste("Gene effects:", summary$metadata$gene_dependence),
                paste("Free hyperparameters:", summary$metadata$hyperparameters),
                pi_status),
