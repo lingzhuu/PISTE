@@ -47,6 +47,9 @@
 #'   mean expression on a linear scale, e.g. from [reference_profile()].
 #' @param baseline Baseline region of the model (default: the first label).
 #' @param h Spatial length scale in unit-square units.
+#' @param spatial_field Add the gene-specific spatial fields. By default
+#'   (`FALSE`) the model is fitted without them: no mesh is built and `h` and
+#'   `mesh_args` are ignored. `TRUE` adds the fields, which is slower.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
 #' @param mesh_args List of arguments passed to [build_mesh()] (`max_edge`,
 #'   `cutoff`, `offset`); by default they are derived from `h`.
@@ -64,9 +67,13 @@ run_spapath <- function(counts, xy, region, gene_sets,
                         mode = c("observed", "adjusted"), out = NULL,
                         normalized = FALSE, proportions = NULL,
                         reference = NULL, baseline = NULL, h = 0.3,
+                        spatial_field = FALSE,
                         min_genes = 5, mesh_args = list(), cfg = list(),
                         verbose = TRUE) {
   mode <- match.arg(mode)
+  stopifnot(is.logical(spatial_field), length(spatial_field) == 1,
+            !is.na(spatial_field))
+  cfg$spatial_field <- spatial_field
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
 
   # --- Inputs ----------------------------------------------------------------
@@ -113,11 +120,16 @@ run_spapath <- function(counts, xy, region, gene_sets,
 
   # --- Mesh --------------------------------------------------------------------
   xy <- unit_square(xy)
-  mesh <- do.call(build_mesh, c(list(xy, h = h), mesh_args))
-  margs <- attr(mesh, "spapath_mesh_args")
-  log_step("Mesh with ", mesh$n, " nodes (h = ", h, ", max_edge = ",
-           paste(signif(margs$max_edge, 3), collapse = "/"), ", cutoff = ",
-           signif(margs$cutoff, 3), ")")
+  mesh <- NULL
+  if (spatial_field) {
+    mesh <- do.call(build_mesh, c(list(xy, h = h), mesh_args))
+    margs <- attr(mesh, "spapath_mesh_args")
+    log_step("Mesh with ", mesh$n, " nodes (h = ", h, ", max_edge = ",
+             paste(signif(margs$max_edge, 3), collapse = "/"), ", cutoff = ",
+             signif(margs$cutoff, 3), ")")
+  } else {
+    log_step("Fitting without the gene-specific spatial fields")
+  }
 
   # --- Gene sets -----------------------------------------------------------------
   status <- data.frame(gene_set = names(gene_sets),

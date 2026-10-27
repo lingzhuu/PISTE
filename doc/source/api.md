@@ -38,7 +38,7 @@ a single gene set with other model options.
 run_spapath(counts, xy, region, gene_sets,
             mode = c("observed", "adjusted"), out = NULL,
             normalized = FALSE, proportions = NULL, reference = NULL,
-            baseline = NULL, h = 0.3, min_genes = 5,
+            baseline = NULL, h = 0.3, spatial_field = FALSE, min_genes = 5,
             mesh_args = list(), cfg = list(), verbose = TRUE)
 ```
 
@@ -70,6 +70,7 @@ Runs SpaPath on every gene set of a panel in one call:
 | `reference` | Adjusted mode. Cell types x genes matrix of reference mean expression on a linear scale, e.g. from `reference_profile()`. |
 | `baseline` | Baseline region of the model. Default: the first label in `region`. |
 | `h` | Spatial length scale in unit-square units; the practical range of the spatial fields with the default `kappa_h`. |
+| `spatial_field` | Add the gene-specific spatial fields. By default (`FALSE`) the model is fitted without them: no mesh is built and `h` and `mesh_args` are ignored. `TRUE` adds the fields, which is slower. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `mesh_args` | List of arguments passed to `build_mesh()`, e.g. `list(cutoff = 0.05)`. |
 | `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). |
@@ -173,8 +174,8 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `Y` | Spots x genes matrix with at least two genes and no missing or infinite values. Normalized expression in observed mode; raw integer counts with unique spot rownames and gene colnames in adjusted mode. Column names are used as gene labels. |
 | `xy` | Numeric matrix of spot coordinates with two columns, in the same spot order as `Y`. |
 | `region` | Region label of each spot, at least two distinct labels, no `NA`. Labels are converted to character and ordered by first appearance. |
-| `mesh` | Mesh for the spatial fields, from [`build_mesh()`](#build_mesh). |
-| `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. |
+| `mesh` | Mesh for the spatial fields, from [`build_mesh()`](#build_mesh). Needed only when `cfg$spatial_field` is `TRUE`; otherwise it may be `NULL`. |
+| `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. Needed only when `cfg$spatial_field` is `TRUE`. |
 | `mode` | `"observed"` (default) or `"adjusted"`. |
 | `X` | Optional numeric covariate matrix with N rows and unique column names. Covariates that vary between spots of the section, e.g. sequencing depth or mitochondrial fraction. An `intercept` column is added if absent, and no other column may be constant one. |
 | `offset` | Optional known additive offset of length N, added to every gene of a spot. |
@@ -196,6 +197,7 @@ hyperparameters with a CCD design. The mode chooses the model:
 | `pi_tolerance` | `0.002` | Convergence tolerance between quadrature refinements. |
 | `threads` | `"1:1"` | INLA `num.threads`, as `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each evaluation uses B threads. |
 | `strategy` | `"gaussian"`; `"simplified.laplace"` in adjusted mode | INLA approximation strategy. |
+| `spatial_field` | `FALSE` | Add the gene-specific spatial fields (one more hyperparameter, `sigma_s2` in the output, slower). |
 | `kappa_h` | `sqrt(8)` | SPDE scale times `h`; must lie in [2.3, 3.2]. |
 | `tau_prior` | `"normal"` | Prior on the log precision of the regional gene effects: `"normal"`, `"inla_default"` (log-gamma(1, 5e-5) on the precision), `"pc"` or `"flat"`. |
 | `tau_logprecision_mean` | `0` | Mean of the normal prior. |

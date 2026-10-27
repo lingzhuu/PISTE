@@ -15,6 +15,8 @@
 #                                variance tau2_r
 #           + x_i' slope_g       optional gene-specific covariate slopes
 #           + spatial_g(s_i)     replicated per-gene SPDE Matern field
+#                                (optional: cfg$spatial_field = TRUE adds it;
+#                                off by default)
 #           + e[i, g]            Gaussian noise, variance sigma_e2
 #
 #   The shared gene intercept a_g is essential for pi: without it a gene's
@@ -68,6 +70,9 @@ screen_default_cfg <- function(mode) {
     pi_nodes = 4096,
     pi_max_nodes = 65536,
     pi_tolerance = .002,
+
+    # Gene-specific spatial fields w_g; off by default, TRUE adds them
+    spatial_field = FALSE,
 
     # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
     threads = "1:1",
@@ -277,7 +282,7 @@ screen_tau_hyper <- function(cfg) {
 #' `screen_joint_fit()`.
 #' @noRd
 screen_formula_text <- function(covariates, offset_names, gene_names,
-                                adjusted) {
+                                adjusted, spatial_field = TRUE) {
   gene_terms <- paste0('f(', gene_names,
                        ',model="iid",n=K,constr=FALSE,hyper=iid_hyper)')
   slope_terms <- if (length(covariates$gene_specific)) {
@@ -296,7 +301,11 @@ screen_formula_text <- function(covariates, offset_names, gene_names,
   } else {
     character()
   }
-  spatial_term <- 'f(spatial,model=spde,replicate=spatial.repl,nrep=K,constr=FALSE)'
+  spatial_term <- if (spatial_field) {
+    'f(spatial,model=spde,replicate=spatial.repl,nrep=K,constr=FALSE)'
+  } else {
+    character()
+  }
 
   paste("y ~ -1 +", paste(c(covariates$names[covariates$shared], offset_names,
                             gene_terms, slope_terms, gene_intercept_term,
@@ -458,9 +467,11 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   adjusted mode.
 #' @param xy N x 2 matrix of spot coordinates.
 #' @param region Length-N vector of region labels (at least two regions).
-#' @param mesh Mesh for the SPDE field, from [build_mesh()].
+#' @param mesh Mesh for the SPDE fields, from [build_mesh()]. Needed only
+#'   when `cfg$spatial_field` is `TRUE`; otherwise it may be `NULL`.
 #' @param h Spatial length scale; the SPDE parameter kappa is fixed at
-#'   `cfg$kappa_h / h`.
+#'   `cfg$kappa_h / h`. Needed only when `cfg$spatial_field` is `TRUE`;
+#'   otherwise it may be `NULL`.
 #' @param mode `"observed"` (Gaussian model of normalised expression) or
 #'   `"adjusted"` (negative binomial model of raw counts, adjusted for
 #'   cell-type composition).
@@ -483,6 +494,10 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'     see [pathway_pi_integrate()].
 #'   * `threads` ("1:1"), `strategy` ("gaussian" in observed mode,
 #'     "simplified.laplace" in adjusted mode): INLA settings.
+#'   * `spatial_field` (FALSE): add the gene-specific spatial fields
+#'     spatial_g. By default the model is fitted without them, so the
+#'     regional gene effects alone carry each gene's departure from the
+#'     regional means; TRUE adds the fields (one more hyperparameter, slower).
 #'   * `kappa_h` (`sqrt(8)`): kappa * h, must lie in \[2.3, 3.2\].
 #'   * `tau_prior`: prior on the gene-effect log precisions, one of
 #'     `"normal"` (default; `tau_logprecision_mean`, `tau_logprecision_sd`),
@@ -498,8 +513,9 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'     label found in `region`).
 #'   * `low_memory` (FALSE): AMD reordering with a small global node factor;
 #'     the same model with lower memory use for large gene sets.
-#'   * `initial_theta` (NULL): starting hyperparameters (length R + 2), e.g.
-#'     `fit$fit$mode$theta` of an earlier run.
+#'   * `initial_theta` (NULL): starting hyperparameters (length R + 1, or
+#'     R + 2 with the spatial fields), e.g. `fit$fit$mode$theta` of an
+#'     earlier run.
 #'   * `verbose` (FALSE): print INLA's log.
 #' @param .fixed_theta Internal structural test hook: fix the hyperparameters.
 #' @param .int_strategy INLA integration strategy, `"ccd"` or `"eb"`.
@@ -528,6 +544,9 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   if (isTRUE(cfg$pi) && (.int_strategy != "ccd" || !is.null(.fixed_theta))) {
     stop("Pi inference requires unfixed CCD hyperparameter integration.")
   }
+  stopifnot(is.logical(cfg$spatial_field), length(cfg$spatial_field) == 1,
+            !is.na(cfg$spatial_field))
+  spatial_field <- cfg$spatial_field
 
   # --- Dimensions and regions ------------------------------------------------
   N <- nrow(Y)
@@ -535,18 +554,24 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   labels <- screen_region_labels(region, cfg$baseline_region)
   region_index <- match(as.character(region), labels)
   R <- length(labels)
+  # Hyperparameters: R regional log precisions, the observation precision or
+  # NB size, and the spatial log standard deviation when fields are fitted.
+  n_hyper <- R + 1 + spatial_field
 
+  if (spatial_field) {
+    stopifnot(!is.null(mesh), is.numeric(h), length(h) == 1,
+              is.finite(h), h > 0,
+              cfg$kappa_h >= 2.3, cfg$kappa_h <= 3.2)
+  }
   stopifnot(N == nrow(xy), length(region) == N,
             R >= 2, K >= 2,
             all(is.finite(Y)), !anyNA(region),
-            is.finite(h), h > 0,
-            cfg$kappa_h >= 2.3, cfg$kappa_h <= 3.2,
             is.finite(cfg$tau_logprecision_mean),
             is.finite(cfg$tau_logprecision_sd),
             cfg$tau_logprecision_sd > 0,
             cfg$tau_prior %in% c("normal", "inla_default", "pc", "flat"),
             is.null(cfg$initial_theta) ||
-              (length(cfg$initial_theta) == R + 2 &&
+              (length(cfg$initial_theta) == n_hyper &&
                  all(is.finite(cfg$initial_theta))))
 
   covariates <- screen_prepare_covariates(X, N, cfg)
@@ -565,22 +590,26 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
                                                   region_index)
   }
 
-  # --- Spatial field ---------------------------------------------------------
-  kappa <- cfg$kappa_h / h
-  spde <- screen_fixed_range_spde(mesh, kappa)
-
   # Long format: one observation per (spot, gene); one field replicate per gene.
   site <- rep(seq_len(N), K)
   gene <- rep(seq_len(K), each = N)
   region_long <- region_index[site]
 
-  spatial_index <- inla.spde.make.index("spatial", mesh$n, n.repl = K)
-  A <- inla.spde.make.A(mesh, loc = xy, index = site, repl = gene, n.repl = K)
+  # --- Spatial fields (optional) ---------------------------------------------
+  kappa <- NA_real_
+  spde <- NULL
+  if (spatial_field) {
+    kappa <- cfg$kappa_h / h
+    spde <- screen_fixed_range_spde(mesh, kappa)
 
-  # Each row of A must only touch its own gene's replicate and sum to one.
-  nz <- summary(A)  # non-zero entries (i, j, x)
-  stopifnot(all((nz$j - 1) %/% mesh$n + 1 == gene[nz$i]),
-            max(abs(rowSums(A) - 1)) < 1e-9)
+    spatial_index <- inla.spde.make.index("spatial", mesh$n, n.repl = K)
+    A <- inla.spde.make.A(mesh, loc = xy, index = site, repl = gene, n.repl = K)
+
+    # Each row of A must only touch its own gene's replicate and sum to one.
+    nz <- summary(A)  # non-zero entries (i, j, x)
+    stopifnot(all((nz$j - 1) %/% mesh$n + 1 == gene[nz$i]),
+              max(abs(rowSums(A) - 1)) < 1e-9)
+  }
 
   # --- Effects and data stack ------------------------------------------------
   # The intercept in X is the baseline regional mean. Other mu coefficients
@@ -601,9 +630,14 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   # Auxiliary gene intercepts u_g, one per observation's gene (both modes).
   gene_map <- Matrix::sparseMatrix(i = seq_len(N * K), j = gene, x = 1,
                                    dims = c(N * K, K))
-  stack <- inla.stack(list(y = as.vector(Y)), A = list(1, gene_map, A),
-                      effects = list(effects, list(gene_intercept = seq_len(K)),
-                                     spatial_index),
+  stack_A <- list(1, gene_map)
+  stack_effects <- list(effects, list(gene_intercept = seq_len(K)))
+  if (spatial_field) {
+    stack_A <- c(stack_A, list(A))
+    stack_effects <- c(stack_effects, list(spatial_index))
+  }
+  stack <- inla.stack(list(y = as.vector(Y)), A = stack_A,
+                      effects = stack_effects,
                       compress = FALSE, remove.unused = FALSE)
 
   # --- Priors and formula ----------------------------------------------------
@@ -621,7 +655,8 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   composition_hyper <- list(prec = list(initial = log(1 / .25^2), fixed = TRUE))
 
   formula <- as.formula(screen_formula_text(covariates, offset_names,
-                                            gene_names, adjusted))
+                                            gene_names, adjusted,
+                                            spatial_field))
 
   # --- Regional contrasts ----------------------------------------------------
   counts <- as.numeric(table(factor(region_index, levels = seq_len(R))))
@@ -679,7 +714,8 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
 
   # The data and predictor matrix are now in inla_args; free the intermediates
   # before INLA starts.
-  rm(stack, A, effects, nz, spatial_index, gene_map)
+  rm(stack, stack_A, stack_effects, effects, gene_map)
+  if (spatial_field) rm(A, nz, spatial_index)
   gc(FALSE)
 
   started <- proc.time()[["elapsed"]]
@@ -704,12 +740,16 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   }
 
   stopifnot(is.null(fit$misc$configs),
-            nrow(fit$summary.random$spatial) == mesh$n * K,
             all(vapply(fit$summary.random[gene_names], nrow,
                        integer(1)) == K))
+  if (spatial_field) {
+    stopifnot(nrow(fit$summary.random$spatial) == mesh$n * K)
+  } else {
+    stopifnot(is.null(fit$summary.random$spatial))
+  }
   if (is.null(.fixed_theta)) {
-    stopifnot(length(fit$mode$theta) == R + 2,
-              nrow(fit$summary.hyperpar) == R + 2)
+    stopifnot(length(fit$mode$theta) == n_hyper,
+              nrow(fit$summary.hyperpar) == n_hyper)
   }
 
   # --- Result ----------------------------------------------------------------
@@ -729,13 +769,16 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
     region_spots = counts,
     other_weights = contrasts$rest_weights[[1]],
     rest_weights = contrasts$rest_weights,
-    h = h, kappa0 = kappa, rho0 = sqrt(8) / kappa,
+    spatial_field = spatial_field,
+    h = if (spatial_field) h else NA_real_,
+    kappa0 = kappa,
+    rho0 = if (spatial_field) sqrt(8) / kappa else NA_real_,
     gene_dependence = "conditional_iid",
     model_version = as.character(utils::packageVersion("PathwayLGM")),
     cfg = cfg,
     family = family,
     fit_seconds = fit_seconds,
-    hyperparameters = R + 2,
+    hyperparameters = n_hyper,
     tau_prior = list(
       internal_parameter = "log precision",
       prior = cfg$tau_prior,
@@ -867,14 +910,14 @@ screen_internal_marginal <- function(fit, name) {
 #'
 #' Summarised from the internal-scale marginals (see
 #' `screen_internal_marginal()`): tau2_r = exp(-log precision of gene_r) and
-#' sigma_s2 = exp(2 * Theta1) for the spatial field; then sigma_e2 =
-#' exp(-log Gaussian observation precision) (observed mode) or the NB size
-#' nb_size0 = exp(log size) and its inverse alpha0 (adjusted mode).
+#' sigma_s2 = exp(2 * Theta1) for the spatial fields (when fitted); then
+#' sigma_e2 = exp(-log Gaussian observation precision) (observed mode) or the
+#' NB size nb_size0 = exp(log size) and its inverse alpha0 (adjusted mode).
 #' @noRd
-screen_variance_table <- function(fit, n_regions, family) {
-  hyper_names <- c(paste0("Precision for gene_r", seq_len(n_regions)),
-                   "Theta1 for spatial")
-  names(hyper_names) <- c(paste0("tau2_r", seq_len(n_regions)), "sigma_s2")
+screen_variance_table <- function(fit, n_regions, family, spatial_field = TRUE) {
+  hyper_names <- paste0("Precision for gene_r", seq_len(n_regions))
+  names(hyper_names) <- paste0("tau2_r", seq_len(n_regions))
+  if (spatial_field) hyper_names <- c(hyper_names, sigma_s2 = "Theta1 for spatial")
 
   inverse_exp <- function(theta) exp(-theta)
   summarise <- function(parameter, name, transform, decreasing) {
@@ -1001,7 +1044,8 @@ screen_summarize <- function(result) {
   metadata <- result$metadata
 
   parameters <- rbind(screen_fixed_effect_table(fit, metadata),
-                      screen_variance_table(fit, metadata$R, metadata$family))
+                      screen_variance_table(fit, metadata$R, metadata$family,
+                                            isTRUE(metadata$spatial_field)))
   contrasts <- screen_contrast_table(fit, names(metadata$contrast_coefficients))
   domains <- screen_domain_calls(contrasts, metadata$region_labels)
   gene_slopes <- screen_gene_slope_table(result)
