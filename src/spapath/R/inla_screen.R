@@ -5,23 +5,7 @@
 # shared by all engines. CCD hyperparameter integration and deterministic pi
 # integration. N spots x K genes; R regions, region 1 = baseline.
 #
-# Observed mode (Gaussian response, normalised expression) is fitted in closed
-# form by closed_form_screen.R (one section) and joint_sections.R (adjacent
-# sections); its model is
-#
-#   y[i, g] = a_g                gene intercept shared by all regions,
-#                                a_g = alpha0 + u_g (see below)
-#           + mu_r(i)            relative regional offset, mu_1 = 0
-#           + gene_r(i)[g]       region-specific iid gene deviation from a_g,
-#                                variance tau2_r
-#           + e[i, g]            Gaussian noise, variance sigma_e2
-#
-#   The shared gene intercept a_g is essential for pi: without it a gene's
-#   overall level enters both gene_r[g] and gene_s[g], inflates tau2_r and
-#   tau2_s, and pulls pi towards 0.5. With a_g, gene_r[g] and gene_s[g] are
-#   conditionally independent and Var(Delta_g) = tau2_r + tau2_s for the
-#   paired contrast Delta_g = (mu_r + gene_r[g]) - (mu_s + gene_s[g]), which
-#   is the quantity pi is defined on.
+# The observed mode is fitted by observed_fit() (observed_fit.R).
 #
 # Adjusted mode (negative binomial response, raw counts)
 #
@@ -35,15 +19,13 @@
 #            The same a_g is used in both modes.
 #   lambda_g composition slope, lambda_g = 1 + v_g with v_g ~ N(0, 0.25^2)
 #
-# In both modes the baseline state is alpha0 + mean(u), and
-# alpha0 + mean(u) + mu_r is the pathway state of region r (adjusted for
-# cell-type composition in the adjusted mode).
+# The baseline state is alpha0 + mean(u), and alpha0 + mean(u) + mu_r is the
+# pathway state of region r adjusted for cell-type composition.
 #
-# Free hyperparameters (R + 1): the R gene-effect precisions and the NB size
-# nb_size0 (adjusted) or the Gaussian observation precision (observed).
+# Free hyperparameters (R + 1): the R gene-effect precisions and the NB size.
 #
 # Typical workflow
-#   fit     <- closed_form_joint_fit(Y, region)          # observed mode
+#   fit     <- observed_fit(Y, region)                   # observed mode
 #   fit     <- screen_joint_fit(Y, region, mode = "adjusted", ...)
 #   summary <- screen_summarize(fit)
 #   screen_write(summary, "results/")
@@ -54,34 +36,50 @@
 # Configuration
 # -----------------------------------------------------------------------------
 
-#' Default options for screen_joint_fit()
+#' Options a user can set in `cfg`
+#'
+#' Everything else in screen_default_cfg() is an internal setting of the
+#' numerical integration or of the priors and cannot be changed through `cfg`.
+#' @noRd
+screen_user_options <- c("pi", "pi_alpha", "pi_report_p_value", "baseline_region", "threads")
+
+
+#' Check a user `cfg` and merge it with the internal defaults
+#' @noRd
+screen_merge_cfg <- function(cfg, mode) {
+  stopifnot(is.list(cfg))
+  unknown <- setdiff(names(cfg), screen_user_options)
+  if (length(unknown)) {
+    stop("Unknown option(s) in cfg: ", paste(unknown, collapse = ", "),
+         ". cfg accepts ", paste(screen_user_options, collapse = ", "), ".")
+  }
+  modifyList(screen_default_cfg(mode), cfg)
+}
+
+
+#' Default options: the user options (see screen_user_options) and the
+#' internal settings
 #' @noRd
 screen_default_cfg <- function(mode) {
   list(
-    # Directional probability (pi) inference
+    # --- User options --------------------------------------------------------
+    # Directional probability (pi) inference: alpha of the call and the
+    # optional p_value column
     pi = TRUE,
     pi_alpha = .05,
     pi_report_p_value = FALSE,
+    # Baseline region label (default: first label found)
+    baseline_region = NULL,
+    # INLA threads (adjusted mode)
+    threads = "1:1",
+
+    # --- Internal settings ---------------------------------------------------
+    # Quadrature of pi with three or more regions
     pi_nodes = 4096,
     pi_max_nodes = 65536,
     pi_tolerance = .002,
 
-    # Hyperparameter grid of the closed-form engine (observed mode): points
-    # per axis, half width in posterior standard deviations, relative weight
-    # below which a point is dropped, largest grid. The joint fit of several
-    # sections has S + 2R hyperparameters, so it uses fewer points per axis.
-    # When a variance sits at the boundary the Hessian can be flat or slightly
-    # indefinite; its eigenvalues are floored so that the grid spans that axis
-    # widely (the prior keeps the posterior proper)
-    closed_form_grid_points = 7,
-    closed_form_grid_halfwidth = 3,
-    closed_form_weight_threshold = 1e-10,
-    closed_form_max_points = 1e5,
-    closed_form_hessian_floor = .05,
-    joint_grid_points = 5,
-
-    # INLA threads and approximation strategy (adjusted mode)
-    threads = "1:1",
+    # INLA approximation strategy (adjusted mode)
     strategy = if (mode == "observed") "gaussian" else "simplified.laplace",
 
     # Normal prior on the log NB size (adjusted mode)
@@ -107,41 +105,8 @@ screen_default_cfg <- function(mode) {
 
     # Columns of X with independent per-gene slopes
     gene_specific_covariates = character(),
-    gene_covariate_prior_sd = 10,
-
-    # Baseline region label (default: first label found)
-    baseline_region = NULL
+    gene_covariate_prior_sd = 10
   )
-}
-
-
-#' Reject settings from older, incompatible versions of the package
-#' @noRd
-screen_check_legacy_cfg <- function(cfg) {
-  if ("gene_cs_rho" %in% names(cfg)) {
-    stop("gene_cs_rho has been removed; region-specific gene effects are conditionally iid. Remove this legacy setting.")
-  }
-}
-
-
-#' Reject settings that do not apply to the chosen mode
-#' @noRd
-screen_check_mode_cfg <- function(cfg, mode) {
-  if (mode == "observed" && any(grepl("^nb_", names(cfg)))) {
-    stop("nb_* options apply to the adjusted mode only.")
-  }
-  if (mode == "adjusted" && length(cfg$gene_specific_covariates)) {
-    stop("The adjusted mode does not support gene_specific_covariates.")
-  }
-}
-
-
-#' @noRd
-screen_check_integration_cfg <- function(cfg) {
-  if (!is.null(cfg$design_size) ||
-      (!is.null(cfg$integration) && cfg$integration != "ccd")) {
-    stop("Production screening uses CCD; remove legacy design_size/non-CCD settings.")
-  }
 }
 
 
@@ -464,8 +429,7 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'
 #' The adjusted mode: a negative binomial model of raw counts with a
 #' cell-type composition offset, fitted with INLA. The observed mode is
-#' fitted in closed form by [closed_form_joint_fit()] (one section) or
-#' [joint_sections_fit()] (adjacent sections) and is refused here.
+#' fitted by [observed_fit()].
 #'
 #' @param Y N x K matrix (spots x genes), K >= 2: raw integer counts with
 #'   unique spot and gene names.
@@ -484,28 +448,12 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #' @param composition_offset Adjusted mode: N x K matrix of log predicted
 #'   expression log m[i, g] from [composition_offset()], with the dimnames of
 #'   `Y`.
-#' @param cfg List of options overriding the defaults:
-#'   * `pi` (TRUE), `pi_alpha` (0.05), `pi_report_p_value` (FALSE), `pi_nodes`,
-#'     `pi_max_nodes`, `pi_tolerance`: directional probability inference,
-#'     see [pathway_pi_integrate()].
-#'   * `threads` ("1:1"), `strategy` ("simplified.laplace"): INLA settings.
-#'   * `tau_prior`: prior on the gene-effect log precisions, one of
-#'     `"normal"` (default; `tau_logprecision_mean`, `tau_logprecision_sd`),
-#'     `"inla_default"`, `"pc"` (`tau_pc_u`, `tau_pc_alpha`) or `"flat"`.
-#'   * `nb_logsize_mean` (`log(10)`), `nb_logsize_sd` (1.5): Normal prior on
-#'     log nb_size0, adjusted mode only.
-#'   * `other_weights`: weights of the non-baseline regions in the
-#'     "region 1 vs rest" contrast (default: proportional to spot counts).
-#'   * `gene_specific_covariates`, `gene_covariate_prior_sd` (10): columns of
-#'     `X` that get independent per-gene slopes with a fixed Normal prior
-#'     (observed mode only).
-#'   * `baseline_region`: label of the baseline region (default: the first
-#'     label found in `region`).
-#'   * `low_memory` (FALSE): AMD reordering with a small global node factor;
-#'     the same model with lower memory use for large gene sets.
-#'   * `initial_theta` (NULL): starting hyperparameters (length R + 1),
-#'     e.g. `fit$fit$mode$theta` of an earlier run.
-#'   * `verbose` (FALSE): print INLA's log.
+#' @param cfg List of options: `pi` (TRUE; FALSE skips the π scores),
+#'   `pi_alpha` (0.05; a region is called higher or lower when the evidence
+#'   in that direction is at least 1 - pi_alpha / 2), `pi_report_p_value`
+#'   (FALSE; add the `p_value` column, see [pathway_pi_integrate()]),
+#'   `baseline_region` (default: the first label in `region`) and `threads`
+#'   (INLA threads, "1:1").
 #' @param .fixed_theta Internal structural test hook: fix the hyperparameters.
 #' @param .int_strategy INLA integration strategy, `"ccd"` or `"eb"`.
 #' @return A list with the INLA `fit` (configurations removed), the extracted
@@ -521,18 +469,13 @@ screen_joint_fit <- function(Y, region, mode = c("observed", "adjusted"),
   # --- Configuration ---------------------------------------------------------
   mode <- match.arg(mode)
   if (mode == "observed") {
-    stop("The observed mode is fitted in closed form: use closed_form_joint_fit() ",
-         "for one section or joint_sections_fit() for adjacent sections.")
+    stop("Use observed_fit() for the observed mode.")
   }
   adjusted <- mode == "adjusted"
   family <- if (adjusted) "nbinomial" else "gaussian"
 
-  screen_check_legacy_cfg(cfg)
-  screen_check_mode_cfg(cfg, mode)
   stopifnot(.int_strategy %in% c("ccd", "eb"))
-  screen_check_integration_cfg(cfg)
-
-  cfg <- modifyList(screen_default_cfg(mode), cfg)
+  cfg <- screen_merge_cfg(cfg, mode)
   if (isTRUE(cfg$pi) && (.int_strategy != "ccd" || !is.null(.fixed_theta))) {
     stop("Pi inference requires unfixed CCD hyperparameter integration.")
   }
@@ -987,12 +930,7 @@ screen_gene_coefficient_table <- function(result) {
 #'   * the raw INLA marginals, `metadata`, INLA `warnings` and timing.
 #' @export
 screen_summarize <- function(result) {
-  if (identical(result$metadata$engine, "closed_form")) {
-    return(closed_form_summarize(result))
-  }
-  if (identical(result$metadata$engine, "closed_form_sections")) {
-    return(joint_sections_summarize(result))
-  }
+  if (identical(result$metadata$engine, "observed")) return(observed_summarize(result))
   started <- proc.time()[["elapsed"]]
   fit <- result$fit
   metadata <- result$metadata
@@ -1078,7 +1016,7 @@ screen_write <- function(summary, out) {
     write_table(summary$pi$overall, "overall_scores.csv")
     saveRDS(summary$pi$diagnostics, out_file("pi_diagnostics.rds"))
     write_table(summary$pi$diagnostics$refinement, "pi_refinement.csv")
-    write_table(summary$joint$marginal_diagnostic, "joint_marginal_diagnostic.csv")
+    if (!is.null(summary$joint$marginal_diagnostic)) write_table(summary$joint$marginal_diagnostic, "joint_marginal_diagnostic.csv")
   }
 
   write_table(summary$parameters, "parameters.csv")
@@ -1096,11 +1034,8 @@ screen_write <- function(summary, out) {
 
   pi_status <- if (is.null(summary$pi)) "Pi inference disabled." else
     paste("Pi numerical refinement converged:", summary$pi$diagnostics$converged)
-  engine_line <- if (identical(summary$metadata$engine, "closed_form")) {
-    "Closed-form screening completed; hyperparameters integrated on a grid; no INLA."
-  } else if (identical(summary$metadata$engine, "closed_form_sections")) {
-    paste0("Closed-form joint fit of ", summary$metadata$S,
-           " sections completed; hyperparameters integrated on a grid; no INLA.")
+  engine_line <- if (identical(summary$metadata$engine, "observed")) {
+    paste0("Observed-mode fit of ", summary$metadata$S, " section(s) completed.")
   } else {
     "CCD screening completed; config=FALSE; no posterior sampling."
   }

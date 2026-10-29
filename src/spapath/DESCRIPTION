@@ -27,8 +27,7 @@ Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
     'pi_engine.R'
     'inla_screen.R'
-    'closed_form_screen.R'
-    'joint_sections.R'
+    'observed_fit.R'
     'run_spapath.R'
     'adjusted_inputs.R'
     'cli_io.R'

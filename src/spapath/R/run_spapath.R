@@ -14,8 +14,8 @@
 #   composition offset (adjusted) -> fit, summarise (and write) each gene set
 #   -> combined summary tables
 #
-# The step-by-step functions it calls (closed_form_joint_fit(),
-# joint_sections_fit(), estimate_dispersion_scale(), composition_offset(),
+# The step-by-step functions it calls (observed_fit(),
+# estimate_dispersion_scale(), composition_offset(),
 # screen_joint_fit(), screen_summarize(), screen_write()) remain available for
 # custom workflows.
 # =============================================================================
@@ -25,10 +25,10 @@
 #'
 #' Runs the whole workflow in one call: normalisation (observed mode) or the
 #' composition inputs (adjusted mode), and one fit per gene set. The observed
-#' mode is fitted in closed form, for each section on its own or, with
+#' mode is fitted for each section on its own or, with
 #' `joint_sections = TRUE`, jointly for the sections given by `section`,
-#' which share the regional effects (see [joint_sections_fit()]). Spot
-#' positions are not used.
+#' which share the regional effects (see [observed_fit()]). Spot positions
+#' are not used.
 #'
 #' @param counts Spots x genes matrix (dense or sparse) of raw counts, with
 #'   spot rownames and gene colnames. In observed mode with
@@ -59,8 +59,11 @@
 #'   component. The sections must come from the same tissue block and carry
 #'   the same region labels.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
-#' @param cfg List of options passed to the fitting functions, e.g.
-#'   `list(pi_alpha = 0.01)`; see [screen_joint_fit()].
+#' @param cfg Options: `pi_alpha` (0.05; a region is called higher or lower
+#'   when the evidence in that direction is at least 1 - pi_alpha / 2),
+#'   `pi_report_p_value` (FALSE; add the `p_value` column, see
+#'   [pathway_pi_integrate()]), `pi` (FALSE skips the π scores) and
+#'   `threads` (INLA threads, adjusted mode).
 #' @param verbose Print progress messages.
 #' @return Invisibly, a list with
 #'   * `overall`, `pairwise`: the π tables of all gene sets, with columns
@@ -78,8 +81,6 @@ run_spapath <- function(counts, region, gene_sets,
                         joint_sections = FALSE, min_genes = 5, cfg = list(),
                         verbose = TRUE) {
   mode <- match.arg(mode)
-  stopifnot(is.logical(joint_sections), length(joint_sections) == 1,
-            !is.na(joint_sections))
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
 
   # --- Inputs ----------------------------------------------------------------
@@ -117,9 +118,6 @@ run_spapath <- function(counts, region, gene_sets,
   if (length(sections) > 1) {
     log_step(length(sections), " sections: ", paste(sections, collapse = ", "),
              if (joint_sections) " (fitted jointly)" else " (fitted separately)")
-  }
-  if (joint_sections && length(sections) < 2) {
-    stop("joint_sections needs at least two sections in `section`.")
   }
 
   # --- Model inputs, per section ------------------------------------------------
@@ -171,13 +169,14 @@ run_spapath <- function(counts, region, gene_sets,
 
   fit_one <- function(genes, unit, set_cfg) {
     if (joint_sections) {
-      return(joint_sections_fit(lapply(inputs, function(x) x$expression[, genes, drop = FALSE]),
-                                lapply(inputs, `[[`, "region"), cfg = set_cfg))
+      return(observed_fit(do.call(rbind, lapply(inputs, function(x) x$expression[, genes, drop = FALSE])),
+                          unlist(lapply(inputs, `[[`, "region")),
+                          rep(sections, vapply(inputs, function(x) length(x$region), 1L)),
+                          cfg = set_cfg))
     }
     x <- inputs[[if (is.null(unit)) 1 else unit]]
     if (mode == "observed") {
-      closed_form_joint_fit(x$expression[, genes, drop = FALSE], region = x$region,
-                            mode = "observed", cfg = set_cfg)
+      observed_fit(x$expression[, genes, drop = FALSE], x$region, cfg = set_cfg)
     } else {
       screen_joint_fit(as.matrix(x$counts[, genes, drop = FALSE]), x$region,
                        mode = "adjusted",
