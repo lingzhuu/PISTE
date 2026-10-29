@@ -3,41 +3,44 @@
 #
 # One-call workflow: run SpaPath on every gene set of a panel.
 #
-#   res <- run_spapath(counts, xy, region, gene_sets)            # observed
-#   res <- run_spapath(counts, xy, region, gene_sets,
-#                      mode = "adjusted",
-#                      proportions = omega, reference = nu)       # adjusted
+#   res <- run_spapath(counts, region, gene_sets)                  # observed
+#   res <- run_spapath(counts, region, gene_sets, section = sec,
+#                      joint_sections = TRUE)                      # adjacent sections
+#   res <- run_spapath(counts, region, gene_sets, mode = "adjusted",
+#                      proportions = omega, reference = nu)        # adjusted
 #
 # Steps
-#   align spots -> normalise with SCTransform (observed) or build the
-#   dispersion scales and composition offset (adjusted) -> scale coordinates
-#   and build the mesh -> fit, summarise (and write) each gene set ->
-#   combined summary tables
+#   normalise with SCTransform (observed) or build the dispersion scales and
+#   composition offset (adjusted) -> fit, summarise (and write) each gene set
+#   -> combined summary tables
 #
-# The step-by-step functions it calls (build_mesh(), estimate_dispersion_scale(),
-# composition_offset(), screen_joint_fit(), screen_summarize(), screen_write())
-# remain available for custom workflows.
+# The step-by-step functions it calls (closed_form_joint_fit(),
+# joint_sections_fit(), estimate_dispersion_scale(), composition_offset(),
+# screen_joint_fit(), screen_summarize(), screen_write()) remain available for
+# custom workflows.
 # =============================================================================
 
 
 #' Run SpaPath on a panel of gene sets
 #'
 #' Runs the whole workflow in one call: normalisation (observed mode) or the
-#' composition inputs (adjusted mode), the mesh, and one fit per gene set.
-#' Coordinates may be in any unit; they are rescaled to the unit square.
+#' composition inputs (adjusted mode), and one fit per gene set. The observed
+#' mode is fitted in closed form, for each section on its own or, with
+#' `joint_sections = TRUE`, jointly for the sections given by `section`,
+#' which share the regional effects (see [joint_sections_fit()]). Spot
+#' positions are not used.
 #'
 #' @param counts Spots x genes matrix (dense or sparse) of raw counts, with
 #'   spot rownames and gene colnames. In observed mode with
 #'   `normalized = TRUE`, normalised expression instead.
-#' @param xy Spots x 2 matrix of spot coordinates, in the spot order of
-#'   `counts`.
 #' @param region Region label of each spot, in the spot order of `counts`.
 #' @param gene_sets Named list of gene vectors, or the path of a GMT file.
 #' @param mode `"observed"` (Gaussian model of SCTransform-normalised
 #'   expression) or `"adjusted"` (negative binomial model of raw counts
 #'   adjusted for cell-type composition).
 #' @param out Optional output folder. When given, each gene set is written to
-#'   its own subfolder with [screen_write()], together with
+#'   its own subfolder with [screen_write()] (one subfolder per section when
+#'   the sections are fitted separately), together with
 #'   `overall_scores.csv`, `pairwise_scores.csv` and `gene_sets.csv`.
 #' @param normalized Observed mode: `counts` is already normalised, so
 #'   SCTransform is skipped.
@@ -46,51 +49,59 @@
 #' @param reference Adjusted mode: cell types x genes matrix of reference
 #'   mean expression on a linear scale, e.g. from [reference_profile()].
 #' @param baseline Baseline region of the model (default: the first label).
-#' @param h Spatial length scale in unit-square units.
-#' @param spatial_field Add the gene-specific spatial fields. By default
-#'   (`FALSE`) the model is fitted without them: no mesh is built and `h` and
-#'   `mesh_args` are ignored, and in observed mode the fit uses the closed-form
-#'   engine ([closed_form_joint_fit()]) instead of INLA. `TRUE` adds the
-#'   fields, which is slower and fitted with INLA.
+#' @param section Optional section label of each spot, in the spot order of
+#'   `counts`. Sections are normalised separately. By default every section
+#'   is fitted on its own and the result tables get a `section` column.
+#' @param joint_sections Observed mode: fit the sections given by `section`
+#'   jointly, sharing the regional means and the gene-level regional effects
+#'   and estimating a section-specific variance of the gene-level regional
+#'   effects (`nu2_r` in the parameter table); π is defined on the shared
+#'   component. The sections must come from the same tissue block and carry
+#'   the same region labels.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
-#' @param mesh_args List of arguments passed to [build_mesh()] (`max_edge`,
-#'   `cutoff`, `offset`); by default they are derived from `h`.
-#' @param cfg List of options passed to [screen_joint_fit()], e.g.
-#'   `list(threads = "8:1")`.
+#' @param cfg List of options passed to the fitting functions, e.g.
+#'   `list(pi_alpha = 0.01)`; see [screen_joint_fit()].
 #' @param verbose Print progress messages.
 #' @return Invisibly, a list with
 #'   * `overall`, `pairwise`: the π tables of all gene sets, with columns
-#'     `gene_set` and `genes` added;
-#'   * `gene_sets`: one row per gene set with the genes used and whether it
-#'     was fitted, skipped or failed;
-#'   * `results`: the [screen_summarize()] output of each fitted gene set.
+#'     `gene_set` and `genes` added (and `section` when sections are fitted
+#'     separately);
+#'   * `gene_sets`: one row per gene set (and section) with the genes used
+#'     and whether it was fitted, skipped or failed;
+#'   * `results`: the [screen_summarize()] output of each fitted gene set,
+#'     named by gene set (and `<section>/<gene set>` when fitted separately).
 #' @export
-run_spapath <- function(counts, xy, region, gene_sets,
+run_spapath <- function(counts, region, gene_sets,
                         mode = c("observed", "adjusted"), out = NULL,
                         normalized = FALSE, proportions = NULL,
-                        reference = NULL, baseline = NULL, h = 0.3,
-                        spatial_field = FALSE,
-                        min_genes = 5, mesh_args = list(), cfg = list(),
+                        reference = NULL, baseline = NULL, section = NULL,
+                        joint_sections = FALSE, min_genes = 5, cfg = list(),
                         verbose = TRUE) {
   mode <- match.arg(mode)
-  stopifnot(is.logical(spatial_field), length(spatial_field) == 1,
-            !is.na(spatial_field))
-  cfg$spatial_field <- spatial_field
+  stopifnot(is.logical(joint_sections), length(joint_sections) == 1,
+            !is.na(joint_sections))
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
 
   # --- Inputs ----------------------------------------------------------------
   if (is.character(gene_sets)) gene_sets <- read_gmt(gene_sets)
   stopifnot(is.list(gene_sets), length(gene_sets) > 0, !is.null(names(gene_sets)))
-  xy <- as.matrix(xy)
   region <- as.character(region)
+  stopifnot(length(region) == nrow(counts))
+  if (is.null(section)) {
+    section <- rep("section", nrow(counts))
+  } else {
+    section <- as.character(section)
+    stopifnot(length(section) == nrow(counts))
+  }
+  if (joint_sections && mode == "adjusted") stop("joint_sections applies to the observed mode.")
 
-  # Spots without coordinates or region label are dropped.
-  keep <- stats::complete.cases(xy, region)
+  # Spots without a region or section label are dropped.
+  keep <- !is.na(region) & !is.na(section)
   if (!all(keep)) {
-    log_step("Dropped ", sum(!keep), " spots with missing coordinates or region")
+    log_step("Dropped ", sum(!keep), " spots without region or section label")
     counts <- counts[keep, , drop = FALSE]
-    xy <- xy[keep, , drop = FALSE]
     region <- region[keep]
+    section <- section[keep]
   }
   if (is.null(rownames(counts)) || is.null(colnames(counts))) {
     stop("counts needs spot rownames and gene colnames.")
@@ -101,99 +112,125 @@ run_spapath <- function(counts, xy, region, gene_sets,
     }
     if (normalized) stop("normalized applies to the observed mode only.")
   }
+  sections <- unique(section)
+  per_section <- split(seq_along(section), factor(section, levels = sections))
+  if (length(sections) > 1) {
+    log_step(length(sections), " sections: ", paste(sections, collapse = ", "),
+             if (joint_sections) " (fitted jointly)" else " (fitted separately)")
+  }
+  if (joint_sections && length(sections) < 2) {
+    stop("joint_sections needs at least two sections in `section`.")
+  }
 
-  # --- Model inputs ------------------------------------------------------------
+  # --- Model inputs, per section ------------------------------------------------
   pathway_genes <- unique(unlist(gene_sets))
-  if (mode == "observed") {
-    expression <- if (normalized) {
-      as.matrix(counts[, intersect(pathway_genes, colnames(counts)), drop = FALSE])
+  inputs <- lapply(sections, function(s) {
+    rows <- per_section[[s]]
+    if (mode == "observed") {
+      expression <- if (normalized) {
+        as.matrix(counts[rows, intersect(pathway_genes, colnames(counts)), drop = FALSE])
+      } else {
+        log_step("Normalising ", if (length(sections) > 1) paste0("section ", s, " ") else "",
+                 "with SCTransform")
+        sctransform_residuals(counts[rows, , drop = FALSE], pathway_genes)
+      }
+      list(expression = expression, available = colnames(expression),
+           region = region[rows])
     } else {
-      log_step("Normalising with SCTransform")
-      sctransform_residuals(counts, pathway_genes)
+      log_step("Estimating gene dispersions and the composition offset",
+               if (length(sections) > 1) paste0(" of section ", s) else "")
+      section_proportions <- if (is.null(rownames(proportions))) {
+        proportions[rows, , drop = FALSE]
+      } else {
+        proportions[rownames(counts)[rows], , drop = FALSE]
+      }
+      adjusted <- adjusted_inputs(counts[rows, , drop = FALSE], section_proportions,
+                                  reference, region[rows])
+      list(adjusted = adjusted, available = adjusted$usable, region = region[rows],
+           counts = counts[rows, , drop = FALSE])
     }
-    available <- colnames(expression)
-  } else {
-    log_step("Estimating gene dispersions and the composition offset")
-    adjusted <- adjusted_inputs(counts, proportions, reference, region)
-    available <- adjusted$usable
-  }
+  })
+  names(inputs) <- sections
+  available <- Reduce(intersect, lapply(inputs, `[[`, "available"))
   log_step(length(intersect(pathway_genes, available)), " of ",
-           length(pathway_genes), " pathway genes are usable")
-
-  # --- Mesh --------------------------------------------------------------------
-  xy <- unit_square(xy)
-  mesh <- NULL
-  if (spatial_field) {
-    mesh <- do.call(build_mesh, c(list(xy, h = h), mesh_args))
-    margs <- attr(mesh, "spapath_mesh_args")
-    log_step("Mesh with ", mesh$n, " nodes (h = ", h, ", max_edge = ",
-             paste(signif(margs$max_edge, 3), collapse = "/"), ", cutoff = ",
-             signif(margs$cutoff, 3), ")")
-  } else {
-    log_step("Fitting without the gene-specific spatial fields")
-  }
-  closed_form <- closed_form_applies(mode, cfg)
-  if (closed_form) {
-    log_step("Observed mode without spatial fields: closed-form engine, no INLA")
+           length(pathway_genes), " pathway genes are usable",
+           if (length(sections) > 1) " in every section" else "")
+  if (mode == "observed") {
+    log_step("Observed mode: closed-form engine, no INLA")
   }
 
   # --- Gene sets -----------------------------------------------------------------
-  status <- data.frame(gene_set = names(gene_sets),
-                       genes_in_set = lengths(gene_sets),
-                       genes_used = NA, status = NA,
-                       message = NA, stringsAsFactors = FALSE)
+  fit_units <- if (joint_sections || length(sections) == 1) list(NULL) else as.list(sections)
+  status <- do.call(rbind, lapply(fit_units, function(s) {
+    data.frame(section = if (is.null(s)) NA_character_ else s,
+               gene_set = names(gene_sets), genes_in_set = lengths(gene_sets),
+               genes_used = NA, status = NA, message = NA, stringsAsFactors = FALSE)
+  }))
+  if (joint_sections || length(sections) == 1) status$section <- NULL
   results <- list()
 
-  for (s in seq_along(gene_sets)) {
-    set_name <- names(gene_sets)[s]
-    genes <- intersect(gene_sets[[s]], available)
-    status$genes_used[s] <- length(genes)
-    progress <- paste0("[", s, "/", length(gene_sets), "] ", set_name)
+  fit_one <- function(genes, unit, set_cfg) {
+    if (joint_sections) {
+      return(joint_sections_fit(lapply(inputs, function(x) x$expression[, genes, drop = FALSE]),
+                                lapply(inputs, `[[`, "region"), cfg = set_cfg))
+    }
+    x <- inputs[[if (is.null(unit)) 1 else unit]]
+    if (mode == "observed") {
+      closed_form_joint_fit(x$expression[, genes, drop = FALSE], region = x$region,
+                            mode = "observed", cfg = set_cfg)
+    } else {
+      screen_joint_fit(as.matrix(x$counts[, genes, drop = FALSE]), x$region,
+                       mode = "adjusted",
+                       library_size = x$adjusted$library_size,
+                       dispersion_scale = x$adjusted$dispersion_scale[genes],
+                       composition_offset = x$adjusted$log_m[, genes, drop = FALSE],
+                       cfg = set_cfg)
+    }
+  }
+
+  for (i in seq_len(nrow(status))) {
+    set_name <- status$gene_set[i]
+    unit <- if (is.null(status$section)) NULL else status$section[i]
+    genes <- intersect(gene_sets[[set_name]], available)
+    status$genes_used[i] <- length(genes)
+    label <- if (is.null(unit)) set_name else paste0(unit, "/", set_name)
+    progress <- paste0("[", i, "/", nrow(status), "] ", label)
     if (length(genes) < max(2, min_genes)) {
-      status$status[s] <- "skipped"
-      status$message[s] <- paste("fewer than", max(2, min_genes), "usable genes")
+      status$status[i] <- "skipped"
+      status$message[i] <- paste("fewer than", max(2, min_genes), "usable genes")
       log_step(progress, ": skipped (", length(genes), " genes)")
       next
     }
 
     log_step(progress, ": ", length(genes), " genes")
     set_cfg <- modifyList(if (is.null(baseline)) list() else list(baseline_region = baseline), cfg)
-    summary <- tryCatch({
-      fit <- if (mode == "observed" && closed_form) {
-        closed_form_joint_fit(expression[, genes, drop = FALSE], xy, region,
-                              mode = "observed", cfg = set_cfg)
-      } else if (mode == "observed") {
-        screen_joint_fit(expression[, genes, drop = FALSE], xy, region, mesh, h,
-                         mode = "observed", cfg = set_cfg)
-      } else {
-        screen_joint_fit(as.matrix(counts[, genes, drop = FALSE]), xy, region,
-                         mesh, h, mode = "adjusted",
-                         library_size = adjusted$library_size,
-                         dispersion_scale = adjusted$dispersion_scale[genes],
-                         composition_offset = adjusted$log_m[, genes, drop = FALSE],
-                         cfg = set_cfg)
-      }
-      screen_summarize(fit)
-    }, error = function(e) e)
+    summary <- tryCatch(screen_summarize(fit_one(genes, unit, set_cfg)), error = function(e) e)
 
     if (inherits(summary, "error")) {
-      status$status[s] <- "failed"
-      status$message[s] <- conditionMessage(summary)
+      status$status[i] <- "failed"
+      status$message[i] <- conditionMessage(summary)
       log_step("  failed: ", conditionMessage(summary))
       next
     }
-    status$status[s] <- "done"
-    results[[set_name]] <- summary
-    if (!is.null(out)) screen_write(summary, file.path(out, make.names(set_name)))
+    status$status[i] <- "done"
+    results[[label]] <- summary
+    if (!is.null(out)) {
+      screen_write(summary, if (is.null(unit)) file.path(out, make.names(set_name)) else
+                     file.path(out, make.names(unit), make.names(set_name)))
+    }
   }
 
   # --- Combined tables -------------------------------------------------------------
   combine <- function(table) {
-    rows <- lapply(names(results), function(set_name) {
-      x <- results[[set_name]]$pi[[table]]
+    rows <- lapply(which(status$status == "done"), function(i) {
+      unit <- if (is.null(status$section)) NULL else status$section[i]
+      label <- if (is.null(unit)) status$gene_set[i] else paste0(unit, "/", status$gene_set[i])
+      x <- results[[label]]$pi[[table]]
       if (is.null(x)) return(NULL)
-      cbind(gene_set = set_name,
-            genes = status$genes_used[status$gene_set == set_name], x)
+      front <- data.frame(gene_set = status$gene_set[i], genes = status$genes_used[i],
+                          stringsAsFactors = FALSE)
+      if (!is.null(unit)) front <- cbind(section = unit, front, stringsAsFactors = FALSE)
+      cbind(front, x)
     })
     rows <- rows[!vapply(rows, is.null, logical(1))]
     if (length(rows)) do.call(rbind, rows) else NULL
@@ -236,14 +273,6 @@ reference_profile <- function(counts, cell_type) {
   pooled <- sapply(split(seq_along(cell_type), cell_type),
                    function(rows) Matrix::colSums(counts[rows, , drop = FALSE]))
   t(sweep(pooled, 2, colSums(pooled), "/") * 1e4)
-}
-
-
-#' Coordinates shifted to start at zero and divided by their largest value
-#' @noRd
-unit_square <- function(xy) {
-  xy <- sweep(xy, 2, apply(xy, 2, min))
-  xy / max(xy)
 }
 
 

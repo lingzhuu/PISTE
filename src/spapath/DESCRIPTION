@@ -6,20 +6,20 @@ Authors@R: c(
     person("PathwayLGM research contributors", role = "aut"),
     person("Research handoff maintainer", role = "cre",
            email = "maintainer@example.org"))
-Description: Fits spatial pathway models with a shared baseline intercept,
-    relative regional effects, conditionally independent regional gene
-    effects and replicated gene-specific spatial fields. The observed mode
-    models normalised expression as Gaussian; the adjusted mode models raw
-    counts as negative binomial with a cell-type composition offset, so that
-    regional differences are adjusted for composition. Without the spatial
-    fields the observed mode is fitted in closed form, without INLA. Computes
-    directional pathway probabilities and posterior evidence from Gaussian
-    mixtures over the hyperparameters. Includes a command-line interface that runs
-    every gene set of a GMT file.
+Description: Fits pathway models with a shared baseline intercept, relative
+    regional effects and conditionally independent regional gene effects. The
+    observed mode models normalised expression as Gaussian and is fitted in
+    closed form, for one section or jointly for adjacent sections that share
+    the regional effects; the adjusted mode models raw counts as negative
+    binomial with a cell-type composition offset, so that regional differences
+    are adjusted for composition, and is fitted with INLA. Computes directional
+    pathway probabilities and posterior tail probabilities from Gaussian
+    mixtures over the hyperparameters. Includes a command-line interface that
+    runs every gene set of a GMT file.
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, Matrix, methods, stats, utils, qrng, fmesher, DESeq2,
+Imports: INLA, Matrix, methods, stats, utils, qrng, DESeq2,
     S4Vectors, SummarizedExperiment, sctransform, hdf5r
 Suggests: glmGamPoi
 biocViews:
@@ -28,7 +28,7 @@ Collate:
     'pi_engine.R'
     'inla_screen.R'
     'closed_form_screen.R'
-    'mesh.R'
+    'joint_sections.R'
     'run_spapath.R'
     'adjusted_inputs.R'
     'cli_io.R'

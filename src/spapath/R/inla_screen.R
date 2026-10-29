@@ -1,22 +1,19 @@
 # =============================================================================
 # inla_screen.R
 #
-# Fit, summarise and export the spatial pathway model with INLA, using CCD
-# hyperparameter integration and optional deterministic pi integration.
-# N spots x K genes; R regions, region 1 = baseline.
+# Configuration, INLA fit of the adjusted mode, and the summaries and output
+# shared by all engines. CCD hyperparameter integration and deterministic pi
+# integration. N spots x K genes; R regions, region 1 = baseline.
 #
-# Observed mode (Gaussian response, normalised expression)
+# Observed mode (Gaussian response, normalised expression) is fitted in closed
+# form by closed_form_screen.R (one section) and joint_sections.R (adjacent
+# sections); its model is
 #
 #   y[i, g] = a_g                gene intercept shared by all regions,
 #                                a_g = alpha0 + u_g (see below)
-#           + x_i' beta          shared covariates other than the intercept
 #           + mu_r(i)            relative regional offset, mu_1 = 0
 #           + gene_r(i)[g]       region-specific iid gene deviation from a_g,
 #                                variance tau2_r
-#           + x_i' slope_g       optional gene-specific covariate slopes
-#           + spatial_g(s_i)     replicated per-gene SPDE Matern field
-#                                (optional: cfg$spatial_field = TRUE adds it;
-#                                off by default)
 #           + e[i, g]            Gaussian noise, variance sigma_e2
 #
 #   The shared gene intercept a_g is essential for pi: without it a gene's
@@ -29,8 +26,7 @@
 # Adjusted mode (negative binomial response, raw counts)
 #
 #   y[i, g] ~ NB(mean L_i exp(eta[i, g]), size nb_size0 * S_g)
-#   eta[i, g] = a_g + x_i' beta + mu_r(i) + gene_r(i)[g] + spatial_g(s_i)
-#             + lambda_g * log m[i, g]
+#   eta[i, g] = a_g + x_i' beta + mu_r(i) + gene_r(i)[g] + lambda_g * log m[i, g]
 #
 #   L_i      library size; S_g relative dispersion scale of gene g
 #   m[i, g]  expression predicted from the spot's cell-type composition
@@ -43,13 +39,12 @@
 # alpha0 + mean(u) + mu_r is the pathway state of region r (adjusted for
 # cell-type composition in the adjusted mode).
 #
-# Free hyperparameters (R + 2): the R gene-effect precisions, one SPDE
-# variance parameter (the range is fixed through h) and the Gaussian
-# observation precision (observed) or the NB size nb_size0 (adjusted).
+# Free hyperparameters (R + 1): the R gene-effect precisions and the NB size
+# nb_size0 (adjusted) or the Gaussian observation precision (observed).
 #
 # Typical workflow
-#   mesh    <- build_mesh(xy)
-#   fit     <- screen_joint_fit(Y, xy, region, mesh, h)
+#   fit     <- closed_form_joint_fit(Y, region)          # observed mode
+#   fit     <- screen_joint_fit(Y, region, mode = "adjusted", ...)
 #   summary <- screen_summarize(fit)
 #   screen_write(summary, "results/")
 # =============================================================================
@@ -65,26 +60,28 @@ screen_default_cfg <- function(mode) {
   list(
     # Directional probability (pi) inference
     pi = TRUE,
-    pi_delta = .05,
-    pi_level = .9,
+    pi_alpha = .05,
+    pi_report_p_value = FALSE,
     pi_nodes = 4096,
     pi_max_nodes = 65536,
     pi_tolerance = .002,
 
-    # Gene-specific spatial fields w_g; off by default, TRUE adds them
-    spatial_field = FALSE,
-
-    # Hyperparameter grid of the closed-form engine (observed mode without
-    # spatial fields): points per axis, half width in posterior standard
-    # deviations, relative weight below which a point is dropped, largest grid
+    # Hyperparameter grid of the closed-form engine (observed mode): points
+    # per axis, half width in posterior standard deviations, relative weight
+    # below which a point is dropped, largest grid. The joint fit of several
+    # sections has S + 2R hyperparameters, so it uses fewer points per axis.
+    # When a variance sits at the boundary the Hessian can be flat or slightly
+    # indefinite; its eigenvalues are floored so that the grid spans that axis
+    # widely (the prior keeps the posterior proper)
     closed_form_grid_points = 7,
     closed_form_grid_halfwidth = 3,
     closed_form_weight_threshold = 1e-10,
     closed_form_max_points = 1e5,
+    closed_form_hessian_floor = .05,
+    joint_grid_points = 5,
 
-    # INLA threads; SPDE range kappa = kappa_h / h; INLA approximation strategy
+    # INLA threads and approximation strategy (adjusted mode)
     threads = "1:1",
-    kappa_h = sqrt(8),
     strategy = if (mode == "observed") "gaussian" else "simplified.laplace",
 
     # Normal prior on the log NB size (adjusted mode)
@@ -214,23 +211,6 @@ screen_prepare_covariates <- function(X, N, cfg) {
 }
 
 
-#' SPDE Matern model with the range fixed by kappa
-#'
-#' Only the marginal variance of the field is estimated
-#' (one hyperparameter, prior N(0, 1)).
-#' @noRd
-screen_fixed_range_spde <- function(mesh, kappa) {
-  spde <- inla.spde2.matern(
-    mesh, alpha = 2, constr = FALSE,
-    B.tau = matrix(c(-log(sqrt(4 * pi) * kappa), -1), 1, 2),
-    B.kappa = matrix(c(log(kappa), 0), 1, 2),
-    theta.prior.mean = 0, theta.prior.prec = 1
-  )
-  stopifnot(spde$n.theta == 1)
-  spde
-}
-
-
 #' Effects table for the long-format (spot, gene) observations
 #'
 #' One column per shared covariate, per gene-specific slope (index + weight),
@@ -290,7 +270,7 @@ screen_tau_hyper <- function(cfg) {
 #' `screen_joint_fit()`.
 #' @noRd
 screen_formula_text <- function(covariates, offset_names, gene_names,
-                                adjusted, spatial_field = TRUE) {
+                                adjusted) {
   gene_terms <- paste0('f(', gene_names,
                        ',model="iid",n=K,constr=FALSE,hyper=iid_hyper)')
   slope_terms <- if (length(covariates$gene_specific)) {
@@ -309,15 +289,9 @@ screen_formula_text <- function(covariates, offset_names, gene_names,
   } else {
     character()
   }
-  spatial_term <- if (spatial_field) {
-    'f(spatial,model=spde,replicate=spatial.repl,nrep=K,constr=FALSE)'
-  } else {
-    character()
-  }
-
   paste("y ~ -1 +", paste(c(covariates$names[covariates$shared], offset_names,
                             gene_terms, slope_terms, gene_intercept_term,
-                            composition_terms, spatial_term),
+                            composition_terms),
                           collapse = " + "))
 }
 
@@ -486,21 +460,17 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 # Model fitting
 # -----------------------------------------------------------------------------
 
-#' Fit the joint spatial pathway model with INLA
+#' Fit the composition-adjusted pathway model with INLA
 #'
-#' @param Y N x K matrix (spots x genes), K >= 2. Normalised expression in
-#'   observed mode; raw integer counts with unique spot and gene names in
-#'   adjusted mode.
-#' @param xy N x 2 matrix of spot coordinates.
+#' The adjusted mode: a negative binomial model of raw counts with a
+#' cell-type composition offset, fitted with INLA. The observed mode is
+#' fitted in closed form by [closed_form_joint_fit()] (one section) or
+#' [joint_sections_fit()] (adjacent sections) and is refused here.
+#'
+#' @param Y N x K matrix (spots x genes), K >= 2: raw integer counts with
+#'   unique spot and gene names.
 #' @param region Length-N vector of region labels (at least two regions).
-#' @param mesh Mesh for the SPDE fields, from [build_mesh()]. Needed only
-#'   when `cfg$spatial_field` is `TRUE`; otherwise it may be `NULL`.
-#' @param h Spatial length scale; the SPDE parameter kappa is fixed at
-#'   `cfg$kappa_h / h`. Needed only when `cfg$spatial_field` is `TRUE`;
-#'   otherwise it may be `NULL`.
-#' @param mode `"observed"` (Gaussian model of normalised expression) or
-#'   `"adjusted"` (negative binomial model of raw counts, adjusted for
-#'   cell-type composition).
+#' @param mode Must be `"adjusted"`.
 #' @param X Optional N x p covariate matrix with unique column names. An
 #'   `intercept` column is added if absent; it represents the baseline
 #'   regional mean.
@@ -515,16 +485,10 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   expression log m[i, g] from [composition_offset()], with the dimnames of
 #'   `Y`.
 #' @param cfg List of options overriding the defaults:
-#'   * `pi` (TRUE), `pi_delta` (0.05), `pi_level` (0.95), `pi_nodes`,
+#'   * `pi` (TRUE), `pi_alpha` (0.05), `pi_report_p_value` (FALSE), `pi_nodes`,
 #'     `pi_max_nodes`, `pi_tolerance`: directional probability inference,
 #'     see [pathway_pi_integrate()].
-#'   * `threads` ("1:1"), `strategy` ("gaussian" in observed mode,
-#'     "simplified.laplace" in adjusted mode): INLA settings.
-#'   * `spatial_field` (FALSE): add the gene-specific spatial fields
-#'     spatial_g. By default the model is fitted without them, so the
-#'     regional gene effects alone carry each gene's departure from the
-#'     regional means; TRUE adds the fields (one more hyperparameter, slower).
-#'   * `kappa_h` (`sqrt(8)`): kappa * h, must lie in \[2.3, 3.2\].
+#'   * `threads` ("1:1"), `strategy` ("simplified.laplace"): INLA settings.
 #'   * `tau_prior`: prior on the gene-effect log precisions, one of
 #'     `"normal"` (default; `tau_logprecision_mean`, `tau_logprecision_sd`),
 #'     `"inla_default"`, `"pc"` (`tau_pc_u`, `tau_pc_alpha`) or `"flat"`.
@@ -539,9 +503,8 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'     label found in `region`).
 #'   * `low_memory` (FALSE): AMD reordering with a small global node factor;
 #'     the same model with lower memory use for large gene sets.
-#'   * `initial_theta` (NULL): starting hyperparameters (length R + 1, or
-#'     R + 2 with the spatial fields), e.g. `fit$fit$mode$theta` of an
-#'     earlier run.
+#'   * `initial_theta` (NULL): starting hyperparameters (length R + 1),
+#'     e.g. `fit$fit$mode$theta` of an earlier run.
 #'   * `verbose` (FALSE): print INLA's log.
 #' @param .fixed_theta Internal structural test hook: fix the hyperparameters.
 #' @param .int_strategy INLA integration strategy, `"ccd"` or `"eb"`.
@@ -549,8 +512,7 @@ screen_composition_diagnostics <- function(composition_offset, X, region_index) 
 #'   `joint` mixture used by [pathway_pi_integrate()] (NULL when `cfg$pi` is
 #'   FALSE) and a `metadata` list.
 #' @export
-screen_joint_fit <- function(Y, xy, region, mesh, h,
-                             mode = c("observed", "adjusted"),
+screen_joint_fit <- function(Y, region, mode = c("observed", "adjusted"),
                              X = NULL, offset = NULL,
                              library_size = NULL, dispersion_scale = NULL,
                              composition_offset = NULL,
@@ -558,6 +520,10 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
                              .int_strategy = "ccd") {
   # --- Configuration ---------------------------------------------------------
   mode <- match.arg(mode)
+  if (mode == "observed") {
+    stop("The observed mode is fitted in closed form: use closed_form_joint_fit() ",
+         "for one section or joint_sections_fit() for adjacent sections.")
+  }
   adjusted <- mode == "adjusted"
   family <- if (adjusted) "nbinomial" else "gaussian"
 
@@ -570,26 +536,16 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   if (isTRUE(cfg$pi) && (.int_strategy != "ccd" || !is.null(.fixed_theta))) {
     stop("Pi inference requires unfixed CCD hyperparameter integration.")
   }
-  stopifnot(is.logical(cfg$spatial_field), length(cfg$spatial_field) == 1,
-            !is.na(cfg$spatial_field))
-  spatial_field <- cfg$spatial_field
-
   # --- Dimensions and regions ------------------------------------------------
   N <- nrow(Y)
   K <- ncol(Y)
   labels <- screen_region_labels(region, cfg$baseline_region)
   region_index <- match(as.character(region), labels)
   R <- length(labels)
-  # Hyperparameters: R regional log precisions, the observation precision or
-  # NB size, and the spatial log standard deviation when fields are fitted.
-  n_hyper <- R + 1 + spatial_field
+  # Hyperparameters: R regional log precisions and the NB size.
+  n_hyper <- R + 1
 
-  if (spatial_field) {
-    stopifnot(!is.null(mesh), is.numeric(h), length(h) == 1,
-              is.finite(h), h > 0,
-              cfg$kappa_h >= 2.3, cfg$kappa_h <= 3.2)
-  }
-  stopifnot(N == nrow(xy), length(region) == N,
+  stopifnot(length(region) == N,
             R >= 2, K >= 2,
             all(is.finite(Y)), !anyNA(region),
             is.finite(cfg$tau_logprecision_mean),
@@ -616,26 +572,10 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
                                                   region_index)
   }
 
-  # Long format: one observation per (spot, gene); one field replicate per gene.
+  # Long format: one observation per (spot, gene).
   site <- rep(seq_len(N), K)
   gene <- rep(seq_len(K), each = N)
   region_long <- region_index[site]
-
-  # --- Spatial fields (optional) ---------------------------------------------
-  kappa <- NA_real_
-  spde <- NULL
-  if (spatial_field) {
-    kappa <- cfg$kappa_h / h
-    spde <- screen_fixed_range_spde(mesh, kappa)
-
-    spatial_index <- inla.spde.make.index("spatial", mesh$n, n.repl = K)
-    A <- inla.spde.make.A(mesh, loc = xy, index = site, repl = gene, n.repl = K)
-
-    # Each row of A must only touch its own gene's replicate and sum to one.
-    nz <- summary(A)  # non-zero entries (i, j, x)
-    stopifnot(all((nz$j - 1) %/% mesh$n + 1 == gene[nz$i]),
-              max(abs(rowSums(A) - 1)) < 1e-9)
-  }
 
   # --- Effects and data stack ------------------------------------------------
   # The intercept in X is the baseline regional mean. Other mu coefficients
@@ -658,17 +598,13 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
                                    dims = c(N * K, K))
   stack_A <- list(1, gene_map)
   stack_effects <- list(effects, list(gene_intercept = seq_len(K)))
-  if (spatial_field) {
-    stack_A <- c(stack_A, list(A))
-    stack_effects <- c(stack_effects, list(spatial_index))
-  }
   stack <- inla.stack(list(y = as.vector(Y)), A = stack_A,
                       effects = stack_effects,
                       compress = FALSE, remove.unused = FALSE)
 
   # --- Priors and formula ----------------------------------------------------
-  # `iid_hyper`, `slope_hyper`, `gene_intercept_hyper`, `composition_hyper`,
-  # `spde` and `K` are referenced by name inside the formula's f() terms.
+  # `iid_hyper`, `slope_hyper`, `gene_intercept_hyper`, `composition_hyper`
+  # and `K` are referenced by name inside the formula's f() terms.
   iid_hyper <- screen_tau_hyper(cfg)
 
   # Independent per-gene slopes with a fixed prior precision: no extra
@@ -681,8 +617,7 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   composition_hyper <- list(prec = list(initial = log(1 / .25^2), fixed = TRUE))
 
   formula <- as.formula(screen_formula_text(covariates, offset_names,
-                                            gene_names, adjusted,
-                                            spatial_field))
+                                            gene_names, adjusted))
 
   # --- Regional contrasts ----------------------------------------------------
   counts <- as.numeric(table(factor(region_index, levels = seq_len(R))))
@@ -741,7 +676,6 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   # The data and predictor matrix are now in inla_args; free the intermediates
   # before INLA starts.
   rm(stack, stack_A, stack_effects, effects, gene_map)
-  if (spatial_field) rm(A, nz, spatial_index)
   gc(FALSE)
 
   started <- proc.time()[["elapsed"]]
@@ -768,11 +702,6 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
   stopifnot(is.null(fit$misc$configs),
             all(vapply(fit$summary.random[gene_names], nrow,
                        integer(1)) == K))
-  if (spatial_field) {
-    stopifnot(nrow(fit$summary.random$spatial) == mesh$n * K)
-  } else {
-    stopifnot(is.null(fit$summary.random$spatial))
-  }
   if (is.null(.fixed_theta)) {
     stopifnot(length(fit$mode$theta) == n_hyper,
               nrow(fit$summary.hyperpar) == n_hyper)
@@ -796,10 +725,6 @@ screen_joint_fit <- function(Y, xy, region, mesh, h,
     region_spots = counts,
     other_weights = contrasts$rest_weights[[1]],
     rest_weights = contrasts$rest_weights,
-    spatial_field = spatial_field,
-    h = if (spatial_field) h else NA_real_,
-    kappa0 = kappa,
-    rho0 = if (spatial_field) sqrt(8) / kappa else NA_real_,
     gene_dependence = "conditional_iid",
     model_version = as.character(utils::packageVersion("PathwayLGM")),
     cfg = cfg,
@@ -936,15 +861,13 @@ screen_internal_marginal <- function(fit, name) {
 #' Variance components on the variance scale
 #'
 #' Summarised from the internal-scale marginals (see
-#' `screen_internal_marginal()`): tau2_r = exp(-log precision of gene_r) and
-#' sigma_s2 = exp(2 * Theta1) for the spatial fields (when fitted); then
-#' sigma_e2 = exp(-log Gaussian observation precision) (observed mode) or the
-#' NB size nb_size0 = exp(log size) and its inverse alpha0 (adjusted mode).
+#' `screen_internal_marginal()`): tau2_r = exp(-log precision of gene_r), then
+#' the NB size nb_size0 = exp(log size) and its inverse alpha0 (adjusted
+#' mode) or sigma_e2 = exp(-log Gaussian observation precision).
 #' @noRd
-screen_variance_table <- function(fit, n_regions, family, spatial_field = TRUE) {
+screen_variance_table <- function(fit, n_regions, family) {
   hyper_names <- paste0("Precision for gene_r", seq_len(n_regions))
   names(hyper_names) <- paste0("tau2_r", seq_len(n_regions))
-  if (spatial_field) hyper_names <- c(hyper_names, sigma_s2 = "Theta1 for spatial")
 
   inverse_exp <- function(theta) exp(-theta)
   summarise <- function(parameter, name, transform, decreasing) {
@@ -955,10 +878,8 @@ screen_variance_table <- function(fit, n_regions, family, spatial_field = TRUE) 
 
   table <- NULL
   for (j in seq_along(hyper_names)) {
-    is_precision <- j <= n_regions
-    transform <- if (is_precision) inverse_exp else function(theta) exp(2 * theta)
     table <- rbind(table, summarise(names(hyper_names)[j], hyper_names[[j]],
-                                    transform, is_precision))
+                                    inverse_exp, TRUE))
   }
 
   if (family == "nbinomial") {
@@ -1069,13 +990,15 @@ screen_summarize <- function(result) {
   if (identical(result$metadata$engine, "closed_form")) {
     return(closed_form_summarize(result))
   }
+  if (identical(result$metadata$engine, "closed_form_sections")) {
+    return(joint_sections_summarize(result))
+  }
   started <- proc.time()[["elapsed"]]
   fit <- result$fit
   metadata <- result$metadata
 
   parameters <- rbind(screen_fixed_effect_table(fit, metadata),
-                      screen_variance_table(fit, metadata$R, metadata$family,
-                                            isTRUE(metadata$spatial_field)))
+                      screen_variance_table(fit, metadata$R, metadata$family))
   contrasts <- screen_contrast_table(fit, names(metadata$contrast_coefficients))
   domains <- screen_domain_calls(contrasts, metadata$region_labels)
   gene_slopes <- screen_gene_slope_table(result)
@@ -1087,8 +1010,8 @@ screen_summarize <- function(result) {
 
   pi_result <- if (!is.null(result$joint)) {
     pathway_pi_integrate(result$joint,
-                         delta = metadata$cfg$pi_delta,
-                         level = metadata$cfg$pi_level,
+                         alpha = metadata$cfg$pi_alpha,
+                         report_p_value = metadata$cfg$pi_report_p_value,
                          nodes = metadata$cfg$pi_nodes,
                          max_nodes = metadata$cfg$pi_max_nodes,
                          tolerance = metadata$cfg$pi_tolerance)
@@ -1175,6 +1098,9 @@ screen_write <- function(summary, out) {
     paste("Pi numerical refinement converged:", summary$pi$diagnostics$converged)
   engine_line <- if (identical(summary$metadata$engine, "closed_form")) {
     "Closed-form screening completed; hyperparameters integrated on a grid; no INLA."
+  } else if (identical(summary$metadata$engine, "closed_form_sections")) {
+    paste0("Closed-form joint fit of ", summary$metadata$S,
+           " sections completed; hyperparameters integrated on a grid; no INLA.")
   } else {
     "CCD screening completed; config=FALSE; no posterior sampling."
   }

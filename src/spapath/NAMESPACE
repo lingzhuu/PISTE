@@ -8,12 +8,11 @@ importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx,
 importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
-export(build_mesh)
 export(run_spapath)
 export(reference_profile)
 export(screen_joint_fit)
 export(closed_form_joint_fit)
-export(closed_form_applies)
+export(joint_sections_fit)
 export(screen_summarize)
 export(screen_write)
 export(pathway_pi)

@@ -12,6 +12,10 @@
 #
 # Pipeline
 #   read inputs -> align spots -> run_spapath() (see run_spapath.R)
+#
+# Several sections can be given in one run with --sections or --section-key;
+# they are normalised separately and fitted on their own, or jointly with
+# --joint-sections when they are adjacent sections of the same tissue.
 # =============================================================================
 
 
@@ -29,10 +33,11 @@ cli_option_table <- function() {
     c("input", NA, FALSE, "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
     c("layer", NA, FALSE, ".h5ad only: read layers/<LAYER> instead of X."),
     c("genes-in-rows", "false", TRUE, ".csv/.tsv only: rows are genes and columns are spots."),
-    c("coords", NA, FALSE, "Spot coordinates: table with spot ID and x, y, or Space Ranger tissue_positions.csv. Not needed for .h5ad with obsm['spatial']."),
-    c("spatial-key", "spatial", FALSE, ".h5ad only: obsm key of the coordinates."),
     c("regions", NA, FALSE, "Table with spot ID and region label."),
     c("region-key", NA, FALSE, ".h5ad only: obs column with the region labels."),
+    c("sections", NA, FALSE, "Optional table with spot ID and section label; sections are normalised separately and fitted on their own."),
+    c("section-key", NA, FALSE, ".h5ad only: obs column with the section labels."),
+    c("joint-sections", "false", TRUE, "Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue)."),
     c("gmt", NA, FALSE, "Gene sets in GMT format."),
     c("out", NA, FALSE, "Output directory."),
     c("mode", "observed", FALSE, "observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition)."),
@@ -43,14 +48,9 @@ cli_option_table <- function() {
     c("target", NA, FALSE, "Compare this region with all other spots, which are pooled into 'rest'."),
     c("baseline", NA, FALSE, "Baseline region of the model (default: the first label found)."),
     c("min-genes", "5", FALSE, "Skip gene sets with fewer usable genes than this (at least 2)."),
-    c("spatial-field", "false", TRUE, "Add the gene-specific spatial fields (slower, fitted with INLA). Without it --h and the mesh options are ignored and the observed mode is fitted in closed form without INLA."),
-    c("h", "0.3", FALSE, "Spatial length scale of the spatial fields, in units of the coordinates scaled to the unit square."),
-    c("max-edge", NA, FALSE, "Largest mesh triangle edge, one value or inner,outer (default: h/3,h)."),
-    c("cutoff", NA, FALSE, "Minimum distance between mesh nodes (default: h/9)."),
-    c("mesh-offset", NA, FALSE, "Inner and outer mesh extension around the spots (default: h/2,1.5h)."),
-    c("threads", NA, FALSE, "INLA threads, e.g. 4:1 (default: 1:1)."),
-    c("delta", "0.05", FALSE, "Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > LEVEL and lower when P(pi < 0.5 - DELTA) > LEVEL."),
-    c("level", "0.9", FALSE, "Posterior probability required for a call (see --delta)."),
+    c("threads", NA, FALSE, "Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1)."),
+    c("alpha", "0.05", FALSE, "A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2."),
+    c("p-value", "false", TRUE, "Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value)."),
     c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "Show this help.")
   )
@@ -141,35 +141,21 @@ cli_check_options <- function(opts) {
   if (is.null(opts$regions) && is.null(opts$`region-key`)) {
     stop("Give the region labels with --regions or --region-key.")
   }
-
-  for (name in c("h", "min-genes")) {
-    opts[[name]] <- as.numeric(opts[[name]])
-  }
-  if (!is.finite(opts$h) || opts$h <= 0) stop("--h must be a positive number.")
-  # Mesh parameters: NULL means "derive from h" in build_mesh().
-  parse_numbers <- function(value, name, n_allowed) {
-    if (is.null(value)) return(NULL)
-    x <- as.numeric(strsplit(as.character(value), ",")[[1]])
-    if (any(!is.finite(x)) || !length(x) %in% n_allowed) {
-      stop("--", name, " must be ", paste(n_allowed, collapse = " or "),
-           " number(s) separated by a comma.")
+  if (isTRUE(opts$`joint-sections`)) {
+    if (is.null(opts$sections) && is.null(opts$`section-key`)) {
+      stop("--joint-sections needs the section labels (--sections or --section-key).")
     }
-    x
+    if (opts$mode == "adjusted") stop("--joint-sections applies to the observed mode.")
   }
-  opts$`max-edge` <- parse_numbers(opts$`max-edge`, "max-edge", 1:2)
-  opts$cutoff <- parse_numbers(opts$cutoff, "cutoff", 1)
+
+  opts$`min-genes` <- as.numeric(opts$`min-genes`)
   if (!is.finite(opts$`min-genes`) || opts$`min-genes` <= 0) {
     stop("--min-genes must be a positive number.")
   }
-  opts$`mesh-offset` <- parse_numbers(opts$`mesh-offset`, "mesh-offset", 2)
   opts$`min-genes` <- max(2, opts$`min-genes`)
-  opts$delta <- as.numeric(opts$delta)
-  opts$level <- as.numeric(opts$level)
-  if (!is.finite(opts$delta) || opts$delta < 0 || opts$delta >= 0.5) {
-    stop("--delta must satisfy 0 <= delta < 0.5.")
-  }
-  if (!is.finite(opts$level) || opts$level <= 0.5 || opts$level >= 1) {
-    stop("--level must satisfy 0.5 < level < 1.")
+  opts$alpha <- as.numeric(opts$alpha)
+  if (!is.finite(opts$alpha) || opts$alpha <= 0 || opts$alpha >= 1) {
+    stop("--alpha must satisfy 0 < alpha < 1.")
   }
   opts
 }
@@ -186,10 +172,10 @@ cli_log <- function(...) {
 # Inputs
 # -----------------------------------------------------------------------------
 
-#' Read expression, coordinates and regions and align them by spot
+#' Read expression, regions and optional sections and align them by spot
 #'
-#' @return List with `counts` (spots x genes), `xy` (spots x 2) and
-#'   `region` (character), all in the same spot order.
+#' @return List with `counts` (spots x genes), `region` (character) and
+#'   `section` (character or NULL), all in the same spot order.
 #' @noRd
 cli_load_inputs <- function(opts) {
   cli_log("Reading expression from ", opts$input)
@@ -198,33 +184,30 @@ cli_load_inputs <- function(opts) {
   counts <- data$counts
   cli_log(nrow(counts), " spots x ", ncol(counts), " genes")
 
-  xy <- if (!is.null(opts$coords)) {
-    read_coordinates(opts$coords)
-  } else if (!is.null(data$obsm[[opts$`spatial-key`]])) {
-    coords <- data$obsm[[opts$`spatial-key`]][, 1:2, drop = FALSE]
-    dimnames(coords) <- list(rownames(counts), c("x", "y"))
-    coords
-  } else {
-    stop("No coordinates: give --coords, or an .h5ad with obsm['", opts$`spatial-key`, "'].")
-  }
-
-  region <- if (!is.null(opts$regions)) {
-    read_spot_table(opts$regions)
-  } else {
-    key <- opts$`region-key`
-    if (is.null(data$obs) || !key %in% names(data$obs)) {
-      stop("--region-key ", key, " is not an obs column of ", opts$input)
+  spot_labels <- function(path, key, what) {
+    labels <- if (!is.null(path)) {
+      read_spot_table(path)
+    } else {
+      if (is.null(data$obs) || !key %in% names(data$obs)) {
+        stop("--", what, "-key ", key, " is not an obs column of ", opts$input)
+      }
+      setNames(as.character(data$obs[[key]]), rownames(data$obs))
     }
-    setNames(as.character(data$obs[[key]]), rownames(data$obs))
+    labels[!is.na(labels) & nzchar(labels) & labels != "NA"]
   }
-  region <- region[!is.na(region) & nzchar(region) & region != "NA"]
+  region <- spot_labels(opts$regions, opts$`region-key`, "region")
+  section <- if (!is.null(opts$sections) || !is.null(opts$`section-key`)) {
+    spot_labels(opts$sections, opts$`section-key`, "section")
+  }
 
-  spots <- Reduce(intersect, list(rownames(counts), rownames(xy), names(region)))
+  spots <- intersect(rownames(counts), names(region))
+  if (!is.null(section)) spots <- intersect(spots, names(section))
   if (length(spots) < 10) {
-    stop("Only ", length(spots), " spots have expression, coordinates and a region label; check that the spot IDs match.")
+    stop("Only ", length(spots), " spots have expression and a region", if (!is.null(section)) " and section",
+         " label; check that the spot IDs match.")
   }
   dropped <- nrow(counts) - length(spots)
-  if (dropped > 0) cli_log("Dropped ", dropped, " spots without coordinates or region label")
+  if (dropped > 0) cli_log("Dropped ", dropped, " spots without region or section label")
 
   region <- region[spots]
   if (!is.null(opts$target)) {
@@ -232,10 +215,13 @@ cli_load_inputs <- function(opts) {
     region <- ifelse(region == opts$target, opts$target, "rest")
   }
   cli_log("Regions: ", paste(names(table(region)), table(region), sep = "=", collapse = ", "))
+  if (!is.null(section)) {
+    section <- section[spots]
+    cli_log("Sections: ", paste(names(table(section)), table(section), sep = "=", collapse = ", "))
+  }
 
-  list(counts = counts[spots, , drop = FALSE],
-       xy = xy[spots, , drop = FALSE],
-       region = unname(region))
+  list(counts = counts[spots, , drop = FALSE], region = unname(region),
+       section = if (is.null(section)) NULL else unname(section))
 }
 
 
@@ -289,23 +275,18 @@ cli_run <- function(opts) {
   tables <- if (opts$mode == "adjusted") cli_adjusted_tables(opts) else list()
   cfg <- list()
   if (isTRUE(opts$`no-pi`)) cfg$pi <- FALSE
-  cfg$pi_delta <- opts$delta
-  cfg$pi_level <- opts$level
+  cfg$pi_alpha <- opts$alpha
+  if (isTRUE(opts$`p-value`)) cfg$pi_report_p_value <- TRUE
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
-  res <- run_spapath(inputs$counts, inputs$xy, inputs$region, gene_sets,
+  res <- run_spapath(inputs$counts, inputs$region, gene_sets,
                      mode = opts$mode, out = opts$out,
                      normalized = isTRUE(opts$normalized),
                      proportions = tables$proportions,
                      reference = tables$reference,
-                     baseline = opts$baseline, h = opts$h,
-                     spatial_field = isTRUE(opts$`spatial-field`),
-                     min_genes = opts$`min-genes`,
-                     mesh_args = Filter(Negate(is.null),
-                                        list(max_edge = opts$`max-edge`,
-                                             cutoff = opts$cutoff,
-                                             offset = opts$`mesh-offset`)),
-                     cfg = cfg)
+                     baseline = opts$baseline, section = inputs$section,
+                     joint_sections = isTRUE(opts$`joint-sections`),
+                     min_genes = opts$`min-genes`, cfg = cfg)
   cli_log("Results in ", opts$out)
   invisible(res$gene_sets)
 }

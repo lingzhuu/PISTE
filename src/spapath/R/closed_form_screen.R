@@ -1,12 +1,11 @@
 # =============================================================================
 # closed_form_screen.R
 #
-# Closed-form fit of the observed-mode model without the gene-specific spatial
-# fields (cfg$spatial_field = FALSE). Same model, priors and pi computation as
-# screen_joint_fit(mode = "observed") without the fields, but without INLA: the
-# conditional posterior given the hyperparameters is Gaussian in closed form and
-# the hyperparameters are integrated on a grid. The result is summarised into
-# the fields of screen_summarize(), so screen_write() writes the same files.
+# Closed-form fit of the observed-mode model for one section. The conditional
+# posterior given the hyperparameters is Gaussian in closed form and the
+# hyperparameters are integrated on a grid; no INLA. The result is summarised
+# into the fields of screen_summarize(), so screen_write() writes the same
+# files. Adjacent sections are fitted jointly by joint_sections.R.
 #
 # Model (N labelled spots, K genes, R regions, region 1 = baseline)
 #
@@ -47,7 +46,7 @@
 # sets the closed form evaluated at INLA's own design points reproduces INLA's
 # pi and evidence to < 5e-6; on the grid it differs from INLA by at most 0.003
 # in pi and 0.03 in evidence (calls identical on 240/240), on 200 simulated sets
-# by at most 0.009 in pi and 0.014 in the delta evidences (calls identical on
+# by at most 0.009 in pi and 0.014 in the evidences (calls identical on
 # 200/200). Refining the grid up to 31 points per axis over +-7 standard
 # deviations moves the closed form by < 0.003, so the grid is the more accurate
 # of the two integrations.
@@ -60,9 +59,9 @@
 # pi_extract_joint() (mu, covariance, tau2, kappa2 per grid point;
 # kappa2_rs = sigma_e2 (1/n_r + 1/n_s)).
 #
-# Scope: observed mode, intercept-only design, no offset, no spatial fields,
-# tau_prior = "normal". The grid has grid_points^(R+1) points, so
-# closed_form_joint_fit() stops when it would exceed cfg$closed_form_max_points.
+# Scope: observed mode, intercept-only design, no offset, tau_prior = "normal".
+# The grid has grid_points^(R+1) points, so closed_form_joint_fit() stops when
+# it would exceed cfg$closed_form_max_points.
 # =============================================================================
 
 
@@ -145,63 +144,43 @@ cf_hyper_summary <- function(theta_j, w, transform, decreasing) {
 }
 
 
-#' Whether a configuration is within the scope of the closed form
+#' Fit the observed-mode model of one section in closed form
 #'
-#' The closed form covers the observed mode without spatial fields, with an
-#' intercept-only design, no offset, no gene-specific covariates and the
-#' normal prior on the gene-effect log precisions. [run_spapath()] uses it in
-#' that case and INLA otherwise.
-#'
-#' @param mode `"observed"` or `"adjusted"`.
-#' @param cfg Options as for [screen_joint_fit()] (defaults filled in).
-#' @return `TRUE` or `FALSE`.
-#' @export
-closed_form_applies <- function(mode, cfg = list()) {
-  cfg <- modifyList(screen_default_cfg(mode), cfg)
-  mode == "observed" && !isTRUE(cfg$spatial_field) &&
-    identical(cfg$tau_prior, "normal") &&
-    !length(cfg$gene_specific_covariates)
-}
-
-
-#' Fit the observed-mode model without spatial fields, without INLA
-#'
-#' Same model, priors and pi computation as [screen_joint_fit()] with
-#' `mode = "observed"` and `cfg$spatial_field = FALSE`, fitted in closed form:
-#' given the hyperparameters the posterior is Gaussian, and the R + 1
-#' hyperparameters (the error variance and the gene-effect variance of every
-#' region) are integrated on a regular grid around their posterior mode. The
-#' fit takes a fraction of a second.
+#' The observed mode: a Gaussian model of normalised expression with a gene
+#' intercept, regional means and gene-level regional effects. Given the
+#' hyperparameters the posterior is Gaussian, and the R + 1 hyperparameters
+#' (the error variance and the gene-effect variance of every region) are
+#' integrated on a regular grid around their posterior mode. The fit takes a
+#' fraction of a second. Adjacent sections are fitted jointly by
+#' [joint_sections_fit()].
 #'
 #' @param Y Numeric matrix of normalized expression, spots x genes.
-#' @param xy Spot coordinates; accepted for interface compatibility, unused.
 #' @param region Factor or character vector of region labels per spot.
-#' @param mesh,h Unused; the closed form has no spatial fields.
-#' @param mode Must be `"observed"`.
 #' @param X Optional design matrix; only an intercept column is supported.
 #' @param offset Optional offset; must be absent or zero.
+#' @param mode Must be `"observed"`.
 #' @param cfg Options as for [screen_joint_fit()]. The grid is set by
 #'   `closed_form_grid_points` (points per hyperparameter axis),
 #'   `closed_form_grid_halfwidth` (half width in posterior standard
 #'   deviations), `closed_form_weight_threshold` (relative weight below which
-#'   a grid point is dropped) and `closed_form_max_points` (largest grid
-#'   allowed).
+#'   a grid point is dropped), `closed_form_max_points` (largest grid
+#'   allowed) and `closed_form_hessian_floor` (smallest Hessian eigenvalue
+#'   used to scale the grid; `metadata$hessian_floored` records whether it
+#'   was applied).
 #' @return A list with `fit = NULL`, `joint` (format of the `joint` element
 #'   of [screen_joint_fit()], or `NULL` when `cfg$pi = FALSE`), `metadata`
 #'   (with `engine = "closed_form"` and the grid used) and `closed_form` (the
 #'   conditional Gaussians, grid points and weights). Pass it to
 #'   [screen_summarize()].
 #' @export
-closed_form_joint_fit <- function(Y, xy = NULL, region, mesh = NULL, h = NULL,
-                                  mode = "observed", X = NULL, offset = NULL,
-                                  cfg = list()) {
+closed_form_joint_fit <- function(Y, region, X = NULL, offset = NULL,
+                                  mode = "observed", cfg = list()) {
   started <- proc.time()[["elapsed"]]
   mode <- match.arg(mode, "observed")
   screen_check_legacy_cfg(cfg)
   screen_check_mode_cfg(cfg, mode)
   screen_check_integration_cfg(cfg)
   cfg <- modifyList(screen_default_cfg(mode), cfg)
-  if (isTRUE(cfg$spatial_field)) stop("The closed form has no spatial fields; use screen_joint_fit().")
   if (cfg$tau_prior != "normal") stop("The closed form implements tau_prior = 'normal' only.")
   if (length(cfg$gene_specific_covariates)) stop("The closed form has no gene-specific covariates.")
   if (!is.null(X) && !(ncol(X) == 1 && all(X == 1))) stop("The closed form supports X = intercept only.")
@@ -235,9 +214,12 @@ closed_form_joint_fit <- function(Y, xy = NULL, region, mesh = NULL, h = NULL,
   start <- c(-log(stats$within / (N * K - R * K)), rep(cfg$tau_logprecision_mean, R))
   opt <- optim(start, neg_log_post, method = "BFGS",
                control = list(reltol = 1e-12, maxit = 1000))
-  hess <- optimHess(opt$par, neg_log_post)
-  eig <- eigen(hess, symmetric = TRUE)
-  if (any(eig$values <= 0)) stop("The hyperparameter Hessian at the mode is not positive definite.")
+  eig <- eigen(optimHess(opt$par, neg_log_post), symmetric = TRUE)
+  # A variance at the boundary (tau2_r -> 0) can leave a flat or slightly
+  # indefinite curvature; floor the eigenvalues so that the grid spans that
+  # axis widely. The prior keeps the posterior proper.
+  hessian_floored <- any(eig$values < cfg$closed_form_hessian_floor)
+  eig$values <- pmax(eig$values, cfg$closed_form_hessian_floor)
   to_theta <- eig$vectors %*% diag(1 / sqrt(eig$values), d)
 
   # --- Grid in standardised coordinates ------------------------------------------
@@ -286,12 +268,11 @@ closed_form_joint_fit <- function(Y, xy = NULL, region, mesh = NULL, h = NULL,
     N = N, K = K, R = R, mode = mode, engine = "closed_form",
     region_labels = labels, region_spots = counts,
     other_weights = contrasts$rest_weights[[1]], rest_weights = contrasts$rest_weights,
-    spatial_field = FALSE, h = NA_real_, kappa0 = NA_real_, rho0 = NA_real_,
     gene_dependence = "conditional_iid",
     model_version = as.character(utils::packageVersion("PathwayLGM")),
     cfg = cfg, family = "gaussian",
     fit_seconds = proc.time()[["elapsed"]] - started,
-    hyperparameters = d,
+    hyperparameters = d, hessian_floored = hessian_floored,
     tau_prior = list(internal_parameter = "log precision", prior = cfg$tau_prior,
                      mean = cfg$tau_logprecision_mean, sd = cfg$tau_logprecision_sd,
                      parameters = c(cfg$tau_logprecision_mean, 1 / cfg$tau_logprecision_sd^2)),
@@ -354,7 +335,8 @@ closed_form_summarize <- function(result) {
   }))
 
   pi_result <- if (!is.null(result$joint)) {
-    pathway_pi_integrate(result$joint, delta = md$cfg$pi_delta, level = md$cfg$pi_level,
+    pathway_pi_integrate(result$joint, alpha = md$cfg$pi_alpha,
+                         report_p_value = md$cfg$pi_report_p_value,
                          nodes = md$cfg$pi_nodes, max_nodes = md$cfg$pi_max_nodes,
                          tolerance = md$cfg$pi_tolerance)
   }
