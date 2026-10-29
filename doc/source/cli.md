@@ -1,7 +1,7 @@
 # Command line
 
 SpaPath can be run from a Linux shell without writing R code. One command
-reads the data, normalizes it, builds the mesh and runs every gene set of a
+reads the data, normalizes it and runs every gene set of a
 GMT file. It reads the files and then runs the same workflow as
 [`run_spapath()`](api.md#run_spapath) in R.
 
@@ -33,14 +33,14 @@ spapath --version
 | Input | Formats |
 |-------|---------|
 | Expression (`--input`) | AnnData `.h5ad` (`X` or `--layer`), 10x `.h5`, 10x matrix directory (`matrix.mtx`, `features.tsv`, `barcodes.tsv`), `.csv`/`.tsv` with spots as rows (or `--genes-in-rows`), `.rds` matrix |
-| Coordinates | `obsm['spatial']` of the `.h5ad`, or `--coords`: a table with spot ID, `x` and `y`, or Space Ranger `tissue_positions.csv` / `tissue_positions_list.csv` |
 | Region labels | An `obs` column of the `.h5ad` (`--region-key`), or `--regions`: a table with spot ID and region |
+| Section labels (optional) | An `obs` column of the `.h5ad` (`--section-key`), or `--sections`: a table with spot ID and section |
 | Gene sets | `--gmt`: GMT file |
 | Cell-type proportions (adjusted mode) | `--proportions`: table of spots x cell types, e.g. RCTD weights |
 | Reference (adjusted mode) | `--reference`: table of cell types x genes on a linear scale, or single-cell raw counts (`.h5ad`, `.h5` or matrix directory) with `--celltype-key` |
 
-Spots are matched by their IDs across all inputs; spots without coordinates
-or a region label are dropped.
+Spots are matched by their IDs across all inputs; spots without a region
+label are dropped. Spot coordinates are not needed.
 
 ## Observed mode
 
@@ -56,6 +56,22 @@ spapath run --input 151673.h5ad --region-key layer_guess_reordered \
 
 `--target WM` compares white matter with all other spots. Without it, every
 region is compared with the others and with each other.
+
+## Adjacent sections
+
+Several sections can be given in one run with `--section-key` or
+`--sections`. Each section is normalized separately and fitted on its own.
+For adjacent sections of the same tissue block with the same regions,
+`--joint-sections` fits them jointly: the regional effects are shared, each
+section has its own deviation, and π is computed from the shared part (see
+[`observed_fit()`](api.md#observed_fit)).
+
+```bash
+spapath run --input 151673_151674.h5ad --region-key layer_guess_reordered \
+            --section-key sample_id --joint-sections \
+            --target WM --gmt DLPFC_brain_and_reference.gmt \
+            --out results_joint
+```
 
 ## Composition-adjusted mode
 
@@ -78,10 +94,10 @@ dispersions are estimated once on all genes with DESeq2.
 
 | File | Content |
 |------|---------|
-| `overall_scores.csv` | π score, evidence, δ evidence and call of each region against the rest, for every gene set |
-| `pairwise_scores.csv` | π score, evidence, δ evidence and call for every pair of regions, for every gene set |
+| `overall_scores.csv` | π score, evidence (`evidence_higher` = P(π > 0.5), `evidence_lower` = P(π < 0.5)) and call of each region against the rest, for every gene set; `p_value` with `--p-value` |
+| `pairwise_scores.csv` | The same for every pair of regions |
 | `gene_sets.csv` | Number of genes used and status (`done`, `skipped`, `failed`) of each gene set |
-| `<gene set>/` | All files written by [`screen_write()`](api.md#screen_write) for that gene set |
+| `<gene set>/` | All files written by [`screen_write()`](api.md#screen_write) for that gene set (`<section>/<gene set>/` when sections are fitted one by one) |
 
 ## Options
 
@@ -89,27 +105,24 @@ dispersions are estimated once on all genes with DESeq2.
 --input INPUT                  Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
 --layer LAYER                  .h5ad only: read layers/<LAYER> instead of X.
 --genes-in-rows                .csv/.tsv only: rows are genes and columns are spots.
---coords COORDS                Spot coordinates: table with spot ID and x, y, or Space Ranger tissue_positions.csv.
---spatial-key SPATIAL_KEY      .h5ad only: obsm key of the coordinates. [default: spatial]
 --regions REGIONS              Table with spot ID and region label.
 --region-key REGION_KEY        .h5ad only: obs column with the region labels.
+--sections SECTIONS            Optional table with spot ID and section label; sections are normalised separately and fitted on their own.
+--section-key SECTION_KEY      .h5ad only: obs column with the section labels.
+--joint-sections               Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue).
 --gmt GMT                      Gene sets in GMT format.
 --out OUT                      Output directory.
---mode MODE                    observed or adjusted. [default: observed]
+--mode MODE                    observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition). [default: observed]
 --normalized                   Observed mode: the input is already normalised; skip SCTransform.
---proportions PROPORTIONS      Adjusted mode: table of cell-type proportions, spots x cell types.
---reference REFERENCE          Adjusted mode: table of cell types x genes, or single-cell raw counts with --celltype-key.
---celltype-key CELLTYPE_KEY    Adjusted mode: obs column of a .h5ad reference, or table with cell ID and cell type.
---target TARGET                Compare this region with all other spots, pooled into 'rest'.
+--proportions PROPORTIONS      Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights.
+--reference REFERENCE          Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype-key.
+--celltype-key CELLTYPE_KEY    Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type.
+--target TARGET                Compare this region with all other spots, which are pooled into 'rest'.
 --baseline BASELINE            Baseline region of the model (default: the first label found).
 --min-genes MIN_GENES          Skip gene sets with fewer usable genes than this (at least 2). [default: 5]
---spatial-field                Add the gene-specific spatial fields (slower, fitted with INLA). Without it --h and the mesh options are ignored and the observed mode is fitted in closed form without INLA.
---h H                          Spatial length scale of the spatial fields, in coordinates scaled to the unit square. [default: 0.3]
---max-edge MAX_EDGE            Largest mesh triangle edge, one value or inner,outer (default: h/3,h).
---cutoff CUTOFF                Minimum distance between mesh nodes (default: h/9).
---mesh-offset MESH_OFFSET      Inner and outer mesh extension around the spots (default: h/2,1.5h).
---threads THREADS              INLA threads, e.g. 4:1 (default: 1:1).
---delta DELTA                  Minimal effect: a region is called higher when P(pi > 0.5 + DELTA) > LEVEL and lower when P(pi < 0.5 - DELTA) > LEVEL. [default: 0.05]
---level LEVEL                  Posterior probability required for a call (see --delta). [default: 0.9]
+--threads THREADS              Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1).
+--alpha ALPHA                  A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2. [default: 0.05]
+--p-value                      Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value).
 --no-pi                        Skip pi scores and evidence; report regional means only.
+--help                         Show this help.
 ```

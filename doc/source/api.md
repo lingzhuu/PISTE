@@ -6,9 +6,8 @@ library(PathwayLGM)
 
 SpaPath can be run in two ways. Quick mode runs the whole workflow for a
 panel of gene sets in one call to `run_spapath()`. Step-by-step mode calls
-the functions it is built from, for custom workflows: building the mesh once
-with other settings, preparing the adjusted-mode inputs yourself, or fitting
-a single gene set with other model options.
+the functions it is built from, for custom workflows: preparing the
+adjusted-mode inputs yourself, or fitting and summarising a single gene set.
 
 ### Quick mode
 
@@ -21,10 +20,10 @@ a single gene set with other model options.
 
 | Function | Description |
 |----------|-------------|
-| [`build_mesh()`](#build_mesh) | Build the mesh for the spatial fields of a section. |
 | [`estimate_dispersion_scale()`](#estimate_dispersion_scale) | Relative negative binomial dispersion of every gene, for the adjusted mode. |
 | [`composition_offset()`](#composition_offset) | Log expression predicted from cell-type proportions, for the adjusted mode. |
-| [`screen_joint_fit()`](#screen_joint_fit) | Fit the spatial pathway model for one gene set. |
+| [`observed_fit()`](#observed_fit) | Fit the observed-mode model for one gene set, for one section or jointly for adjacent sections. |
+| [`screen_joint_fit()`](#screen_joint_fit) | Fit the composition-adjusted model for one gene set with INLA. |
 | [`screen_summarize()`](#screen_summarize) | Compute π scores, evidence and posterior summaries from a fit. |
 | [`screen_write()`](#screen_write) | Write a summary to CSV and RDS files. |
 | [`pathway_pi_integrate()`](#pathway_pi_integrate) | Recompute π scores and evidence from a fit. |
@@ -35,33 +34,34 @@ a single gene set with other model options.
 ## run_spapath
 
 ```r
-run_spapath(counts, xy, region, gene_sets,
+run_spapath(counts, region, gene_sets,
             mode = c("observed", "adjusted"), out = NULL,
             normalized = FALSE, proportions = NULL, reference = NULL,
-            baseline = NULL, h = 0.3, spatial_field = FALSE, min_genes = 5,
-            mesh_args = list(), cfg = list(), verbose = TRUE)
+            baseline = NULL, section = NULL, joint_sections = FALSE,
+            min_genes = 5, cfg = list(), verbose = TRUE)
 ```
 
 Runs SpaPath on every gene set of a panel in one call:
 
-1. In observed mode, normalizes the counts with SCTransform (sctransform v2
-   Pearson residuals, clipped at ±√(N/30) as in Seurat). In adjusted mode,
-   estimates the dispersion scales with `estimate_dispersion_scale()` and the
-   composition offset with `composition_offset()`, and keeps the genes with a
-   dispersion scale and positive predicted expression in every spot.
-2. Rescales the coordinates to the unit square (shifted to start at zero and
-   divided by their largest value) and builds the mesh with `build_mesh()`.
-3. Fits each gene set with `screen_joint_fit()` and summarizes it with
+1. In observed mode, normalizes the counts of each section with SCTransform
+   (sctransform v2 Pearson residuals, clipped at ±√(N/30) as in Seurat). In
+   adjusted mode, estimates the dispersion scales with
+   `estimate_dispersion_scale()` and the composition offset with
+   `composition_offset()`, and keeps the genes with a dispersion scale and
+   positive predicted expression in every spot.
+2. Fits each gene set with `observed_fit()` (observed mode) or
+   `screen_joint_fit()` (adjusted mode) and summarizes it with
    `screen_summarize()`. Gene sets with fewer than `min_genes` usable genes
    are skipped; a gene set whose fit fails is reported and the run goes on.
+
+Spot coordinates are not used.
 
 ### Arguments
 
 | Argument | Description |
 |----------|-------------|
 | `counts` | Spots x genes matrix (dense or sparse) of raw counts with spot rownames and gene colnames. With `normalized = TRUE` in observed mode, normalized expression instead. |
-| `xy` | Spot coordinates with two columns, in the spot order of `counts`, in any unit. |
-| `region` | Region label of each spot, in the spot order of `counts`, no `NA`. |
+| `region` | Region label of each spot, in the spot order of `counts`. Spots without a label are dropped. |
 | `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
 | `mode` | `"observed"` (default) or `"adjusted"`. |
 | `out` | Optional output folder; see Value. |
@@ -69,11 +69,10 @@ Runs SpaPath on every gene set of a panel in one call:
 | `proportions` | Adjusted mode. Spots x cell types matrix of cell-type proportions, e.g. normalized RCTD weights, with spot rownames. |
 | `reference` | Adjusted mode. Cell types x genes matrix of reference mean expression on a linear scale, e.g. from `reference_profile()`. |
 | `baseline` | Baseline region of the model. Default: the first label in `region`. |
-| `h` | Spatial length scale in unit-square units; the practical range of the spatial fields with the default `kappa_h`. |
-| `spatial_field` | Add the gene-specific spatial fields. By default (`FALSE`) the model is fitted without them: no mesh is built, `h` and `mesh_args` are ignored, and in observed mode the fit uses the closed-form engine ([`closed_form_joint_fit()`](#closed_form_joint_fit)) instead of INLA. `TRUE` adds the fields, which is slower and fitted with INLA. |
+| `section` | Optional section label of each spot. Sections are normalized separately and, by default, fitted one by one; the result tables then get a `section` column. |
+| `joint_sections` | Observed mode. Fit the sections given by `section` jointly (see [`observed_fit()`](#observed_fit)). Use it only for adjacent sections of the same tissue block with the same region labels. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
-| `mesh_args` | List of arguments passed to `build_mesh()`, e.g. `list(cutoff = 0.05)`. |
-| `cfg` | List of options passed to `screen_joint_fit()`; see [Options in `cfg`](#options-in-cfg). |
+| `cfg` | Options; see [Options in `cfg`](#options-in-cfg). |
 | `verbose` | Print progress messages. |
 
 ### Value
@@ -81,14 +80,16 @@ Runs SpaPath on every gene set of a panel in one call:
 Invisibly, a list with
 
 - `overall`: the `overall` π tables of all fitted gene sets, with columns
-  `gene_set` and `genes` (number of genes used) added;
+  `gene_set` and `genes` (number of genes used) added, and `section` when
+  sections are fitted one by one;
 - `pairwise`: the `pairwise` π tables, likewise;
 - `gene_sets`: one row per gene set with the genes in the set, the genes
   used, `status` (`done`, `skipped` or `failed`) and a message;
 - `results`: the `screen_summarize()` output of each fitted gene set.
 
 With `out`, each gene set is written to its own subfolder with
-`screen_write()`, and `overall_scores.csv`, `pairwise_scores.csv` and
+`screen_write()` (`<section>/<gene set>` when sections are fitted one by
+one), and `overall_scores.csv`, `pairwise_scores.csv` and
 `gene_sets.csv` are written to `out`.
 
 ---
@@ -116,161 +117,102 @@ Cell types x genes matrix.
 
 ---
 
-## build_mesh
+## observed_fit
 
 ```r
-build_mesh(xy, max_edge = 0.25, cutoff = 0.08, offset = c(0.1, 0.2))
+observed_fit(Y, region, section = NULL, cfg = list())
 ```
 
-Builds the 2D triangular mesh on which the spatial fields are defined, with
-`fmesher::fm_mesh_2d()`. Build it once for a section and pass it to
-`screen_joint_fit()` for every gene set. The defaults assume coordinates
-rescaled to the unit square, shifted to start at zero and divided by their
-largest value.
+Fits the observed-mode model of one gene set: a Gaussian model of normalized
+expression with a gene intercept, regional means and gene-level regional
+effects,
+
+y<sub>ig</sub> = α + u<sub>g</sub> + μ<sub>r(i)</sub> + γ<sub>g,r(i)</sub> + ε<sub>ig</sub>,
+γ<sub>g,r</sub> ~ N(0, τ<sub>r</sub><sup>2</sup>), ε<sub>ig</sub> ~ N(0, σ<sup>2</sup>).
+
+With `section`, adjacent sections of the same tissue block are fitted
+jointly. Each section has its own intercept, gene intercepts and noise
+variance; the regional means μ<sub>r</sub> and the gene-level regional effects
+γ<sub>g,r</sub> are shared, and each section adds its own deviation
+η<sub>g,r,k</sub> ~ N(0, ν<sub>r</sub><sup>2</sup>). π is computed from the
+shared part, so it measures the regional difference reproduced across
+sections. The sections are normalized separately and need not be aligned.
+
+Given the variances, the posterior of the regional means is Gaussian and
+exact. The variances are integrated numerically on a grid around their
+posterior mode. A fit takes about 0.1 s for one section and a few seconds for
+two sections.
 
 ### Arguments
 
 | Argument | Description |
 |----------|-------------|
-| `xy` | Numeric matrix of spot coordinates with two columns. |
-| `max_edge` | Largest triangle edge. |
-| `cutoff` | Minimum distance between mesh nodes; closer spots share a node. |
-| `offset` | Inner and outer extension of the mesh around the spots. |
+| `Y` | Spots x genes matrix of normalized expression. Column names are used as gene labels. |
+| `region` | Region label of each spot, at least two regions. |
+| `section` | Optional section label of each spot. Every region must be present in every section. |
+| `cfg` | Options; see [Options in `cfg`](#options-in-cfg). |
+
+### Options in `cfg`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pi_alpha` | `0.05` | A region is called higher or lower when the evidence in that direction is at least 1 − `pi_alpha`/2. |
+| `pi_report_p_value` | `FALSE` | Add the column `p_value` = 2 min(P(π > 0.5), P(π < 0.5)). It is a posterior probability, not a frequentist p-value. |
+| `pi` | `TRUE` | `FALSE` skips the π scores and reports the regional means only. |
+| `baseline_region` | first label | Region whose mean is the model intercept. It does not change π. |
+| `threads` | `"1:1"` | Adjusted mode only: INLA `num.threads`. |
+
+Other names are refused.
 
 ### Value
 
-An `fm_mesh_2d` mesh; `mesh$n` is its number of nodes.
+A list with `joint` (the posterior of the regional means and variances used
+for π, or `NULL` when `cfg$pi = FALSE`), `metadata` (dimensions, region and
+section labels, spot counts per section and region, the options used and the
+fit time) and `grid` (the grid points, their conditional posteriors and
+weights). Pass it to [`screen_summarize()`](#screen_summarize).
 
 ---
 
 ## screen_joint_fit
 
 ```r
-screen_joint_fit(Y, xy, region, mesh, h, mode = c("observed", "adjusted"),
-                 X = NULL, offset = NULL,
+screen_joint_fit(Y, region, mode = "adjusted", X = NULL, offset = NULL,
                  library_size = NULL, dispersion_scale = NULL,
                  composition_offset = NULL, cfg = list())
 ```
 
-Fits the SpaPath model for one gene set with INLA, integrating over the
-hyperparameters with a CCD design. The mode chooses the model:
-
-- `"observed"` fits a Gaussian model to normalized expression and reports the
-  total regional difference in pathway activity.
-- `"adjusted"` fits a negative binomial model to raw counts with a
-  cell-type composition offset and reports the regional difference that
-  composition does not explain. For spot i and gene g,
-  log E[y<sub>ig</sub>] = log L<sub>i</sub> + a<sub>g</sub> + μ<sub>r(i)</sub>
-  + gene effect + spatial field + λ<sub>g</sub> log m<sub>ig</sub>, where
-  L<sub>i</sub> is the library size, m<sub>ig</sub> the expression predicted
-  from the spot's cell-type proportions, a<sub>g</sub> a gene intercept and
-  λ<sub>g</sub> = 1 + v<sub>g</sub> with v<sub>g</sub> ~ N(0, 0.25²). Gene g
-  has NB size `nb_size0` × S<sub>g</sub>.
+Fits the composition-adjusted model of one gene set with INLA: a negative
+binomial model of raw counts with a cell-type composition offset, reporting
+the regional difference that composition does not explain. For spot i and
+gene g, log E[y<sub>ig</sub>] = log L<sub>i</sub> + a<sub>g</sub> +
+μ<sub>r(i)</sub> + gene effect + λ<sub>g</sub> log m<sub>ig</sub>, where
+L<sub>i</sub> is the library size, m<sub>ig</sub> the expression predicted
+from the spot's cell-type proportions, a<sub>g</sub> a gene intercept and
+λ<sub>g</sub> = 1 + v<sub>g</sub> with v<sub>g</sub> ~ N(0, 0.25²). Gene g
+has NB size `nb_size0` × S<sub>g</sub>. The observed mode is fitted by
+[`observed_fit()`](#observed_fit).
 
 ### Arguments
 
 | Argument | Description |
 |----------|-------------|
-| `Y` | Spots x genes matrix with at least two genes and no missing or infinite values. Normalized expression in observed mode; raw integer counts with unique spot rownames and gene colnames in adjusted mode. Column names are used as gene labels. |
-| `xy` | Numeric matrix of spot coordinates with two columns, in the same spot order as `Y`. |
-| `region` | Region label of each spot, at least two distinct labels, no `NA`. Labels are converted to character and ordered by first appearance. |
-| `mesh` | Mesh for the spatial fields, from [`build_mesh()`](#build_mesh). Needed only when `cfg$spatial_field` is `TRUE`; otherwise it may be `NULL`. |
-| `h` | Positive spatial length scale in the units of `xy`. The SPDE scale is fixed at `cfg$kappa_h / h`; with the default `kappa_h`, `h` is the practical range of the spatial fields. Needed only when `cfg$spatial_field` is `TRUE`. |
-| `mode` | `"observed"` (default) or `"adjusted"`. |
-| `X` | Optional numeric covariate matrix with N rows and unique column names. Covariates that vary between spots of the section, e.g. sequencing depth or mitochondrial fraction. An `intercept` column is added if absent, and no other column may be constant one. |
-| `offset` | Optional known additive offset of length N, added to every gene of a spot. |
-| `library_size` | Adjusted mode. Library size of each spot, e.g. total UMI over all genes. Only ratios matter; they are rescaled to a geometric mean of one. |
-| `dispersion_scale` | Adjusted mode. Relative dispersion scale S<sub>g</sub> of each gene in `Y`, from `estimate_dispersion_scale()`. If named, names must match `colnames(Y)`. |
-| `composition_offset` | Adjusted mode. Spots x genes matrix of log m<sub>ig</sub> from `composition_offset()`, finite, with the dimnames of `Y`. |
-| `cfg` | List of options; see below. Entries not given keep their defaults. |
-
-### Options in `cfg`
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `baseline_region` | first label | Region whose mean is the model intercept. |
-| `pi` | `TRUE` | Compute π scores and evidence. |
-| `pi_delta` | `0.05` | Minimal effect δ: `evidence_higher` is P(π > 0.5 + δ) and `evidence_lower` is P(π < 0.5 − δ). |
-| `pi_level` | `0.95` | Posterior probability that `evidence_higher` or `evidence_lower` must exceed for a call. |
-| `pi_nodes` | `4096` | Initial number of quadrature nodes for the evidence with three or more regions (power of two, ≥ 16). |
-| `pi_max_nodes` | `65536` | Maximum number of quadrature nodes (power of two, ≥ 2 × `pi_nodes`). |
-| `pi_tolerance` | `0.002` | Convergence tolerance between quadrature refinements. |
-| `threads` | `"1:1"` | INLA `num.threads`, as `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each evaluation uses B threads. |
-| `strategy` | `"gaussian"`; `"simplified.laplace"` in adjusted mode | INLA approximation strategy. |
-| `spatial_field` | `FALSE` | Add the gene-specific spatial fields (one more hyperparameter, `sigma_s2` in the output, slower). |
-| `closed_form_grid_points` | `7` | Closed-form engine: grid points per hyperparameter axis. |
-| `closed_form_grid_halfwidth` | `3` | Closed-form engine: half width of the grid in posterior standard deviations of the hyperparameters. |
-| `closed_form_weight_threshold` | `1e-10` | Closed-form engine: relative posterior weight below which a grid point is dropped. |
-| `closed_form_max_points` | `1e5` | Closed-form engine: largest grid allowed; the grid has `closed_form_grid_points`^(R + 1) points. |
-| `kappa_h` | `sqrt(8)` | SPDE scale times `h`; must lie in [2.3, 3.2]. |
-| `tau_prior` | `"normal"` | Prior on the log precision of the regional gene effects: `"normal"`, `"inla_default"` (log-gamma(1, 5e-5) on the precision), `"pc"` or `"flat"`. |
-| `tau_logprecision_mean` | `0` | Mean of the normal prior. |
-| `tau_logprecision_sd` | `3` | Standard deviation of the normal prior. |
-| `tau_pc_u`, `tau_pc_alpha` | `2`, `0.05` | Parameters of the PC prior. |
-| `other_weights` | spot counts | Weights of the other regions in the mean contrast of the baseline region against the rest. Length R − 1, non-negative. |
-| `gene_specific_covariates` | none | Columns of `X` that get an independent slope for each gene. Observed mode only. |
-| `gene_covariate_prior_sd` | `10` | Standard deviation of the fixed normal prior on the gene-specific slopes. |
-| `nb_logsize_mean`, `nb_logsize_sd` | `log(10)`, `1.5` | Normal prior on log `nb_size0`. Adjusted mode only. |
-| `low_memory` | `FALSE` | AMD reordering with a small node factor: the same model with less memory, useful for large gene sets. |
-| `initial_theta` | `NULL` | Starting hyperparameters (length R + 2), e.g. `fit$fit$mode$theta` from an earlier run. |
-| `verbose` | `FALSE` | Print INLA's log. |
+| `Y` | Spots x genes matrix of raw integer counts with unique spot rownames and gene colnames, at least two genes. |
+| `region` | Region label of each spot, at least two distinct labels. |
+| `X` | Optional numeric covariate matrix with N rows and unique column names. An `intercept` column is added if absent. |
+| `offset` | Optional known additive offset of length N. |
+| `library_size` | Library size of each spot, e.g. total UMI over all genes. Only ratios matter. |
+| `dispersion_scale` | Relative dispersion scale S<sub>g</sub> of each gene in `Y`, from `estimate_dispersion_scale()`. |
+| `composition_offset` | Spots x genes matrix of log m<sub>ig</sub> from `composition_offset()`, with the dimnames of `Y`. |
+| `cfg` | Options; see [Options in `cfg`](#options-in-cfg). |
 
 ### Value
 
-A list with
-
-- `fit`: the INLA fit;
-- `joint`: the posterior of the regional means and variances used for π, or
-  `NULL` when `cfg$pi = FALSE`;
-- `metadata`: dimensions, mode, region labels (baseline first) and spot
-  counts, `h`, the options used, the INLA version, the model formula and the
-  fit time. In adjusted mode also the dispersion scales and
-  `composition_diagnostics`: per gene, the standard deviation of
-  log m<sub>ig</sub> within regions (small values mean λ<sub>g</sub> is
-  informed mainly by its prior) and its mean.
-
----
-
-## closed_form_joint_fit
-
-```r
-closed_form_joint_fit(Y, xy = NULL, region, mesh = NULL, h = NULL,
-                      mode = "observed", X = NULL, offset = NULL, cfg = list())
-closed_form_applies(mode, cfg = list())
-```
-
-Fits the observed-mode model without the gene-specific spatial fields in
-closed form, without INLA. Given the hyperparameters (the error variance and
-the gene-effect variance of every region) the posterior of the regional means
-is Gaussian and is computed from the per-gene regional means, the spot counts
-and the within-region sum of squares, so one evaluation costs O(K R²). The
-R + 1 hyperparameters are integrated on a regular grid around their posterior
-mode, with weights proportional to the posterior (options
-`closed_form_grid_*` above). Same model, priors and π computation as
-[`screen_joint_fit()`](#screen_joint_fit) with `spatial_field = FALSE`; on
-440 DLPFC and simulated gene sets the two engines agree in every call, with π
-within 0.009 and evidence within 0.03 (the differences come from INLA's
-central composite design, which is the coarser integration). A fit takes a
-fraction of a second instead of tens of seconds.
-
-[`run_spapath()`](#run_spapath) uses this engine whenever
-`closed_form_applies()` is `TRUE`: observed mode, no spatial fields,
-`tau_prior = "normal"`, no gene-specific covariates. Otherwise it uses INLA.
-
-### Arguments
-
-As [`screen_joint_fit()`](#screen_joint_fit); `xy`, `mesh` and `h` are accepted
-and ignored, `X` may only be an intercept and `offset` must be absent.
-
-### Value
-
-As [`screen_joint_fit()`](#screen_joint_fit), with `fit = NULL`,
-`metadata$engine = "closed_form"`, `metadata$grid` (points per axis, half
-width, points kept, hyperparameter mode) and `closed_form` (the conditional
-Gaussians, grid points and weights). Pass it to
-[`screen_summarize()`](#screen_summarize), whose output then also holds
-`theta_grid` (the grid points and weights) and `NULL` in place of the INLA
-marginals.
+A list with `fit` (the INLA fit), `joint` and `metadata` as for
+[`observed_fit()`](#observed_fit); `metadata` also holds the dispersion scales
+and `composition_diagnostics`: per gene, the standard deviation of
+log m<sub>ig</sub> within regions (small values mean λ<sub>g</sub> is informed
+mainly by its prior) and its mean.
 
 ---
 
@@ -282,7 +224,7 @@ screen_summarize(result)
 
 | Argument | Description |
 |----------|-------------|
-| `result` | Output of `screen_joint_fit()`. |
+| `result` | Output of `observed_fit()` or `screen_joint_fit()`. |
 
 ### Value
 
@@ -290,46 +232,43 @@ A list with
 
 - `pi$overall`: one row per region, compared with the spot-weighted average of
   all other regions. Columns `region`, `spots`, `score`, `evidence`,
-  `evidence_higher`, `evidence_lower`, `call`, `boundary_mass`.
+  `evidence_higher`, `evidence_lower`, `call`, `boundary_mass`, and `p_value`
+  when `pi_report_p_value = TRUE`.
 - `pi$pairwise`: one row per ordered pair of regions. Columns `region`,
   `reference_region`, `score`, `evidence`, `evidence_higher`,
-  `evidence_lower`, `call`, `boundary_mass`.
+  `evidence_lower`, `call`, `boundary_mass` (and `p_value`).
 - `pi$diagnostics`: quadrature convergence, number of nodes and refinement
   history.
 - `parameters`: posterior mean, 2.5 %, 50 % and 97.5 % quantiles of
-  `baseline_intercept`, `relative_mu_r2`, …, covariate effects `cov_<name>`,
-  regional means `absolute_mu_r1`, …, between-gene variances `tau2_r1`, …,
-  spatial variance `sigma_s2` and noise variance `sigma_e2`. In adjusted mode
-  the regional means are composition-adjusted states named
-  `adjusted_state_r1`, …, and `sigma_e2` is replaced by the NB size
-  `nb_size0` and its inverse `alpha0`. Intervals of these variance
-  parameters are computed from INLA's internal-scale marginals (log precision,
-  log size) and then transformed, because the user-scale precision marginals
-  can be too skewed for accurate quantiles.
+  `baseline_intercept`, `relative_mu_r2`, …, regional means
+  `absolute_mu_r1`, …, between-gene variances `tau2_r1`, … and noise variance
+  `sigma_e2`. For a joint fit of sections also the section offsets
+  `section_offset_2`, …, the section-specific variances `nu2_r1`, … and one
+  noise variance per section `sigma_e2_section_1`, …. In adjusted mode the
+  regional means are composition-adjusted states named `adjusted_state_r1`,
+  …, and `sigma_e2` is replaced by the NB size `nb_size0` and its inverse
+  `alpha0`.
 - `mean_contrasts`: differences of regional means, each region against the
   rest (`dmu_<r>_vs_rest`) and every pair (`dmu_<r>_vs_<s>`), with
   `p_gt_zero` and `lfsr`.
 - `domains`: each region called `"higher"`, `"lower"` or `"undecided"`
   against the rest from `p_gt_zero` ≥ 0.95 or ≤ 0.05 of its mean contrast.
-- `gene_covariate_coefficients`: per-gene slopes, or `NULL`.
-- `gene_coefficients`: adjusted mode only, the gene intercepts `a_g` and
-  composition slopes `lambda_g` of each gene; `NULL` in observed mode.
-- `fixed_marginals`, `hyper_marginals`, `contrast_marginals`, `metadata`,
-  `warnings`.
-- `internal_hyper_marginals`: INLA's `internal.marginals.hyperpar`, the
-  hyperparameter marginals on the internal scale, in the same order as
-  `hyper_marginals`.
+- Adjusted mode only: `gene_coefficients` (gene intercepts `a_g` and
+  composition slopes `lambda_g`) and the INLA marginals.
+- `metadata`.
 
 `score` is the posterior mean of π, the probability that a gene's expression
 state in the region exceeds that in the reference, with the measurement error
 of a gene's regional means added to the gene-to-gene variance; 0.5 means no
 difference.
-`evidence` is the posterior probability that π > 0.5. With thousands of spots
-it approaches 0 or 1 even for differences close to 0.5, so differences are
-called with a minimal effect δ fixed in advance (`pi_delta`, default 0.05):
-`evidence_higher` = P(π > 0.5 + δ), `evidence_lower` = P(π < 0.5 − δ), and
-`call` is `"higher"` or `"lower"` when the corresponding probability exceeds
-`pi_level` (0.95), otherwise `"none"`. Region indices in
+`evidence_higher` = P(π > 0.5 | Y) and `evidence_lower` = P(π < 0.5 | Y) are
+the posterior probabilities of higher and lower activity; `evidence` equals
+`evidence_higher`. `call` is `"higher"` or `"lower"` when that
+probability is at least 1 − `pi_alpha`/2 (0.975 by default), otherwise
+`"none"`. The optional `p_value` = 2 min(P(π > 0.5), P(π < 0.5)) gives the
+same calls at `p_value` ≤ `pi_alpha`; it is a posterior probability, not a
+frequentist p-value, and is reported only for comparison with methods that
+report p-values. Region indices in
 parameter and contrast names follow `metadata$region_labels`.
 
 ---
@@ -347,8 +286,8 @@ screen_write(summary, out)
 
 Writes `screen_summary.rds`, `overall_scores.csv`, `pairwise_scores.csv`,
 `parameters.csv`, `mean_contrasts.csv`, `domains.csv`, `runtime.csv`,
-`pi_diagnostics.rds`, `pi_refinement.csv`, `joint_marginal_diagnostic.csv`
-and `complete.txt`. The π files are written only when π was computed. In
+`pi_diagnostics.rds`, `pi_refinement.csv` and `complete.txt`
+(`joint_marginal_diagnostic.csv` in adjusted mode). The π files are written only when π was computed. In
 adjusted mode `gene_coefficients.csv` and `composition_diagnostics.csv` are
 also written.
 
@@ -357,15 +296,15 @@ also written.
 ## pathway_pi_integrate
 
 ```r
-pathway_pi_integrate(joint, delta = 0.05, level = 0.95, nodes = 4096,
-                     max_nodes = 65536, tolerance = 0.002)
+pathway_pi_integrate(joint, alpha = 0.05, report_p_value = FALSE,
+                     nodes = 4096, max_nodes = 65536, tolerance = 0.002)
 ```
 
 | Argument | Description |
 |----------|-------------|
-| `joint` | The `joint` element of `screen_joint_fit()`. |
-| `delta` | Minimal effect δ on the π scale, in [0, 0.5). |
-| `level` | Posterior probability required for a call, in (0.5, 1). |
+| `joint` | The `joint` element of `observed_fit()` or `screen_joint_fit()`. |
+| `alpha` | A region is called when the evidence in one direction is at least 1 − `alpha`/2. |
+| `report_p_value` | Add the `p_value` column. |
 | `nodes` | Initial number of quadrature nodes (power of two, ≥ 16). |
 | `max_nodes` | Maximum number of nodes (power of two, ≥ 2 × `nodes`). |
 | `tolerance` | Convergence tolerance between refinements. |
@@ -392,8 +331,8 @@ pathway_pi(mu_r, mu_s, tau2_r, tau2_s, kappa2 = 0)
 Returns π = Φ((`mu_r` − `mu_s`) / √(`tau2_r` + `tau2_s` + `kappa2`)).
 With `kappa2 = 0` this is P(Z<sub>r</sub> > Z<sub>s</sub>) for independent
 Z<sub>r</sub> ~ N(`mu_r`, `tau2_r`) and Z<sub>s</sub> ~ N(`mu_s`, `tau2_s`).
-Fits of the Gaussian model use σ<sub>ε</sub><sup>2</sup> from each CCD
-configuration. In the negative binomial model each count carries the
+Fits of the Gaussian model use σ<sub>ε</sub><sup>2</sup> at each point of
+the hyperparameter grid. In the negative binomial model each count carries the
 information w<sub>ig</sub> = 1/(1/m<sub>ig</sub> + 1/size<sub>g</sub>), where
 m<sub>ig</sub> is its expected count without regional effects and
 size<sub>g</sub> = nb_size0 · S<sub>g</sub> in that configuration; gene g has

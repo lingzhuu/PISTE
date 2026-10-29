@@ -158,17 +158,16 @@ proportions. White matter is compared with all other spots:
 ``` r
 spe    <- spe[, rownames(omega)]
 counts <- t(counts(spe))                       # spots x genes, raw counts
-xy     <- spatialCoords(spe)
 region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 
-res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
+res <- run_spapath(counts, region, gmt, mode = "adjusted",
                    proportions = omega, reference = nu,
                    baseline = "rest", out = "results_adjusted",
                    cfg = list(threads = "8:1"))
 ```
 
-`run_spapath()` builds the composition offset from `omega` and `nu`, builds
-the mesh and fits every gene set to the raw counts. Results are written to
+`run_spapath()` builds the composition offset from `omega` and `nu` and
+fits every gene set to the raw counts. Results are written to
 `results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
 evaluation uses B threads. See [API](../api.md#run_spapath) for all options.

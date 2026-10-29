@@ -39,7 +39,6 @@ spe <- spe[, !is.na(spe$layer_guess_reordered)]
 
 counts <- t(counts(spe))                       # spots x genes, raw counts
 colnames(counts) <- make.unique(rowData(spe)$gene_name)
-xy     <- spatialCoords(spe)
 region <- as.character(spe$layer_guess_reordered)
 table(region)
 ```
@@ -50,8 +49,7 @@ table(region)
 #>    273    253    989    218    673    692    513
 ```
 
-`counts`, `xy` and `region` follow the same spot order. The coordinates can
-be in any unit.
+`counts` and `region` follow the same spot order.
 
 The H&E image of the section and its manual layer annotation, Layer1 to
 Layer6 and white matter:
@@ -84,16 +82,13 @@ gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 
 
 ``` r
-res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
-                   out = "results_observed",
-                   cfg = list(threads = "8:1"))
+res <- run_spapath(counts, region, gmt, baseline = "WM",
+                   out = "results_observed")
 ```
 
-`run_spapath()` normalizes the counts with SCTransform, builds the mesh and
-fits every gene set, with WM as the baseline region. Results are written to
-`results_observed`. `cfg$threads` sets the number of threads INLA uses, as
-`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
+`run_spapath()` normalizes the counts with SCTransform and fits every gene
+set, with WM as the baseline region. Results are written to
+`results_observed`. See [API](../api.md#run_spapath) for all options.
 
 ## 4. Read the results
 

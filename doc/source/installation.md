@@ -21,8 +21,7 @@ on:
 
 | Package | Source | Used for |
 |---------|--------|----------|
-| INLA | [INLA repository](https://www.r-inla.org) | Model fitting |
-| fmesher | CRAN | Building the mesh for the spatial fields |
+| INLA | [INLA repository](https://www.r-inla.org) | Model fitting in the composition-adjusted mode |
 | Matrix | CRAN | Sparse matrices |
 | qrng | CRAN | Quadrature for the posterior evidence |
 | DESeq2 | Bioconductor | Dispersion estimation in the composition-adjusted mode |
