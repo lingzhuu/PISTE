@@ -19,7 +19,8 @@
 # so the posterior given theta is exact and needs only the cell means, cell
 # sizes and within-cell sums of squares. theta is integrated on a grid around
 # its posterior mode, as in INLA's grid strategy. pi uses the shared tau2_r,
-# the regional means and kappa2 = sigma2_1 (1/n_r + 1/n_s) of section 1.
+# the regional means and the noise of a gene's regional difference combined
+# over the sections, kappa2 = 1 / sum_k 1 / (sigma2_k (1/n_kr + 1/n_ks) + nu2_r + nu2_s).
 
 # Grid: points per axis (one section / several sections), half width in
 # posterior sd, smallest relative weight kept, and the smallest curvature used
@@ -133,11 +134,17 @@ observed_fit <- function(Y, region, section = NULL, cfg = list()) {
   points <- points[keep]; thetas <- thetas[keep, , drop = FALSE]; w <- w[keep] / sum(w[keep])
 
   # Mixture over the grid in the format read by pathway_pi_integrate()
-  n1 <- st$n[seq_len(R)]
-  spot_error <- outer(1 / n1, 1 / n1, "+"); diag(spot_error) <- 0
+  n_cell <- matrix(st$n, S, R, byrow = TRUE)
+  n1 <- n_cell[1, ]
+  combined_kappa2 <- function(p) {
+    k2 <- 1 / Reduce(`+`, lapply(seq_len(S), function(k)
+      1 / (p$sigma2[k] * outer(1 / n_cell[k, ], 1 / n_cell[k, ], "+") + outer(p$nu2, p$nu2, "+"))))
+    diag(k2) <- 0
+    k2
+  }
   configurations <- lapply(points, function(p)
     list(mu = p$mean, covariance = (p$cov + t(p$cov)) / 2, tau2 = p$tau2,
-         kappa2 = p$sigma2[1] * spot_error))
+         kappa2 = combined_kappa2(p)))
   joint <- list(configurations = configurations, weights = w, region_labels = labels,
                 region_spots = n1, estimand = PI_ESTIMAND, baseline_region = labels[1],
                 approximation = sprintf("exact given the variances, %d^%d grid", points_per_axis, d))
