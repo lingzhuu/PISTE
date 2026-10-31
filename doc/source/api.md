@@ -4,16 +4,23 @@
 library(PathwayLGM)
 ```
 
-SpaPath can be run in two ways. Quick mode runs the whole workflow for a
-panel of gene sets in one call to `run_spapath()`. Step-by-step mode calls
-the functions it is built from, for custom workflows: preparing the
-adjusted-mode inputs yourself, or fitting and summarising a single gene set.
+SpaPath answers two questions about a gene set. **Region comparison** asks
+whether the pathway is more active in one labelled region than in another
+and reports a directional score π with its evidence; it needs region labels
+and no coordinates. **Spatial map** asks where in the tissue the pathway is
+more or less active; it needs spot coordinates and no region labels.
+
+Each interface can be run in quick mode, which runs the whole workflow for a
+panel of gene sets in one call, or step by step with the functions it is
+built from.
+
+## Region comparison
 
 ### Quick mode
 
 | Function | Description |
 |----------|-------------|
-| [`run_spapath()`](#run_spapath) | Run SpaPath on every gene set of a panel, from raw counts to result tables. |
+| [`compare_regions()`](#compare_regions) | Compare the regions on every gene set of a panel, from raw counts to result tables. |
 | [`reference_profile()`](#reference_profile) | Reference expression of each cell type from single-cell counts, for the adjusted mode. |
 
 ### Step-by-step mode
@@ -29,19 +36,35 @@ adjusted-mode inputs yourself, or fitting and summarising a single gene set.
 | [`pathway_pi_integrate()`](#pathway_pi_integrate) | Recompute π scores and evidence from a fit. |
 | [`pathway_pi()`](#pathway_pi) | π for given regional means and variances. |
 
+## Spatial map
+
+### Quick mode
+
+| Function | Description |
+|----------|-------------|
+| [`map_activity()`](#map_activity) | Map the spatial activity of every gene set of a panel, from raw counts to regions of higher and lower activity. |
+
+### Step-by-step mode
+
+| Function | Description |
+|----------|-------------|
+| [`field_fit()`](#field_fit) | Fit the spatial field of one gene set with INLA and sample it at the spots. |
+| [`field_regions()`](#field_regions) | Regions of higher and lower activity from a fit. |
+
 ---
 
-## run_spapath
+
+## compare_regions
 
 ```r
-run_spapath(counts, region, gene_sets,
-            mode = c("observed", "adjusted"), out = NULL,
-            normalized = FALSE, proportions = NULL, reference = NULL,
-            baseline = NULL, section = NULL, joint_sections = FALSE,
-            min_genes = 5, cfg = list(), verbose = TRUE)
+compare_regions(counts, region, gene_sets,
+                mode = c("observed", "adjusted"), out = NULL,
+                normalized = FALSE, proportions = NULL, reference = NULL,
+                baseline = NULL, section = NULL, joint_sections = FALSE,
+                min_genes = 5, cfg = list(), verbose = TRUE)
 ```
 
-Runs SpaPath on every gene set of a panel in one call:
+Compares the regions on every gene set of a panel in one call:
 
 1. In observed mode, normalizes the counts of each section with SCTransform
    (sctransform v2 Pearson residuals, clipped at ±√(N/30) as in Seurat). In
@@ -101,7 +124,7 @@ reference_profile(counts, cell_type)
 ```
 
 Pools the raw counts of all cells of each cell type and scales them to
-counts per 10,000. The result is the `reference` of `run_spapath()` and
+counts per 10,000. The result is the `reference` of `compare_regions()` and
 `composition_offset()`.
 
 ### Arguments
@@ -385,3 +408,116 @@ with columns `gene`, `total`, `detected`, `eligible`, `dispersion` and
 ineligible genes. Gene-wise and MAP steps run in blocks, while the trend and
 its prior variance are fitted once on all genes, so the result equals an
 unblocked DESeq2 run. Requires DESeq2.
+
+---
+
+## map_activity
+
+```r
+map_activity(counts, coords, gene_sets, gene_field = TRUE, d = 0.1,
+             alpha = 0.05, out = NULL, normalized = FALSE, min_genes = 5,
+             threads = "8:1", verbose = TRUE)
+```
+
+Normalizes the counts with SCTransform (sctransform v2 Pearson residuals,
+clipped at ±√(N/30) as in Seurat), fits each gene set with
+[`field_fit()`](#field_fit) and calls its regions with
+[`field_regions()`](#field_regions). Gene sets with fewer than `min_genes`
+usable genes are skipped; a gene set whose fit fails is reported and the run
+goes on. Region labels are not used.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `counts` | Spots x genes matrix (dense or sparse) of raw counts with spot rownames and gene colnames. With `normalized = TRUE`, normalized expression instead. |
+| `coords` | Spots x 2 matrix of spot coordinates, in the spot order of `counts`. |
+| `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
+| `gene_field` | Add a spatial field of each gene; see [`field_fit()`](#field_fit). `FALSE` is about 50 times faster but less accurate. |
+| `d`, `alpha` | Minimum effect and joint posterior level of the regions; see [`field_regions()`](#field_regions). |
+| `out` | Optional output folder; see Value. |
+| `normalized` | `TRUE` when `counts` is already normalized, to skip SCTransform. |
+| `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
+| `threads` | INLA `num.threads`. |
+| `verbose` | Print progress messages. |
+
+### Value
+
+Invisibly, a list with
+
+- `gene_sets`: one row per gene set with the genes in the set, the genes
+  used, `status` (`done`, `skipped` or `failed`), a message, the posterior
+  mean of the sd of z, the number of spots called higher and lower, and the
+  fit time;
+- `results`: per fitted gene set, the [`field_regions()`](#field_regions)
+  table (`spots`) and the hyperparameters.
+
+With `out`, each gene set is written to its own subfolder (`spots.csv`,
+`hyperparameters.csv`) and `gene_sets.csv` is written to `out`.
+
+---
+
+## field_fit
+
+```r
+field_fit(Y, coords, gene_field = TRUE, threads = "8:1")
+```
+
+Fits one spatial field shared by all genes of the gene set,
+
+y<sub>ig</sub> = a<sub>g</sub> + z(s<sub>i</sub>) + w<sub>g</sub>(s<sub>i</sub>) + ε<sub>ig</sub>,
+ε<sub>ig</sub> ~ N(0, σ<sub>ε</sub><sup>2</sup>),
+
+where a<sub>g</sub> is a gene intercept, z is a Matérn field on a triangular
+mesh of the spots (the pathway map, constrained to sum to zero) and
+w<sub>g</sub> is a Matérn field of gene g on a coarser mesh, with one range
+and one sd for all genes, which absorbs the spatial pattern a gene has
+outside the pathway. Every gene enters z with weight 1, so genes that change
+in opposite directions cancel. Both fields have penalized complexity priors
+P(range < 0.1) = 0.5 and P(sd > 1) = 0.05 on coordinates scaled so that the
+longer side of the section is 1, and the noise precision has the prior
+P(σ<sub>ε</sub> > 2) = 0.05. The model is fitted with INLA and z is sampled
+1,000 times jointly at the spots.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `Y` | Spots x genes matrix of normalized expression with spot rownames, at least two genes. |
+| `coords` | Spots x 2 matrix of spot coordinates, in the spot order of `Y`. |
+| `gene_field` | Add the gene fields w<sub>g</sub>. `FALSE` is about 50 times faster but less accurate: spatial patterns of single genes that the gene set does not share can then appear as regions of the pathway. |
+| `threads` | INLA `num.threads`. |
+
+### Value
+
+A list with `draws` (spots x 1,000 matrix of z), `sigma_e` (posterior mean
+of σ<sub>ε</sub> from the noise precision), `hyperparameters` (mean, 2.5 %,
+50 % and 97.5 % quantiles of `noise_precision`, `range_z`, `sd_z` and, with
+gene fields, `range_w` and `sd_w`; ranges on the scaled coordinates) and
+`metadata`. Pass it to [`field_regions()`](#field_regions).
+
+---
+
+## field_regions
+
+```r
+field_regions(fit, d = 0.1, alpha = 0.05)
+```
+
+Calls the regions where z exceeds the minimum effect u = `d` σ<sub>ε</sub>.
+A spot is called `higher` when it belongs to the largest set of spots on
+which z > u everywhere with joint posterior probability at least
+1 − `alpha`, and `lower` likewise for z < −u. The spots enter the set in
+decreasing order of P(z > u). Because the probability is joint, the region as
+a whole has posterior probability 1 − `alpha`, not each spot on its own.
+
+| Argument | Description |
+|----------|-------------|
+| `fit` | Output of [`field_fit()`](#field_fit). |
+| `d` | Minimum effect in units of σ<sub>ε</sub>. `0` calls any spot where z is credibly above or below zero, however small. |
+| `alpha` | One minus the joint posterior probability of a region. |
+
+Returns a data frame with one row per spot: `spot`, `z_mean`, `z_sd`,
+`p_higher` = P(z > u), `p_lower` = P(z < −u) and `call` (`higher`, `lower`
+or `none`).
+

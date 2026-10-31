@@ -19,7 +19,7 @@ Description: Fits pathway models with a shared baseline intercept, relative
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, Matrix, methods, stats, utils, qrng, DESeq2,
+Imports: INLA, fmesher, Matrix, methods, stats, utils, qrng, DESeq2,
     S4Vectors, SummarizedExperiment, sctransform, hdf5r
 Suggests: glmGamPoi
 biocViews:
@@ -28,7 +28,9 @@ Collate:
     'pi_engine.R'
     'inla_screen.R'
     'observed_fit.R'
-    'run_spapath.R'
+    'compare_regions.R'
+    'field_fit.R'
+    'map_activity.R'
     'adjusted_inputs.R'
     'cli_io.R'
     'cli.R'

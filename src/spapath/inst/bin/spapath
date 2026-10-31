@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Command-line entry point of SpaPath. Usage: spapath run --help
+# Command-line entry point of SpaPath. Usage: spapath compare --help, spapath map --help
 status <- tryCatch(
   PathwayLGM::spapath_cli(commandArgs(trailingOnly = TRUE)),
   error = function(e) {

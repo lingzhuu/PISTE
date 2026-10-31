@@ -3,7 +3,7 @@
 # Build from the repository root:
 #   docker build -t spapath .
 # Run the command-line interface on files in the current folder:
-#   docker run --rm -v "$PWD":/work spapath spapath run --help
+#   docker run --rm -v "$PWD":/work spapath spapath compare --help
 # Or open R with the current folder mounted at /work:
 #   docker run --rm -it -v "$PWD":/work spapath
 #

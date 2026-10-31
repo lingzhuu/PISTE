@@ -8,7 +8,10 @@ importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx,
 importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
-export(run_spapath)
+export(compare_regions)
+export(map_activity)
+export(field_fit)
+export(field_regions)
 export(reference_profile)
 export(screen_joint_fit)
 export(observed_fit)

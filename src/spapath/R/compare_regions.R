@@ -1,13 +1,13 @@
 # =============================================================================
-# run_spapath.R
+# compare_regions.R
 #
-# One-call workflow: run SpaPath on every gene set of a panel.
+# One-call workflow: compare the regions on every gene set of a panel.
 #
-#   res <- run_spapath(counts, region, gene_sets)                  # observed
-#   res <- run_spapath(counts, region, gene_sets, section = sec,
-#                      joint_sections = TRUE)                      # adjacent sections
-#   res <- run_spapath(counts, region, gene_sets, mode = "adjusted",
-#                      proportions = omega, reference = nu)        # adjusted
+#   res <- compare_regions(counts, region, gene_sets)                  # observed
+#   res <- compare_regions(counts, region, gene_sets, section = sec,
+#                          joint_sections = TRUE)                  # adjacent sections
+#   res <- compare_regions(counts, region, gene_sets, mode = "adjusted",
+#                          proportions = omega, reference = nu)    # adjusted
 #
 # Steps
 #   normalise with SCTransform (observed) or build the dispersion scales and
@@ -21,7 +21,7 @@
 # =============================================================================
 
 
-#' Run SpaPath on a panel of gene sets
+#' Compare regions on a panel of gene sets
 #'
 #' Runs the whole workflow in one call: normalisation (observed mode) or the
 #' composition inputs (adjusted mode), and one fit per gene set. The observed
@@ -74,7 +74,7 @@
 #'   * `results`: the [screen_summarize()] output of each fitted gene set,
 #'     named by gene set (and `<section>/<gene set>` when fitted separately).
 #' @export
-run_spapath <- function(counts, region, gene_sets,
+compare_regions <- function(counts, region, gene_sets,
                         mode = c("observed", "adjusted"), out = NULL,
                         normalized = FALSE, proportions = NULL,
                         reference = NULL, baseline = NULL, section = NULL,
@@ -255,7 +255,7 @@ run_spapath <- function(counts, region, gene_sets,
 #' Reference expression of each cell type from single-cell counts
 #'
 #' Pools the raw counts of all cells of each cell type and scales them to
-#' counts per 10,000, giving the `reference` of [run_spapath()] and
+#' counts per 10,000, giving the `reference` of [compare_regions()] and
 #' [composition_offset()].
 #'
 #' @param counts Cells x genes matrix (dense or sparse) of raw counts with

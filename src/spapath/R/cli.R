@@ -4,16 +4,19 @@
 # Command-line interface: run SpaPath on every gene set of a GMT file from a
 # shell, without writing R code.
 #
-#   spapath run --input sample.h5ad --region-key layer --gmt sets.gmt \
+#   spapath compare --input sample.h5ad --region-key layer --gmt sets.gmt \
+#                   --out results/
+#   spapath map --input sample.h5ad --coords positions.csv --gmt sets.gmt \
 #               --out results/
 #
 # The `spapath` executable (inst/bin/spapath) calls spapath_cli(); the same
 # function can be called from R with a character vector of arguments.
 #
 # Pipeline
-#   read inputs -> align spots -> run_spapath() (see run_spapath.R)
+#   compare: read inputs -> align spots -> compare_regions() (compare_regions.R)
+#   map:     read inputs -> align spots -> map_activity() (map_activity.R)
 #
-# Several sections can be given in one run with --sections or --section-key;
+# Several sections can be given to compare with --sections or --section-key;
 # they are normalised separately and fitted on their own, or jointly with
 # --joint-sections when they are adjacent sections of the same tissue.
 # =============================================================================
@@ -23,73 +26,84 @@
 # Options
 # -----------------------------------------------------------------------------
 
-#' Command-line options of `spapath run`
+#' Command-line options of `spapath compare` and `spapath map`
 #'
-#' One row per option: name, default (NA = none), whether it is a flag and
-#' its help text.
+#' One row per option: name, default (NA = none), whether it is a flag, the
+#' commands it belongs to and its help text.
 #' @noRd
-cli_option_table <- function() {
+cli_option_table <- function(command) {
   rows <- list(
-    c("input", NA, FALSE, "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
-    c("layer", NA, FALSE, ".h5ad only: read layers/<LAYER> instead of X."),
-    c("genes-in-rows", "false", TRUE, ".csv/.tsv only: rows are genes and columns are spots."),
-    c("regions", NA, FALSE, "Table with spot ID and region label."),
-    c("region-key", NA, FALSE, ".h5ad only: obs column with the region labels."),
-    c("sections", NA, FALSE, "Optional table with spot ID and section label; sections are normalised separately and fitted on their own."),
-    c("section-key", NA, FALSE, ".h5ad only: obs column with the section labels."),
-    c("joint-sections", "false", TRUE, "Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue)."),
-    c("gmt", NA, FALSE, "Gene sets in GMT format."),
-    c("out", NA, FALSE, "Output directory."),
-    c("mode", "observed", FALSE, "observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition)."),
-    c("normalized", "false", TRUE, "Observed mode: the input is already normalised; skip SCTransform."),
-    c("proportions", NA, FALSE, "Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights."),
-    c("reference", NA, FALSE, "Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype-key."),
-    c("celltype-key", NA, FALSE, "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
-    c("target", NA, FALSE, "Compare this region with all other spots, which are pooled into 'rest'."),
-    c("baseline", NA, FALSE, "Baseline region of the model (default: the first label found)."),
-    c("min-genes", "5", FALSE, "Skip gene sets with fewer usable genes than this (at least 2)."),
-    c("threads", NA, FALSE, "Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1)."),
-    c("alpha", "0.05", FALSE, "A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2."),
-    c("p-value", "false", TRUE, "Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value)."),
-    c("no-pi", "false", TRUE, "Skip pi scores and evidence; report regional means only."),
-    c("help", "false", TRUE, "Show this help.")
+    c("input", NA, FALSE, "both", "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
+    c("layer", NA, FALSE, "both", ".h5ad only: read layers/<LAYER> instead of X."),
+    c("genes-in-rows", "false", TRUE, "both", ".csv/.tsv only: rows are genes and columns are spots."),
+    c("regions", NA, FALSE, "compare", "Table with spot ID and region label."),
+    c("region-key", NA, FALSE, "compare", ".h5ad only: obs column with the region labels."),
+    c("coords", NA, FALSE, "map", "Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file."),
+    c("sections", NA, FALSE, "compare", "Optional table with spot ID and section label; sections are normalised separately and fitted on their own."),
+    c("section-key", NA, FALSE, "compare", ".h5ad only: obs column with the section labels."),
+    c("joint-sections", "false", TRUE, "compare", "Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue)."),
+    c("gmt", NA, FALSE, "both", "Gene sets in GMT format."),
+    c("out", NA, FALSE, "both", "Output directory."),
+    c("mode", "observed", FALSE, "compare", "observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition)."),
+    c("normalized", "false", TRUE, "compare", "Observed mode: the input is already normalised; skip SCTransform."),
+    c("normalized", "false", TRUE, "map", "The input is already normalised; skip SCTransform."),
+    c("proportions", NA, FALSE, "compare", "Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights."),
+    c("reference", NA, FALSE, "compare", "Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype-key."),
+    c("celltype-key", NA, FALSE, "compare", "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
+    c("target", NA, FALSE, "compare", "Compare this region with all other spots, which are pooled into 'rest'."),
+    c("baseline", NA, FALSE, "compare", "Baseline region of the model (default: the first label found)."),
+    c("no-gene-field", "false", TRUE, "map", "Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions."),
+    c("d", "0.1", FALSE, "map", "Minimum effect of a region, in units of the noise sd."),
+    c("min-genes", "5", FALSE, "both", "Skip gene sets with fewer usable genes than this (at least 2)."),
+    c("threads", NA, FALSE, "compare", "Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1)."),
+    c("threads", "8:1", FALSE, "map", "INLA threads."),
+    c("alpha", "0.05", FALSE, "compare", "A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2."),
+    c("alpha", "0.05", FALSE, "map", "A region of higher or lower activity has joint posterior probability at least 1 - ALPHA."),
+    c("p-value", "false", TRUE, "compare", "Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value)."),
+    c("no-pi", "false", TRUE, "compare", "Skip pi scores and evidence; report regional means only."),
+    c("help", "false", TRUE, "both", "Show this help.")
   )
   table <- as.data.frame(do.call(rbind, rows), stringsAsFactors = FALSE)
-  names(table) <- c("name", "default", "flag", "help")
+  names(table) <- c("name", "default", "flag", "command", "help")
   table$flag <- table$flag == "TRUE"
+  table <- table[table$command %in% c(command, "both"), ]
+  rownames(table) <- NULL
   table
 }
 
 
-#' Usage text of `spapath run`
+#' Usage text of `spapath compare` or `spapath map`
 #' @noRd
-cli_usage <- function() {
-  options <- cli_option_table()
+cli_usage <- function(command) {
+  options <- cli_option_table(command)
   lines <- vapply(seq_len(nrow(options)), function(i) {
     o <- options[i, ]
     label <- if (o$flag) paste0("--", o$name) else paste0("--", o$name, " ", toupper(gsub("-", "_", o$name)))
     default <- if (!o$flag && !is.na(o$default)) paste0(" [default: ", o$default, "]") else ""
     paste0("  ", formatC(label, width = -30), " ", o$help, default)
   }, character(1))
-  c("Usage: spapath run [options]",
+  c(paste0("Usage: spapath ", command, " [options]"),
     "",
-    "Run SpaPath on every gene set of a GMT file.",
+    if (command == "compare") "Compare regions on every gene set of a GMT file." else
+      "Map the spatial activity of every gene set of a GMT file.",
     "",
     "Options:",
     lines,
     "",
     "Other commands:",
+    if (command == "compare") "  spapath map --help            Map spatial activity without region labels." else
+      "  spapath compare --help        Compare labelled regions.",
     "  spapath --version             Print the package version.")
 }
 
 
 #' Parse `--name value`, `--name=value` and `--flag` arguments
 #'
-#' @return Named list with every option of cli_option_table(); unset options
-#'   without a default are NULL, flags are logical.
+#' @return Named list with every option of cli_option_table(command); unset
+#'   options without a default are NULL, flags are logical.
 #' @noRd
-cli_parse_args <- function(args) {
-  options <- cli_option_table()
+cli_parse_args <- function(args, command) {
+  options <- cli_option_table(command)
   values <- setNames(vector("list", nrow(options)), options$name)
   for (i in seq_len(nrow(options))) {
     default <- options$default[i]
@@ -107,7 +121,7 @@ cli_parse_args <- function(args) {
       name <- sub("=.*$", "", name)
     }
     row <- match(name, options$name)
-    if (is.na(row)) stop("Unknown option --", name, ". See spapath run --help.")
+    if (is.na(row)) stop("Unknown option --", name, ". See spapath ", command, " --help.")
 
     if (options$flag[row]) {
       values[[name]] <- TRUE
@@ -127,10 +141,25 @@ cli_parse_args <- function(args) {
 
 #' Check option combinations and convert numeric options
 #' @noRd
-cli_check_options <- function(opts) {
-  required <- c("input", "gmt", "out")
+cli_check_options <- function(opts, command) {
+  required <- c("input", "gmt", "out", if (command == "map") "coords")
   missing <- required[vapply(opts[required], is.null, logical(1))]
   if (length(missing)) stop("Missing required option(s): ", paste0("--", missing, collapse = ", "))
+
+  opts$`min-genes` <- as.numeric(opts$`min-genes`)
+  if (!is.finite(opts$`min-genes`) || opts$`min-genes` <= 0) {
+    stop("--min-genes must be a positive number.")
+  }
+  opts$`min-genes` <- max(2, opts$`min-genes`)
+  opts$alpha <- as.numeric(opts$alpha)
+  if (!is.finite(opts$alpha) || opts$alpha <= 0 || opts$alpha >= 1) {
+    stop("--alpha must satisfy 0 < alpha < 1.")
+  }
+  if (command == "map") {
+    opts$d <- as.numeric(opts$d)
+    if (!is.finite(opts$d) || opts$d < 0) stop("--d must be a non-negative number.")
+    return(opts)
+  }
 
   opts$mode <- match.arg(opts$mode, c("observed", "adjusted"))
   if (opts$mode == "adjusted") {
@@ -146,16 +175,6 @@ cli_check_options <- function(opts) {
       stop("--joint-sections needs the section labels (--sections or --section-key).")
     }
     if (opts$mode == "adjusted") stop("--joint-sections applies to the observed mode.")
-  }
-
-  opts$`min-genes` <- as.numeric(opts$`min-genes`)
-  if (!is.finite(opts$`min-genes`) || opts$`min-genes` <= 0) {
-    stop("--min-genes must be a positive number.")
-  }
-  opts$`min-genes` <- max(2, opts$`min-genes`)
-  opts$alpha <- as.numeric(opts$alpha)
-  if (!is.finite(opts$alpha) || opts$alpha <= 0 || opts$alpha >= 1) {
-    stop("--alpha must satisfy 0 < alpha < 1.")
   }
   opts
 }
@@ -263,11 +282,30 @@ cli_adjusted_tables <- function(opts) {
 # Running gene sets
 # -----------------------------------------------------------------------------
 
-#' Run every gene set with run_spapath() and write the results
-#' @return The `gene_sets` status table of run_spapath().
+#' Read expression and coordinates and align them by spot
+#'
+#' @return List with `counts` (spots x genes) and `coords` (spots x 2), in the
+#'   same spot order.
 #' @noRd
-cli_run <- function(opts) {
-  opts <- cli_check_options(opts)
+cli_load_map_inputs <- function(opts) {
+  cli_log("Reading expression from ", opts$input)
+  data <- read_expression(opts$input, layer = opts$layer,
+                          genes_in_rows = isTRUE(opts$`genes-in-rows`))
+  coords <- read_coordinates(opts$coords)
+  spots <- intersect(rownames(data$counts), rownames(coords))
+  if (length(spots) < 10) {
+    stop("Only ", length(spots), " spots have expression and coordinates; check that the spot IDs match.")
+  }
+  cli_log(length(spots), " spots x ", ncol(data$counts), " genes")
+  list(counts = data$counts[spots, , drop = FALSE], coords = coords[spots, , drop = FALSE])
+}
+
+
+#' Compare regions on every gene set with compare_regions() and write the results
+#' @return The `gene_sets` status table of compare_regions().
+#' @noRd
+cli_compare <- function(opts) {
+  opts <- cli_check_options(opts, "compare")
   inputs <- cli_load_inputs(opts)
   gene_sets <- read_gmt(opts$gmt)
   cli_log(length(gene_sets), " gene sets in ", opts$gmt)
@@ -279,14 +317,33 @@ cli_run <- function(opts) {
   if (isTRUE(opts$`p-value`)) cfg$pi_report_p_value <- TRUE
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
-  res <- run_spapath(inputs$counts, inputs$region, gene_sets,
-                     mode = opts$mode, out = opts$out,
-                     normalized = isTRUE(opts$normalized),
-                     proportions = tables$proportions,
-                     reference = tables$reference,
-                     baseline = opts$baseline, section = inputs$section,
-                     joint_sections = isTRUE(opts$`joint-sections`),
-                     min_genes = opts$`min-genes`, cfg = cfg)
+  res <- compare_regions(inputs$counts, inputs$region, gene_sets,
+                         mode = opts$mode, out = opts$out,
+                         normalized = isTRUE(opts$normalized),
+                         proportions = tables$proportions,
+                         reference = tables$reference,
+                         baseline = opts$baseline, section = inputs$section,
+                         joint_sections = isTRUE(opts$`joint-sections`),
+                         min_genes = opts$`min-genes`, cfg = cfg)
+  cli_log("Results in ", opts$out)
+  invisible(res$gene_sets)
+}
+
+
+#' Map every gene set with map_activity() and write the results
+#' @return The `gene_sets` status table of map_activity().
+#' @noRd
+cli_map <- function(opts) {
+  opts <- cli_check_options(opts, "map")
+  inputs <- cli_load_map_inputs(opts)
+  gene_sets <- read_gmt(opts$gmt)
+  cli_log(length(gene_sets), " gene sets in ", opts$gmt)
+
+  res <- map_activity(inputs$counts, inputs$coords, gene_sets,
+                      gene_field = !isTRUE(opts$`no-gene-field`), d = opts$d,
+                      alpha = opts$alpha, out = opts$out,
+                      normalized = isTRUE(opts$normalized),
+                      min_genes = opts$`min-genes`, threads = opts$threads)
   cli_log("Results in ", opts$out)
   invisible(res$gene_sets)
 }
@@ -299,32 +356,37 @@ cli_run <- function(opts) {
 #' Command-line entry point of SpaPath
 #'
 #' Runs SpaPath on every gene set of a GMT file. Called by the `spapath`
-#' executable installed with the package; see `spapath run --help`.
+#' executable installed with the package; see `spapath compare --help` and
+#' `spapath map --help`.
 #'
-#' Outputs in `--out`: one folder per gene set with the files of
-#' [screen_write()], `overall_scores.csv` and `pairwise_scores.csv` combining
-#' all gene sets, and `gene_sets.csv` with the status of each set.
+#' Outputs in `--out`: one folder per gene set and `gene_sets.csv` with the
+#' status of each set. `compare` writes the files of [screen_write()] and
+#' `overall_scores.csv` and `pairwise_scores.csv` combining all gene sets;
+#' `map` writes `spots.csv` and `hyperparameters.csv` (see [map_activity()]).
 #'
 #' @param args Character vector of command-line arguments, e.g.
-#'   `c("run", "--input", "sample.h5ad", ...)`.
+#'   `c("compare", "--input", "sample.h5ad", ...)`.
 #' @return Invisibly, the exit status (0 on success).
 #' @export
 spapath_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
   if (!length(args) || args[1] %in% c("-h", "--help", "help")) {
-    writeLines(cli_usage())
+    writeLines(c(cli_usage("compare"), "", cli_usage("map")))
     return(invisible(0))
   }
   if (args[1] %in% c("--version", "version")) {
     writeLines(paste("SpaPath (PathwayLGM)", as.character(utils::packageVersion("PathwayLGM"))))
     return(invisible(0))
   }
-  if (args[1] != "run") stop("Unknown command '", args[1], "'. Use: spapath run [options]")
+  command <- args[1]
+  if (!command %in% c("compare", "map")) {
+    stop("Unknown command '", command, "'. Use: spapath compare [options] or spapath map [options]")
+  }
 
-  opts <- cli_parse_args(args[-1])
+  opts <- cli_parse_args(args[-1], command)
   if (isTRUE(opts$help)) {
-    writeLines(cli_usage())
+    writeLines(cli_usage(command))
     return(invisible(0))
   }
-  status <- cli_run(opts)
+  status <- if (command == "compare") cli_compare(opts) else cli_map(opts)
   invisible(if (any(status$status == "done")) 0 else 1)
 }
