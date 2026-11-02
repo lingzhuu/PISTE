@@ -19,7 +19,7 @@ Description: Fits pathway models with a shared baseline intercept, relative
 License: file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, fmesher, Matrix, methods, stats, utils, qrng, DESeq2,
+Imports: INLA, fmesher, excursions, Matrix, methods, stats, utils, qrng, DESeq2,
     S4Vectors, SummarizedExperiment, sctransform, hdf5r
 Suggests: glmGamPoi
 biocViews:

@@ -12,17 +12,17 @@
 # coordinates scaled so that the longer side of the section is 1; the noise
 # precision has the PC prior P(sigma_e > 2) = 0.05. Every gene enters with
 # weight +1, so genes of a gene set that move in opposite directions cancel.
-# The model is fitted with INLA and z is sampled jointly at the spots.
+# The model is fitted with INLA.
 #
-# Regions of the map are joint excursion sets: the largest set of spots on
-# which z > u everywhere with posterior probability 1 - alpha, and likewise
-# z < -u, with the minimum effect u = d * sigma_e.
+# Regions of the map are joint excursion sets (Bolin & Lindgren 2015): the
+# largest set of spots on which z > u everywhere with posterior probability
+# 1 - alpha, and likewise z < -u, with the minimum effect u = d * sigma_e,
+# computed by the excursions package with its QC method.
 
 # Meshes on the scaled coordinates (max.edge inside / outside, cutoff, offset
-# inside / outside) and the number of joint posterior draws of z.
+# inside / outside).
 FIELD_MESH <- list(max_edge = c(.02, .1), cutoff = .01, offset = c(.05, .2))
 GENE_FIELD_MESH <- list(max_edge = c(.1, .3), cutoff = .3 / 9, offset = c(.15, .45))
-FIELD_DRAWS <- 1000
 
 
 field_spde <- function(mesh) {
@@ -39,8 +39,8 @@ field_mesh <- function(xy, m) {
 #' Fit the spatial field of one gene set
 #'
 #' Fits one spatial field z shared by all genes of the gene set, and with
-#' `gene_field = TRUE` a spatial field of each gene, and samples z jointly at
-#' the spots. Pass the result to [field_regions()].
+#' `gene_field = TRUE` a spatial field of each gene. Pass the result to
+#' [field_regions()].
 #'
 #' @param Y Spots x genes matrix of normalised expression, with spot rownames.
 #' @param coords Spots x 2 matrix of spot coordinates, in the spot order of `Y`.
@@ -49,10 +49,10 @@ field_mesh <- function(xy, m) {
 #'   less accurate: spatial patterns of single genes that are not
 #'   shared by the gene set can then appear as regions of the pathway.
 #' @param threads INLA `num.threads`.
-#' @return A list with `draws` (spots x draws matrix of z), `sigma_e`,
-#'   `hyperparameters` (posterior summaries of the noise precision and the
-#'   range and sd of each field; ranges on the scaled coordinates) and
-#'   `metadata`.
+#' @return A list with `inla` (the INLA fit), `node` (the mesh node of each
+#'   spot), `spots`, `sigma_e`, `hyperparameters` (posterior summaries of the
+#'   noise precision and the range and sd of each field; ranges on the scaled
+#'   coordinates) and `metadata`.
 #' @export
 field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
   started <- proc.time()[["elapsed"]]
@@ -86,37 +86,20 @@ field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
                     control.compute = list(config = TRUE),
                     control.inla = list(strategy = "gaussian", int.strategy = "ccd"),
                     inla.mode = "experimental", num.threads = threads)
-  samples <- INLA::inla.posterior.sample(FIELD_DRAWS, fit, selection = list(field = 0),
-                                         num.threads = threads, seed = 42, skew.corr = FALSE)
-  draws <- as.matrix(A %*% do.call(cbind, lapply(samples, function(s) s$latent[, 1])))
-  rownames(draws) <- rownames(Y)
 
   hyper <- fit$summary.hyperpar[, c("mean", "0.025quant", "0.5quant", "0.975quant")]
   names(hyper) <- c("mean", "lower", "median", "upper")
   rownames(hyper) <- c("Precision for the Gaussian observations" = "noise_precision",
                        "Range for field" = "range_z", "Stdev for field" = "sd_z",
                        "Range for gene_field" = "range_w", "Stdev for gene_field" = "sd_w")[rownames(hyper)]
-  list(draws = draws, sigma_e = 1 / sqrt(hyper["noise_precision", "mean"]), hyperparameters = hyper,
+  # The mesh is built on the spots, so each spot is a mesh node; spots closer
+  # than the cutoff share the node with the largest basis weight.
+  list(inla = fit, node = apply(A, 1, which.max), spots = rownames(Y),
+       sigma_e = 1 / sqrt(hyper["noise_precision", "mean"]), hyperparameters = hyper,
        metadata = list(N = N, K = K, gene_labels = colnames(Y), gene_field = gene_field,
                        mesh_nodes = mesh$n, threads = threads,
                        model_version = as.character(utils::packageVersion("PathwayLGM")),
                        fit_seconds = proc.time()[["elapsed"]] - started))
-}
-
-
-# Largest set of spots, in decreasing order of P(B), on which B holds in all
-# of a fraction 1 - alpha of the draws.
-excursion_set <- function(B, alpha) {
-  prob <- rowMeans(B)
-  ord <- order(prob, decreasing = TRUE)
-  run <- apply(B[ord, , drop = FALSE], 2, function(v) {
-    f <- which(!v)
-    if (length(f)) f[1] - 1 else length(v)
-  })
-  m <- sum(vapply(seq_len(nrow(B)), function(k) mean(run >= k) >= 1 - alpha, logical(1)))
-  in_set <- logical(nrow(B))
-  in_set[ord[seq_len(m)]] <- TRUE
-  list(in_set = in_set, prob = prob)
 }
 
 
@@ -125,7 +108,8 @@ excursion_set <- function(B, alpha) {
 #' Calls the spots where the pathway field z exceeds the minimum effect
 #' u = `d` * sigma_e, jointly: a spot is called `"higher"` when it belongs to
 #' the largest set of spots on which z > u everywhere with posterior
-#' probability at least 1 - `alpha`, and `"lower"` likewise for z < -u.
+#' probability at least 1 - `alpha`, and `"lower"` likewise for z < -u. The
+#' sets are computed with the QC method of [excursions::excursions.inla()].
 #'
 #' @param fit Output of [field_fit()].
 #' @param d Minimum effect, in units of the noise sd sigma_e.
@@ -135,10 +119,15 @@ excursion_set <- function(B, alpha) {
 #' @export
 field_regions <- function(fit, d = .1, alpha = .05) {
   u <- d * fit$sigma_e
-  higher <- excursion_set(fit$draws > u, alpha)
-  lower <- excursion_set(fit$draws < -u, alpha)
-  data.frame(spot = rownames(fit$draws), z_mean = rowMeans(fit$draws),
-             z_sd = apply(fit$draws, 1, stats::sd), p_higher = higher$prob, p_lower = lower$prob,
-             call = ifelse(higher$in_set, "higher", ifelse(lower$in_set, "lower", "none")),
+  threads <- as.integer(sub(":.*", "", fit$metadata$threads))
+  excursion <- function(level, type)
+    excursions::excursions.inla(fit$inla, name = "field", ind = unique(fit$node), method = "QC", alpha = alpha,
+                                u = level, type = type, max.threads = threads, seed = 42)
+  higher <- excursion(u, ">")
+  lower <- excursion(-u, "<")
+  z <- fit$inla$summary.random$field[fit$node, ]
+  data.frame(spot = fit$spots, z_mean = z$mean, z_sd = z$sd,
+             p_higher = higher$rho[fit$node], p_lower = lower$rho[fit$node],
+             call = ifelse(higher$E[fit$node] == 1, "higher", ifelse(lower$E[fit$node] == 1, "lower", "none")),
              stringsAsFactors = FALSE)
 }

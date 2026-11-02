@@ -476,8 +476,7 @@ outside the pathway. Every gene enters z with weight 1, so genes that change
 in opposite directions cancel. Both fields have penalized complexity priors
 P(range < 0.1) = 0.5 and P(sd > 1) = 0.05 on coordinates scaled so that the
 longer side of the section is 1, and the noise precision has the prior
-P(σ<sub>ε</sub> > 2) = 0.05. The model is fitted with INLA and z is sampled
-1,000 times jointly at the spots.
+P(σ<sub>ε</sub> > 2) = 0.05. The model is fitted with INLA.
 
 ### Arguments
 
@@ -490,7 +489,8 @@ P(σ<sub>ε</sub> > 2) = 0.05. The model is fitted with INLA and z is sampled
 
 ### Value
 
-A list with `draws` (spots x 1,000 matrix of z), `sigma_e` (posterior mean
+A list with `inla` (the INLA fit), `node` (the mesh node of each spot),
+`spots`, `sigma_e` (posterior mean
 of σ<sub>ε</sub> from the noise precision), `hyperparameters` (mean, 2.5 %,
 50 % and 97.5 % quantiles of `noise_precision`, `range_z`, `sd_z` and, with
 gene fields, `range_w` and `sd_w`; ranges on the scaled coordinates) and
@@ -507,9 +507,10 @@ field_regions(fit, d = 0.1, alpha = 0.05)
 Calls the regions where z exceeds the minimum effect u = `d` σ<sub>ε</sub>.
 A spot is called `higher` when it belongs to the largest set of spots on
 which z > u everywhere with joint posterior probability at least
-1 − `alpha`, and `lower` likewise for z < −u. The spots enter the set in
-decreasing order of P(z > u). Because the probability is joint, the region as
-a whole has posterior probability 1 − `alpha`, not each spot on its own.
+1 − `alpha`, and `lower` likewise for z < −u. The sets are excursion sets
+(Bolin & Lindgren 2015) computed with the QC method of the excursions
+package. Because the probability is joint, the region as a whole has
+posterior probability 1 − `alpha`, not each spot on its own.
 
 | Argument | Description |
 |----------|-------------|
