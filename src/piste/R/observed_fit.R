@@ -95,7 +95,7 @@ observed_at_theta <- function(theta, st) {
 #' @param region Region label of each spot.
 #' @param section Optional section label of each spot; two or more sections
 #'   are fitted jointly. Every region must be present in every section.
-#' @param cfg Options as for [compare_regions()]: `pi`, `pi_alpha`,
+#' @param cfg Options as for [compare()]: `pi`, `pi_alpha`,
 #'   `pi_report_p_value`, `baseline_region`.
 #' @return A fit to pass to [screen_summarize()].
 #' @export

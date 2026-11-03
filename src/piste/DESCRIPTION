@@ -28,7 +28,7 @@ Collate:
     'pi_engine.R'
     'inla_screen.R'
     'observed_fit.R'
-    'compare_regions.R'
+    'compare.R'
     'field_fit.R'
     'map_activity.R'
     'adjusted_inputs.R'

@@ -160,17 +160,17 @@ spe    <- spe[, rownames(omega)]
 counts <- t(counts(spe))                       # spots x genes, raw counts
 region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 
-res <- compare_regions(counts, region, gmt, mode = "adjusted",
-                   proportions = omega, reference = nu,
-                   baseline = "rest", out = "results_adjusted",
-                   cfg = list(threads = "8:1"))
+res <- compare(counts, region, gmt, mode = "adjusted",
+           proportions = omega, reference = nu,
+           baseline = "rest", out = "results_adjusted",
+           cfg = list(threads = "8:1"))
 ```
 
-`compare_regions()` builds the composition offset from `omega` and `nu` and
+`compare()` builds the composition offset from `omega` and `nu` and
 fits every gene set to the raw counts. Results are written to
 `results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#compare_regions) for all options.
+evaluation uses B threads. See [API](../api.md#compare) for all options.
 
 ## 6. Read the results
 
@@ -251,4 +251,4 @@ head(res$results[[1]]$gene_coefficients)
 #> 6  CACNB4       a_g -3.2453446 -3.8240017 -3.2452924 -2.6669838
 ```
 
-See [API](../api.md#compare_regions) for all outputs.
+See [API](../api.md#compare) for all outputs.

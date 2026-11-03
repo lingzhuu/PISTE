@@ -68,16 +68,16 @@ gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ## 3. Run PISTE
 
 ```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
-res <- compare_regions(counts, xy, region, gmt, baseline = "WM",
-                   out = "results_observed",
-                   cfg = list(threads = "8:1"))
+res <- compare(counts, xy, region, gmt, baseline = "WM",
+           out = "results_observed",
+           cfg = list(threads = "8:1"))
 ```
 
-`compare_regions()` normalizes the counts with SCTransform, builds the mesh and
+`compare()` normalizes the counts with SCTransform, builds the mesh and
 fits every gene set, with WM as the baseline region. Results are written to
 `results_observed`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#compare_regions) for all options.
+evaluation uses B threads. See [API](../api.md#compare) for all options.
 
 ## 4. Read the results
 
@@ -94,4 +94,4 @@ pathway gene's expression state in WM exceeds its state in the cortical
 layers, and `evidence` is the posterior probability that π > 0.5. Evidence
 near 1 indicates higher activity in WM and evidence near 0 higher activity in
 the cortical layers. `res$pairwise` gives the same quantities for every pair
-of regions. See [API](../api.md#compare_regions) for all outputs.
+of regions. See [API](../api.md#compare) for all outputs.

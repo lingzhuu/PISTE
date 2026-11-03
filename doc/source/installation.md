@@ -26,13 +26,24 @@ on:
 | qrng | CRAN | Quadrature for the posterior evidence |
 | DESeq2 | Bioconductor | Dispersion estimation in the composition-adjusted mode |
 | S4Vectors, SummarizedExperiment | Bioconductor | Required by the DESeq2 step |
-| sctransform | CRAN | SCTransform normalization in `compare_regions()` and the [command line](cli.md) |
+| sctransform | CRAN | SCTransform normalization in `compare()` and the [command line](cli/index.md) |
 | hdf5r | CRAN | Reading `.h5ad` and 10x `.h5` files in the command line |
 | glmGamPoi | Bioconductor | Faster SCTransform (optional) |
 
 Packages that are only needed to run the [examples](examples/observed.md), such
 as the data package and the deconvolution method, are listed at the start of
 each example.
+
+
+## Command line
+
+The `piste` command is installed with the package. Put it on your `PATH` once:
+
+```bash
+ln -s "$(Rscript -e 'cat(system.file("bin/piste", package = "PISTE"))')" \
+      ~/.local/bin/piste
+piste --version
+```
 
 ## If INLA fails to install
 
@@ -54,7 +65,7 @@ platform-specific notes.
 ## Docker
 
 PISTE can also be installed using the Docker image, which contains R,
-PISTE, all its dependencies, the `piste` [command](cli.md) and the
+PISTE, all its dependencies, the `piste` [command](cli/index.md) and the
 packages used in the examples.
 
 ```bash

@@ -1,27 +1,33 @@
 site_name: PISTE
 site_description: Spatial pathway inference for spatial transcriptomics with INLA
 repo_url: https://github.com/lingzhuu/PISTE
-edit_uri: edit/dev/doc/source/
+edit_uri: edit/main/doc/source/
 docs_dir: source
 
 theme:
   name: material
   features:
     - content.code.copy
-    - navigation.sections
+    - navigation.indexes
 
 markdown_extensions:
   - admonition
   - tables
+  - def_list
   - toc:
       permalink: true
   - pymdownx.superfences
 
 nav:
+  - Home: index.md
   - Installation: installation.md
-  - Command line: cli.md
-  - API: api.md
-  - Examples:
+  - Example usage: usage.md
+  - Tutorials:
       - Observed mode on DLPFC: examples/observed.md
       - Composition-adjusted mode on DLPFC: examples/composition.md
-  - About: about.md
+  - Command line:
+      - cli/index.md
+      - compare: cli/compare.md
+      - compare -joint_sections: cli/compare_joint_sections.md
+      - map: cli/map.md
+  - R API: api.md

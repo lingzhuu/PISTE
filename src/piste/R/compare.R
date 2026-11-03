@@ -1,13 +1,13 @@
 # =============================================================================
-# compare_regions.R
+# compare.R
 #
 # One-call workflow: compare the regions on every gene set of a panel.
 #
-#   res <- compare_regions(counts, region, gene_sets)                  # observed
-#   res <- compare_regions(counts, region, gene_sets, section = sec,
-#                          joint_sections = TRUE)                  # adjacent sections
-#   res <- compare_regions(counts, region, gene_sets, mode = "adjusted",
-#                          proportions = omega, reference = nu)    # adjusted
+#   res <- compare(counts, region, gene_sets)                  # observed
+#   res <- compare(counts, region, gene_sets, section = sec,
+#                  joint_sections = TRUE)                  # adjacent sections
+#   res <- compare(counts, region, gene_sets, mode = "adjusted",
+#                  proportions = omega, reference = nu)    # adjusted
 #
 # Steps
 #   normalise with SCTransform (observed) or build the dispersion scales and
@@ -74,12 +74,12 @@
 #'   * `results`: the [screen_summarize()] output of each fitted gene set,
 #'     named by gene set (and `<section>/<gene set>` when fitted separately).
 #' @export
-compare_regions <- function(counts, region, gene_sets,
-                        mode = c("observed", "adjusted"), out = NULL,
-                        normalized = FALSE, proportions = NULL,
-                        reference = NULL, baseline = NULL, section = NULL,
-                        joint_sections = FALSE, min_genes = 5, cfg = list(),
-                        verbose = TRUE) {
+compare <- function(counts, region, gene_sets,
+                    mode = c("observed", "adjusted"), out = NULL,
+                    normalized = FALSE, proportions = NULL,
+                    reference = NULL, baseline = NULL, section = NULL,
+                    joint_sections = FALSE, min_genes = 5, cfg = list(),
+                    verbose = TRUE) {
   mode <- match.arg(mode)
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
 
@@ -255,7 +255,7 @@ compare_regions <- function(counts, region, gene_sets,
 #' Reference expression of each cell type from single-cell counts
 #'
 #' Pools the raw counts of all cells of each cell type and scales them to
-#' counts per 10,000, giving the `reference` of [compare_regions()] and
+#' counts per 10,000, giving the `reference` of [compare()] and
 #' [composition_offset()].
 #'
 #' @param counts Cells x genes matrix (dense or sparse) of raw counts with

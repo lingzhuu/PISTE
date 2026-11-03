@@ -58,8 +58,8 @@ library(PISTE)
 # coords: spots x 2 spot coordinates; gene_sets: named list or GMT file
 
 # Region comparison
-res <- compare_regions(counts, region, "pathways.gmt", baseline = "WM",
-                       out = "results_compare")
+res <- compare(counts, region, "pathways.gmt", baseline = "WM",
+               out = "results_compare")
 head(res$overall)
 
 # Spatial map

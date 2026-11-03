@@ -20,7 +20,7 @@ built from.
 
 | Function | Description |
 |----------|-------------|
-| [`compare_regions()`](#compare_regions) | Compare the regions on every gene set of a panel, from raw counts to result tables. |
+| [`compare()`](#compare) | Compare the regions on every gene set of a panel, from raw counts to result tables. |
 | [`reference_profile()`](#reference_profile) | Reference expression of each cell type from single-cell counts, for the adjusted mode. |
 
 ### Step-by-step mode
@@ -54,14 +54,14 @@ built from.
 ---
 
 
-## compare_regions
+## compare
 
 ```r
-compare_regions(counts, region, gene_sets,
-                mode = c("observed", "adjusted"), out = NULL,
-                normalized = FALSE, proportions = NULL, reference = NULL,
-                baseline = NULL, section = NULL, joint_sections = FALSE,
-                min_genes = 5, cfg = list(), verbose = TRUE)
+compare(counts, region, gene_sets,
+        mode = c("observed", "adjusted"), out = NULL,
+        normalized = FALSE, proportions = NULL, reference = NULL,
+        baseline = NULL, section = NULL, joint_sections = FALSE,
+        min_genes = 5, cfg = list(), verbose = TRUE)
 ```
 
 Compares the regions on every gene set of a panel in one call:
@@ -124,7 +124,7 @@ reference_profile(counts, cell_type)
 ```
 
 Pools the raw counts of all cells of each cell type and scales them to
-counts per 10,000. The result is the `reference` of `compare_regions()` and
+counts per 10,000. The result is the `reference` of `compare()` and
 `composition_offset()`.
 
 ### Arguments

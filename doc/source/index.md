@@ -1,19 +1,30 @@
-# PISTE
+# Welcome to PISTE's documentation
 
-PISTE tests whether a gene pathway is more active in one tissue region than
-in another in spatial transcriptomics data. It models all genes of a pathway
-jointly and, for every pair of regions and for every region against the rest
-of the tissue, reports a directional score and its posterior evidence.
-Adjacent sections of the same tissue can be fitted jointly, so that the score
-reflects the regional difference reproduced across sections.
+## Introduction
 
-PISTE is distributed as an R package.
+PISTE (**P**athway **I**nference from **S**patial **T**ranscriptomic
+**E**xpression) tests whether a gene pathway is more active in one tissue
+region than in another, and maps where in the tissue a pathway is more or
+less active. It models all genes of a gene set jointly and is distributed as
+an R package with a command-line tool.
+
+## How to cite
+
+A manuscript describing PISTE is in preparation.
+
+## Key features
+
+- **Region comparison**: a directional score π between 0 and 1 and its
+  posterior evidence, for every pair of regions and for each region against
+  the rest of the tissue.
+- **Composition adjustment**: the regional difference that cell-type
+  composition does not explain, from raw counts, cell-type proportions and a
+  single-cell reference.
+- **Adjacent sections**: sections of the same tissue fitted jointly, so that
+  the score reflects the difference reproduced across sections.
+- **Spatial map**: regions of higher and lower pathway activity from a spatial
+  field shared by the genes of the set, without region labels.
+
+## Overview of PISTE
 
 ![Overview of PISTE](figures/method_overview.png)
-
-- [Installation](installation.md)
-- [Command line](cli.md)
-- [API](api.md)
-- Examples: [observed mode](examples/observed.md) and
-  [composition-adjusted mode](examples/composition.md)
-- [About](about.md)

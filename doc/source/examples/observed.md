@@ -82,13 +82,13 @@ gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 
 
 ``` r
-res <- compare_regions(counts, region, gmt, baseline = "WM",
-                   out = "results_observed")
+res <- compare(counts, region, gmt, baseline = "WM",
+           out = "results_observed")
 ```
 
-`compare_regions()` normalizes the counts with SCTransform and fits every gene
+`compare()` normalizes the counts with SCTransform and fits every gene
 set, with WM as the baseline region. Results are written to
-`results_observed`. See [API](../api.md#compare_regions) for all options.
+`results_observed`. See [API](../api.md#compare) for all options.
 
 ## 4. Read the results
 
@@ -151,4 +151,4 @@ pathway gene's expression state in WM exceeds its state in the cortical
 layers, and `evidence` is the posterior probability that π > 0.5. Evidence
 near 1 indicates higher activity in WM and evidence near 0 higher activity in
 the cortical layers. `res$pairwise` gives the same quantities for every pair
-of regions. See [API](../api.md#compare_regions) for all outputs.
+of regions. See [API](../api.md#compare) for all outputs.

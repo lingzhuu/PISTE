@@ -1,5 +1,5 @@
 # DLPFC 12 sections: WM (target) versus all other labelled spots (rest) in the
-# composition-adjusted mode of compare_regions(), 30 gene sets of
+# composition-adjusted mode of compare(), 30 gene sets of
 # benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt (the sets of Figure X).
 # Inputs of each section, in benchmark/analysis/DLPFC/data/:
 #   * raw UMI counts of <section>/<section>_filtered_feature_bc_matrix.h5;
@@ -63,7 +63,7 @@ for (section in sections) {
   colnames(reference) <- genes_csv$symbol[match(ids, genes_csv$gene_id)]
 
   set.seed(42)
-  compare_regions(counts[spots$spot, ], region, gmt_file, mode = "adjusted",
-                  proportions = proportions, reference = reference,
-                  baseline = "rest", out = out)
+  compare(counts[spots$spot, ], region, gmt_file, mode = "adjusted",
+          proportions = proportions, reference = reference,
+          baseline = "rest", out = out)
 }
