@@ -6,7 +6,7 @@
 #
 # Each <page>.Rmd is knitted to doc/source/examples/<page>.md, with figures in
 # doc/source/examples/figures/. Code runs in a work folder outside the
-# repository (SPAPATH_DOC_WORK, default ~/spapath_doc_work), which also holds
+# repository (PISTE_DOC_WORK, default ~/piste_doc_work), which also holds
 # the knitr cache and the result folders written by the examples. The DLPFC
 # GMT file is copied there under the same relative path, since the examples
 # read it from benchmark/analysis/DLPFC/data/.
@@ -19,7 +19,7 @@ if (!length(pages)) pages <- c("observed", "composition")
 
 source_dir <- normalizePath("doc/examples")
 page_dir   <- normalizePath("doc/source/examples")
-work_dir   <- path.expand(Sys.getenv("SPAPATH_DOC_WORK", "~/spapath_doc_work"))
+work_dir   <- path.expand(Sys.getenv("PISTE_DOC_WORK", "~/piste_doc_work"))
 dir.create(work_dir, showWarnings = FALSE, recursive = TRUE)
 work_dir   <- normalizePath(work_dir)
 gmt_dir    <- "benchmark/analysis/DLPFC/data"

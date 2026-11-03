@@ -1,10 +1,10 @@
 # =============================================================================
-# run_spapath.R
+# run_piste.R
 #
-# One-call workflow: run SpaPath on every gene set of a panel.
+# One-call workflow: run PISTE on every gene set of a panel.
 #
-#   res <- run_spapath(counts, xy, region, gene_sets)            # observed
-#   res <- run_spapath(counts, xy, region, gene_sets,
+#   res <- run_piste(counts, xy, region, gene_sets)            # observed
+#   res <- run_piste(counts, xy, region, gene_sets,
 #                      mode = "adjusted",
 #                      proportions = omega, reference = nu)       # adjusted
 #
@@ -20,7 +20,7 @@
 # =============================================================================
 
 
-#' Run SpaPath on a panel of gene sets
+#' Run PISTE on a panel of gene sets
 #'
 #' Runs the whole workflow in one call: normalisation (observed mode) or the
 #' composition inputs (adjusted mode), the mesh, and one fit per gene set.
@@ -59,7 +59,7 @@
 #'     was fitted, skipped or failed;
 #'   * `results`: the [screen_summarize()] output of each fitted gene set.
 #' @export
-run_spapath <- function(counts, xy, region, gene_sets,
+run_piste <- function(counts, xy, region, gene_sets,
                         mode = c("observed", "adjusted"), out = NULL,
                         normalized = FALSE, proportions = NULL,
                         reference = NULL, baseline = NULL, h = 0.3,
@@ -194,7 +194,7 @@ run_spapath <- function(counts, xy, region, gene_sets,
 #' Reference expression of each cell type from single-cell counts
 #'
 #' Pools the raw counts of all cells of each cell type and scales them to
-#' counts per 10,000, giving the `reference` of [run_spapath()] and
+#' counts per 10,000, giving the `reference` of [run_piste()] and
 #' [composition_offset()].
 #'
 #' @param counts Cells x genes matrix (dense or sparse) of raw counts with

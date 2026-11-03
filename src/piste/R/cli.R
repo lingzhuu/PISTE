@@ -1,17 +1,17 @@
 # =============================================================================
 # cli.R
 #
-# Command-line interface: run SpaPath on every gene set of a GMT file from a
+# Command-line interface: run PISTE on every gene set of a GMT file from a
 # shell, without writing R code.
 #
-#   spapath run --input sample.h5ad --region-key layer --gmt sets.gmt \
+#   piste run --input sample.h5ad --region-key layer --gmt sets.gmt \
 #               --out results/
 #
-# The `spapath` executable (inst/bin/spapath) calls spapath_cli(); the same
+# The `piste` executable (inst/bin/piste) calls piste_cli(); the same
 # function can be called from R with a character vector of arguments.
 #
 # Pipeline
-#   read inputs -> align spots -> run_spapath() (see run_spapath.R)
+#   read inputs -> align spots -> run_piste() (see run_piste.R)
 # =============================================================================
 
 
@@ -19,7 +19,7 @@
 # Options
 # -----------------------------------------------------------------------------
 
-#' Command-line options of `spapath run`
+#' Command-line options of `piste run`
 #'
 #' One row per option: name, default (NA = none), whether it is a flag and
 #' its help text.
@@ -59,7 +59,7 @@ cli_option_table <- function() {
 }
 
 
-#' Usage text of `spapath run`
+#' Usage text of `piste run`
 #' @noRd
 cli_usage <- function() {
   options <- cli_option_table()
@@ -69,15 +69,15 @@ cli_usage <- function() {
     default <- if (!o$flag && !is.na(o$default)) paste0(" [default: ", o$default, "]") else ""
     paste0("  ", formatC(label, width = -30), " ", o$help, default)
   }, character(1))
-  c("Usage: spapath run [options]",
+  c("Usage: piste run [options]",
     "",
-    "Run SpaPath on every gene set of a GMT file.",
+    "Run PISTE on every gene set of a GMT file.",
     "",
     "Options:",
     lines,
     "",
     "Other commands:",
-    "  spapath --version             Print the package version.")
+    "  piste --version             Print the package version.")
 }
 
 
@@ -105,7 +105,7 @@ cli_parse_args <- function(args) {
       name <- sub("=.*$", "", name)
     }
     row <- match(name, options$name)
-    if (is.na(row)) stop("Unknown option --", name, ". See spapath run --help.")
+    if (is.na(row)) stop("Unknown option --", name, ". See piste run --help.")
 
     if (options$flag[row]) {
       values[[name]] <- TRUE
@@ -258,8 +258,8 @@ cli_adjusted_tables <- function(opts) {
 # Running gene sets
 # -----------------------------------------------------------------------------
 
-#' Run every gene set with run_spapath() and write the results
-#' @return The `gene_sets` status table of run_spapath().
+#' Run every gene set with run_piste() and write the results
+#' @return The `gene_sets` status table of run_piste().
 #' @noRd
 cli_run <- function(opts) {
   opts <- cli_check_options(opts)
@@ -273,7 +273,7 @@ cli_run <- function(opts) {
   cfg$pi_delta <- opts$delta
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
-  res <- run_spapath(inputs$counts, inputs$xy, inputs$region, gene_sets,
+  res <- run_piste(inputs$counts, inputs$xy, inputs$region, gene_sets,
                      mode = opts$mode, out = opts$out,
                      normalized = isTRUE(opts$normalized),
                      proportions = tables$proportions,
@@ -293,10 +293,10 @@ cli_run <- function(opts) {
 # Entry point
 # -----------------------------------------------------------------------------
 
-#' Command-line entry point of SpaPath
+#' Command-line entry point of PISTE
 #'
-#' Runs SpaPath on every gene set of a GMT file. Called by the `spapath`
-#' executable installed with the package; see `spapath run --help`.
+#' Runs PISTE on every gene set of a GMT file. Called by the `piste`
+#' executable installed with the package; see `piste run --help`.
 #'
 #' Outputs in `--out`: one folder per gene set with the files of
 #' [screen_write()], `overall_scores.csv` and `pairwise_scores.csv` combining
@@ -306,16 +306,16 @@ cli_run <- function(opts) {
 #'   `c("run", "--input", "sample.h5ad", ...)`.
 #' @return Invisibly, the exit status (0 on success).
 #' @export
-spapath_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
+piste_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
   if (!length(args) || args[1] %in% c("-h", "--help", "help")) {
     writeLines(cli_usage())
     return(invisible(0))
   }
   if (args[1] %in% c("--version", "version")) {
-    writeLines(paste("SpaPath (PathwayLGM)", as.character(utils::packageVersion("PathwayLGM"))))
+    writeLines(paste("PISTE", as.character(utils::packageVersion("PISTE"))))
     return(invisible(0))
   }
-  if (args[1] != "run") stop("Unknown command '", args[1], "'. Use: spapath run [options]")
+  if (args[1] != "run") stop("Unknown command '", args[1], "'. Use: piste run [options]")
 
   opts <- cli_parse_args(args[-1])
   if (isTRUE(opts$help)) {

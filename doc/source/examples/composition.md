@@ -15,7 +15,7 @@ other annotated spots.
 
 ## Requirements
 
-Besides SpaPath ([Installation](../installation.md)), which already includes
+Besides PISTE ([Installation](../installation.md)), which already includes
 DESeq2 for the dispersion step, this example uses:
 
 | Package | Source | Used for |
@@ -130,7 +130,7 @@ scales them to counts per 10,000:
 
 
 ``` r
-library(PathwayLGM)
+library(PISTE)
 
 nu <- reference_profile(t(ref_counts), sce$cellType_broad_hc)   # cell types x genes
 dim(nu)
@@ -149,7 +149,7 @@ dim(nu)
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 5. Run SpaPath
+## 5. Run PISTE
 
 RCTD drops spots with too few counts, so keep the spots that have
 proportions. White matter is compared with all other spots:
@@ -161,17 +161,17 @@ counts <- t(counts(spe))                       # spots x genes, raw counts
 xy     <- spatialCoords(spe)
 region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 
-res <- run_spapath(counts, xy, region, gmt, mode = "adjusted",
+res <- run_piste(counts, xy, region, gmt, mode = "adjusted",
                    proportions = omega, reference = nu,
                    baseline = "rest", out = "results_adjusted",
                    cfg = list(threads = "8:1"))
 ```
 
-`run_spapath()` builds the composition offset from `omega` and `nu`, builds
+`run_piste()` builds the composition offset from `omega` and `nu`, builds
 the mesh and fits every gene set to the raw counts. Results are written to
 `results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
+evaluation uses B threads. See [API](../api.md#run_piste) for all options.
 
 ## 6. Read the results
 
@@ -252,4 +252,4 @@ head(res$results[[1]]$gene_coefficients)
 #> 6  CACNB4       a_g -3.2453446 -3.8240017 -3.2452924 -2.6669838
 ```
 
-See [API](../api.md#run_spapath) for all outputs.
+See [API](../api.md#run_piste) for all outputs.

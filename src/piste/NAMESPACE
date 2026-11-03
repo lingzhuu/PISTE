@@ -1,4 +1,4 @@
-# Hand-maintained NAMESPACE for PathwayLGM.
+# Hand-maintained NAMESPACE for PISTE.
 
 import(INLA)
 import(Matrix)
@@ -8,7 +8,7 @@ importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
 export(build_mesh)
-export(run_spapath)
+export(run_piste)
 export(reference_profile)
 export(screen_joint_fit)
 export(screen_summarize)
@@ -17,4 +17,4 @@ export(pathway_pi)
 export(pathway_pi_integrate)
 export(composition_offset)
 export(estimate_dispersion_scale)
-export(spapath_cli)
+export(piste_cli)

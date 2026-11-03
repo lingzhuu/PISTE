@@ -1,5 +1,5 @@
 # Benchmark raw-count simulation: 3,639 spots x 10,000 genes, for evaluating
-# STpathway / GSDensity / PathwayLGM.
+# STpathway / GSDensity / PISTE.
 #
 #   Y_gi ~ NB(mu_gi, theta_g),  Var(Y_gi) = mu_gi + mu_gi^2 / theta_g
 #   pathway genes:     mu_gi = c_i *       m_g * exp(s_g * b_g * A_pi + e_gi)

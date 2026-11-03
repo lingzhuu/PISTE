@@ -1,5 +1,5 @@
 # DLPFC 12 sections: WM (target) versus all other labelled spots (rest),
-# SpaPath / PathwayLGM 0.7.0 (lingzhuu/pathwayLGM main, src/spapath),
+# PISTE 0.7.0 (lingzhuu/pathwayLGM main, src/piste),
 # composition-adjusted mode (negative binomial on raw counts, measurement
 # error kappa2 in pi = harmonic mean of the gene kappa2_g), 30 gene sets of
 # benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt (the sets of Figure X).
@@ -14,7 +14,7 @@
 #   * library size = total UMI of the spot over all genes
 #   * DESeq2 dispersion scales estimated on all genes of the section
 # Other settings as the observed run
-# (SpaPath_WM_brain30_observed_0.6.1.1/scripts/run_wm_brain30.R):
+# (PISTE_WM_brain30_observed_0.6.1.1/scripts/run_wm_brain30.R):
 #   * pixel coordinates shifted to 0 and divided by the larger range
 #   * mesh max_edge .25, cutoff .08, offset (.1, .2); h = .3; intercept only
 #   * baseline 'rest', pi = TRUE, delta .05 and level .95 (package defaults)
@@ -29,18 +29,18 @@
 Sys.setenv(OMP_NUM_THREADS = "2", OPENBLAS_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 Sys.setlocale("LC_CTYPE", "English_United States.utf8")
 st2 <- "C:/Users/lxs888/Documents/ChatGPT/ST 2"
-.libPaths(file.path(st2, "tools", c("R-library-spapath-0.7.0", "R-library-rctd",
+.libPaths(file.path(st2, "tools", c("R-library-piste-0.7.0", "R-library-rctd",
                                     "R-library-gsva", "R-library",
-                                    "R-library-spapath-0.6.1", "R-library-sct-v2")))
-suppressPackageStartupMessages({library(Matrix); library(PathwayLGM)})
+                                    "R-library-piste-0.6.1", "R-library-sct-v2")))
+suppressPackageStartupMessages({library(Matrix); library(PISTE)})
 version <- "0.7.0"
-stopifnot(as.character(packageVersion("PathwayLGM")) == version,
+stopifnot(as.character(packageVersion("PISTE")) == version,
           packageVersion("INLA") == package_version("26.08.07"),
-          startsWith(find.package("PathwayLGM"),
-                     file.path(st2, "tools/R-library-spapath-0.7.0")))
+          startsWith(find.package("PISTE"),
+                     file.path(st2, "tools/R-library-piste-0.7.0")))
 
 data_root <- file.path(st2, "data/DLPFC_12_sections_20261007")
-out_root <- file.path(data_root, "SpaPath_WM_DLPFC30_adjusted_0.7.0")
+out_root <- file.path(data_root, "PISTE_WM_DLPFC30_adjusted_0.7.0")
 gmt_file <- file.path(out_root, "DLPFC12_gene_sets.gmt")
 reference_file <- file.path(st2, "data/DLPFC_151673_RCTD_LIBD/reference/reference_profiles.rds")
 types <- c("Astro", "EndoMural", "Excit", "Inhib", "Micro", "Oligo", "OPC")
@@ -64,7 +64,7 @@ stopifnot(all(types %in% colnames(profiles)))
 
 # The run settings are fixed when the folder is first used; a later launch
 # with different settings stops instead of mixing results.
-manifest <- c(paste("PathwayLGM", version, "main; INLA", packageVersion("INLA")),
+manifest <- c(paste("PISTE", version, "main; INLA", packageVersion("INLA")),
               paste("gmt md5", unname(tools::md5sum(gmt_file))),
               paste("reference md5", unname(tools::md5sum(reference_file))),
               "mode adjusted; raw UMI; RCTD full proportions (7 LIBD types); library size = total UMI; DESeq2 dispersion scales on all genes",

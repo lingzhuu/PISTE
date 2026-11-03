@@ -27,7 +27,7 @@ BiocManager::install("spatialLIBD")
 ```{r load, message = FALSE, warning = FALSE}
 library(spatialLIBD)
 library(SpatialExperiment)
-library(PathwayLGM)
+library(PISTE)
 
 spe <- fetch_data(type = "spe")
 spe <- spe[, spe$sample_id == "151673"]
@@ -65,19 +65,19 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 3. Run SpaPath
+## 3. Run PISTE
 
 ```{r fit, message = FALSE, warning = FALSE, cache = TRUE, cache.lazy = FALSE}
-res <- run_spapath(counts, xy, region, gmt, baseline = "WM",
+res <- run_piste(counts, xy, region, gmt, baseline = "WM",
                    out = "results_observed",
                    cfg = list(threads = "8:1"))
 ```
 
-`run_spapath()` normalizes the counts with SCTransform, builds the mesh and
+`run_piste()` normalizes the counts with SCTransform, builds the mesh and
 fits every gene set, with WM as the baseline region. Results are written to
 `results_observed`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#run_spapath) for all options.
+evaluation uses B threads. See [API](../api.md#run_piste) for all options.
 
 ## 4. Read the results
 
@@ -94,4 +94,4 @@ pathway gene's expression state in WM exceeds its state in the cortical
 layers, and `evidence` is the posterior probability that π > 0.5. Evidence
 near 1 indicates higher activity in WM and evidence near 0 higher activity in
 the cortical layers. `res$pairwise` gives the same quantities for every pair
-of regions. See [API](../api.md#run_spapath) for all outputs.
+of regions. See [API](../api.md#run_piste) for all outputs.

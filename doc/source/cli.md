@@ -1,19 +1,19 @@
 # Command line
 
-SpaPath can be run from a Linux shell without writing R code. One command
+PISTE can be run from a Linux shell without writing R code. One command
 reads the data, normalizes it, builds the mesh and runs every gene set of a
 GMT file. It reads the files and then runs the same workflow as
-[`run_spapath()`](api.md#run_spapath) in R.
+[`run_piste()`](api.md#run_piste) in R.
 
 ## Run with Docker
 
-The Docker image contains R, INLA, SpaPath and the `spapath` command. Mount
+The Docker image contains R, INLA, PISTE and the `piste` command. Mount
 the folder with your data at `/work`:
 
 ```bash
-docker build -t spapath .        # once, from the SpaPath repository
-docker run --rm -v "$PWD":/work spapath \
-  spapath run --input sample.h5ad --region-key layer \
+docker build -t piste .        # once, from the PISTE repository
+docker run --rm -v "$PWD":/work piste \
+  piste run --input sample.h5ad --region-key layer \
               --gmt pathways.gmt --out results
 ```
 
@@ -23,9 +23,9 @@ After [installing the R package](installation.md), put the command on your
 `PATH` once:
 
 ```bash
-ln -s "$(Rscript -e 'cat(system.file("bin/spapath", package = "PathwayLGM"))')" \
-      ~/.local/bin/spapath
-spapath --version
+ln -s "$(Rscript -e 'cat(system.file("bin/piste", package = "PISTE"))')" \
+      ~/.local/bin/piste
+piste --version
 ```
 
 ## Input formats
@@ -49,7 +49,7 @@ Pearson residuals clipped as in Seurat). Use `--normalized` if the input is
 already normalized.
 
 ```bash
-spapath run --input 151673.h5ad --region-key layer_guess_reordered \
+piste run --input 151673.h5ad --region-key layer_guess_reordered \
             --target WM --gmt DLPFC_brain_and_reference.gmt \
             --out results_observed
 ```
@@ -63,7 +63,7 @@ The input is raw counts, together with cell-type proportions of each spot and
 a reference.
 
 ```bash
-spapath run --mode adjusted \
+piste run --mode adjusted \
             --input 151673.h5ad --region-key layer_guess_reordered \
             --target WM --gmt DLPFC_brain_and_reference.gmt \
             --proportions rctd_proportions.csv \

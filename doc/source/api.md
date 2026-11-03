@@ -1,11 +1,11 @@
 # API
 
 ```r
-library(PathwayLGM)
+library(PISTE)
 ```
 
-SpaPath can be run in two ways. Quick mode runs the whole workflow for a
-panel of gene sets in one call to `run_spapath()`. Step-by-step mode calls
+PISTE can be run in two ways. Quick mode runs the whole workflow for a
+panel of gene sets in one call to `run_piste()`. Step-by-step mode calls
 the functions it is built from, for custom workflows: building the mesh once
 with other settings, preparing the adjusted-mode inputs yourself, or fitting
 a single gene set with other model options.
@@ -14,7 +14,7 @@ a single gene set with other model options.
 
 | Function | Description |
 |----------|-------------|
-| [`run_spapath()`](#run_spapath) | Run SpaPath on every gene set of a panel, from raw counts to result tables. |
+| [`run_piste()`](#run_piste) | Run PISTE on every gene set of a panel, from raw counts to result tables. |
 | [`reference_profile()`](#reference_profile) | Reference expression of each cell type from single-cell counts, for the adjusted mode. |
 
 ### Step-by-step mode
@@ -32,17 +32,17 @@ a single gene set with other model options.
 
 ---
 
-## run_spapath
+## run_piste
 
 ```r
-run_spapath(counts, xy, region, gene_sets,
+run_piste(counts, xy, region, gene_sets,
             mode = c("observed", "adjusted"), out = NULL,
             normalized = FALSE, proportions = NULL, reference = NULL,
             baseline = NULL, h = 0.3, min_genes = 5,
             mesh_args = list(), cfg = list(), verbose = TRUE)
 ```
 
-Runs SpaPath on every gene set of a panel in one call:
+Runs PISTE on every gene set of a panel in one call:
 
 1. In observed mode, normalizes the counts with SCTransform (sctransform v2
    Pearson residuals, clipped at ±√(N/30) as in Seurat). In adjusted mode,
@@ -99,7 +99,7 @@ reference_profile(counts, cell_type)
 ```
 
 Pools the raw counts of all cells of each cell type and scales them to
-counts per 10,000. The result is the `reference` of `run_spapath()` and
+counts per 10,000. The result is the `reference` of `run_piste()` and
 `composition_offset()`.
 
 ### Arguments
@@ -151,7 +151,7 @@ screen_joint_fit(Y, xy, region, mesh, h, mode = c("observed", "adjusted"),
                  composition_offset = NULL, cfg = list())
 ```
 
-Fits the SpaPath model for one gene set with INLA, integrating over the
+Fits the PISTE model for one gene set with INLA, integrating over the
 hyperparameters with a CCD design. The mode chooses the model:
 
 - `"observed"` fits a Gaussian model to normalized expression and reports the

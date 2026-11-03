@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
-# Command-line entry point of SpaPath. Usage: spapath run --help
+# Command-line entry point of PISTE. Usage: piste run --help
 status <- tryCatch(
-  PathwayLGM::spapath_cli(commandArgs(trailingOnly = TRUE)),
+  PISTE::piste_cli(commandArgs(trailingOnly = TRUE)),
   error = function(e) {
     message("Error: ", conditionMessage(e))
     1L

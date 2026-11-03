@@ -1,22 +1,22 @@
 # Installation
 
-SpaPath requires R 4.1.0 or later. Install it from GitHub with:
+PISTE requires R 4.1.0 or later. Install it from GitHub with:
 
 ```r
 install.packages("remotes")
-remotes::install_github("lingzhuu/pathwayLGM", subdir = "src/spapath",
+remotes::install_github("lingzhuu/pathwayLGM", subdir = "src/piste",
                         dependencies = TRUE)
 ```
 
 Check the installation:
 
 ```r
-library(PathwayLGM)
+library(PISTE)
 ```
 
 ## Dependencies
 
-The command above installs SpaPath together with all the packages it depends
+The command above installs PISTE together with all the packages it depends
 on:
 
 | Package | Source | Used for |
@@ -27,7 +27,7 @@ on:
 | qrng | CRAN | Quadrature for the posterior evidence |
 | DESeq2 | Bioconductor | Dispersion estimation in the composition-adjusted mode |
 | S4Vectors, SummarizedExperiment | Bioconductor | Required by the DESeq2 step |
-| sctransform | CRAN | SCTransform normalization in `run_spapath()` and the [command line](cli.md) |
+| sctransform | CRAN | SCTransform normalization in `run_piste()` and the [command line](cli.md) |
 | hdf5r | CRAN | Reading `.h5ad` and 10x `.h5` files in the command line |
 | glmGamPoi | Bioconductor | Faster SCTransform (optional) |
 
@@ -54,22 +54,22 @@ platform-specific notes.
 
 ## Docker
 
-SpaPath can also be installed using the Docker image, which contains R,
-SpaPath, all its dependencies, the `spapath` [command](cli.md) and the
+PISTE can also be installed using the Docker image, which contains R,
+PISTE, all its dependencies, the `piste` [command](cli.md) and the
 packages used in the examples.
 
 ```bash
 git clone https://github.com/lingzhuu/pathwayLGM.git
 cd pathwayLGM
-docker build -t spapath .
-docker run --rm -it -v "$PWD":/work spapath
+docker build -t piste .
+docker run --rm -it -v "$PWD":/work piste
 ```
 
 ## Install from source
 
 ```bash
 git clone https://github.com/lingzhuu/pathwayLGM.git
-R CMD INSTALL pathwayLGM/src/spapath
+R CMD INSTALL pathwayLGM/src/piste
 ```
 
 `R CMD INSTALL` does not install dependencies; install the packages in the
