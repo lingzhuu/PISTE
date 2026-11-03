@@ -1,344 +1,91 @@
-## Abstract
+# PISTE
 
+**P**athway **I**nference from **S**patial **T**ranscriptomic **E**xpression
 
-## Introduction
-Spatial transcriptomics measures genome-wide gene expression while preserving the position of each measurement in the tissue, retaining the context that bulk and dissociated single-cell assays discard [REF]. Because tissue function is spatially organized, this has enabled analyses that non-spatial assays cannot support: spatially resolved differential expression, the delineation of tissue domains and niches, and the mapping of cell–cell communication within intact architecture [REF]. With increasing resolution and throughput, spatial transcriptomics is becoming a routine assay, and whole-organ atlases in which every measurement is registered to a common anatomical coordinate system are now available [REF].
+PISTE is an R package that tests whether a gene pathway is more active in one
+tissue region than in another in spatial transcriptomics data. It models all
+genes of a gene set jointly, accounts for the spatial dependence between
+neighbouring spots with gene-specific spatial random fields, and fits the
+model with INLA. For every pair of regions, and for each region against the
+rest of the tissue, PISTE reports a directional score π between 0 and 1 and
+its posterior evidence.
 
-Biological interpretation, however, rarely rests on single genes. Phenotypes and disease processes are executed by coordinated gene programs—pathways and regulatory modules whose members act together—and pathway-level summaries are more robust than gene-level ones to the technical noise, dropout and cell-type admixture that characterize spot-level measurements [REF]. A question that arises in almost every spatial study is therefore a regional one: is a given pathway more active in one anatomically or histologically defined region than in another, by how much, and with what confidence? Answering it requires a score that has a direction, lives on an interpretable scale, and carries an honest measure of uncertainty.
+PISTE can be run on normalized expression (observed mode) or on raw counts
+adjusted for cell-type composition (composition-adjusted mode).
 
-Current practice does not provide such a score. Pathway activity is usually summarized per spot with single-cell scoring tools such as GSVA, AUCell or UCell [REF], and regional differences are then tested with spot-level statistics; alternatively, genes are tested one at a time between regions and the ranked list is passed to a gene set enrichment test [REF]. Methods developed specifically for spatial data, including STpathway [REF] and GSDensity [REF], ask whether a pathway's activity is associated with regions or enriched in them, but return a p-value or an association statistic rather than an estimate of the regional difference. These approaches share three limitations. First, their output is a significance measure that saturates: with thousands of spots, differences of very different magnitude receive indistinguishable p-values, so pathways cannot be ranked by the strength of their regional difference. Second, the genes of a pathway respond with different magnitudes and sometimes in opposite directions, and a summary that averages expression across genes cannot distinguish a pathway whose genes shift coherently from one whose genes diverge. Third, spots are treated as independent observations, whereas neighbouring spots share cell types and microenvironment and are strongly autocorrelated; the effective sample size of a region is far smaller than its number of spots, and any uncertainty statement that ignores this is anticonservative. [OPTION: Replace the last clause with a quantitative statement once the null experiment on type I error inflation under spatial autocorrelation is in Results.]
+![Overview of PISTE](figure/method_overview.png)
 
-Regional pathway differences are also confounded by cell composition. Regions differ in the cell types they contain, and a pathway can appear more active in one region simply because that region is enriched for cell types that express the pathway, as when a myelination pathway appears higher in white matter because white matter is dominated by oligodendrocytes. Whether a difference persists after accounting for composition—that is, whether the pathway is more active within the same cell types—is biologically a different question, and existing pathway tools do not separate the two. Methods that model cell-type-specific expression in spatial data, such as C-SIDE [REF], address this at the gene level but not at the level of pathways.
+## Installation
 
-Here we present PISTE, a Bayesian framework for pathway analysis of spatial transcriptomics data that addresses two questions: where in a tissue a pathway is active, and how much its activity differs between regions. In the activity-map mode, PISTE estimates an activity map of the pathway, a smooth spatial pattern shared by the genes of the pathway, and separates it from the spatial patterns of individual genes, so that the map reflects the pathway rather than any single gene. From this map, PISTE identifies regions of high and low pathway activity together with their posterior uncertainty. In the regional-comparison mode, PISTE quantifies the difference in pathway activity between two regions with a directional score π, the probability that a gene of the pathway is expressed at a higher level in one region than in the other. π ranges from 0 to 1 and equals 0.5 when the pathway does not differ between the regions, so that beyond detecting a difference it measures how strong the difference is and allows pathways to be ranked by it. When adjacent sections are available, PISTE uses them to separate signal from noise, treating the part of a gene's regional difference that is shared by the sections as signal and the part that varies between sections as noise. A composition-adjusted version of the regional-comparison mode accounts for the expression expected from the cell types present in each spot and thus reports pathway differences that are not driven by cell composition. Because its spatial model is defined in any number of dimensions, PISTE extends from single sections to three-dimensional tissues reconstructed from serial sections.
+PISTE requires R 4.1.0 or later.
 
-We evaluated both analyses on simulated and real data. On data simulated on real Visium coordinates, [TODO: simulation results of the activity map]. In section 151673 of the human dorsolateral prefrontal cortex (DLPFC), the activity maps of myelin-related pathways matched white matter more closely than the results of GESSO and GSDensity, [TODO: random gene sets]. In the regional comparison, π followed the true difference in pathway activity across effect sizes and spatial patterns, whereas GSVA with a spatial block bootstrap, STpathway, GSDensity and differential expression followed by gene set enrichment analysis either saturated or failed to separate pathways with and without a difference. Across 12 DLPFC sections from three donors, PISTE recovered the expected differences between white and gray matter, which were reproduced in the joint fit of adjacent sections, and the composition-adjusted mode distinguished differences driven by the oligodendrocyte enrichment of white matter from those that remained after accounting for cell composition. In a Stereo-seq atlas of the adult mouse brain registered to the Allen Common Coordinate Framework, PISTE produced a three-dimensional activity map of the left hemisphere, [TODO: headline finding]. [TODO: TNBC] PISTE is available as an R package and a command-line tool at [URL].
+```r
+install.packages("remotes")
+remotes::install_github("lingzhuu/pathwayLGM", subdir = "src/piste",
+                        dependencies = TRUE)
+```
 
+If INLA fails to install, install it first and run the command again:
 
+```r
+install.packages("INLA",
+                 repos = c(getOption("repos"),
+                           INLA = "https://inla.r-inla-download.org/R/stable"),
+                 dependencies = TRUE)
+```
 
+A Docker image with R, INLA, PISTE and the `piste` command can be built from
+the repository:
 
-## Results 
-### Method overview
+```bash
+git clone https://github.com/lingzhuu/pathwayLGM.git
+cd pathwayLGM
+docker build -t piste .
+```
 
-The input of PISTE consists of spot coordinates, a gene set and normalized expression, together with region labels in the regional-comparison mode. The composition-adjusted mode instead takes raw counts, deconvolved cell-type proportions and a single-cell or single-nucleus RNA-seq reference (Fig. 1a). In the activity-map mode, PISTE decomposes the expression of each gene into a gene intercept, a spatial field shared by all genes of the pathway, a spatial field specific to the gene and noise (Fig. 1b). The posterior mean of the shared field is the activity map of the pathway. From the activity map, PISTE identifies regions of high and low activity, defined as the largest sets of spots whose activity all lies above, or all lies below, a threshold with a posterior probability of at least 0.95 (Methods).
+## Quick start
 
-In the regional-comparison mode, PISTE decomposes the expression of each gene into a gene intercept, the pathway level of the region, a deviation of the gene from this level whose variance differs between regions, and noise (Fig. 1c). When adjacent sections are available, PISTE fits them jointly, so that π measures the regional difference reproduced across the sections rather than technical noise specific to a single section (Methods).
+### R
 
-PISTE compares two regions $r$ and $s$ through the directional score $\pi_{rs}$, defined as the probability that a gene of the pathway is expressed at a higher level in region $r$ than in region $s$, given the regional pathway levels and the variability among genes. Its posterior mean, which we term the π score, lies between 0 and 1. Values near 1 indicate that the pathway is consistently more active in region $r$, values near 0 indicate the opposite, and values near 0.5 indicate no consistent direction, as happens when the genes of a pathway change in opposite directions. PISTE also reports the posterior evidence, the posterior probability that the pathway is more active in region $r$ than in region $s$, or less active (Methods). A region can be compared with the rest of the tissue in the same way.
+```r
+library(PISTE)
 
-[Figure 1. Overview of PISTE. a, PISTE takes spot coordinates, the expression of the genes in a gene set and, for the regional comparison, region labels. b, Activity map. The expression of each gene is modelled as a gene intercept, a spatial field shared by all genes, a gene-specific spatial field and noise, with the fields on an SPDE mesh, and the regions of high and low activity are the excursion sets of the shared field. c, Regional comparison. Distributions of the expression levels of the pathway's genes in regions r and s, from which π is computed, and the scale of the π score from more active in s at 0 to more active in r at 1. d, Posterior distribution of π and the rules for deciding higher or lower activity in r.](figure/method_overview.png)
+# counts: spots x genes raw counts; xy: spots x 2 spot coordinates;
+# region: region label of each spot; gene_sets: named list or GMT file
+res <- run_piste(counts, xy, region, "pathways.gmt", baseline = "WM",
+                 out = "results")
+head(res$overall)
+```
 
-### PISTE maps where a pathway is active
+### Command line
 
-[TODO: simulation results of the activity map]
+```bash
+piste run --input sample.h5ad --region-key layer --target WM \
+          --gmt pathways.gmt --out results
+```
 
-We next applied the activity map to section 151673 of the DLPFC data without using the layer annotation, for the 30 gene sets of Supplementary Table 2 and 20 random sets of 30 genes. For axon ensheathment in the central nervous system and myelin sheath, the regions of high activity covered 453 and 467 of the 513 WM spots and included only 16 and 45 of the other 3,098 spots, with Dice coefficients with WM of 0.92 and 0.91 (Fig. Ya). GESSO (REF) reached [TODO: check which gene set each GESSO Dice belongs to] Dice coefficients of 0.87 and 0.85. GSDensity labelled 347 and 310 spots as positive, of which 273 and 216 were in WM, with Dice coefficients of 0.63 and 0.52. For GABA synthesis, release, reuptake and degradation, activity was lower in WM than in gray matter. Its region of low activity consisted of 160 spots, all in WM, and its region of high activity of 48 spots in gray matter. GSDensity excludes gene sets with fewer than 20 genes and gave no result for this set. [TODO: myelin maintenance, depending on d: no region at d = 0.1; 139 spots, all in WM, at d = 0] Among the 20 random gene sets, [TODO: results with the gene-specific fields], whereas GESSO detected significant spots in all 20 sets and GSDensity in 14 (Fig. Yb).
+## Documentation
 
-[Figure Y. Activity maps of DLPFC section 151673. a, For myelin maintenance, axon ensheathment in the central nervous system, myelin sheath, and GABA synthesis, release, reuptake and degradation, the layer annotation, the posterior mean of the shared field z, the posterior probability P(z > 0), the regions of high and low activity from PISTE, the spots of significant activity from GESSO and the spots labelled positive by GSDensity. b, Number of spots in the regions of high or low activity of the 20 random gene sets, by method.](TODO)
+- [Installation](doc/source/installation.md)
+- [Command line](doc/source/cli.md)
+- [API](doc/source/api.md)
+- Examples: [observed mode](doc/source/examples/observed.md) and
+  [composition-adjusted mode](doc/source/examples/composition.md)
 
-### PISTE quantifies the strength of regional pathway differences
+## Repository structure
 
-We benchmarked PISTE on five simulated datasets built on the spot coordinates of DLPFC section 151673 against three representative pathway-analysis workflows: GSVA, the gene-set scoring approach popularized in single-cell RNA sequencing, tested here with a spatial block bootstrap region test; [STpathway](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/), a distance-correlation (dCor) test for region-associated pathways; and [GSDensity](https://www.nature.com/articles/s41467-023-44206-x), a region enrichment test on dichotomized spot activity. We also included differential expression testing with Seurat FindMarkers followed by gene set enrichment analysis with fgsea, in which each gene was tested between the regions with a Wilcoxon rank-sum test and the gene set was tested on the resulting gene ranking. Each dataset contained 50 gene sets that differed in the number K of genes responding to a spatial activity map, including null sets with K = 0, and every method compared the target region of each gene set with the rest of the tissue (Methods).
+| Folder | Contents |
+|--------|----------|
+| `src/piste` | The R package and the `piste` command |
+| `doc` | Documentation and examples |
+| `benchmark` | Code and results of the benchmark on simulated data and DLPFC |
+| `analysis` | Code for the tumor and brain analyses |
 
-The existing methods detected strong pathway differences but could not separate them from weaker ones. GSVA's target-minus-rest score difference increased with K, and its spatial block bootstrap test gave median q-values below 0.05 in all groups with K of 11 or more. Of the 150 gene sets with K of 11 or more, 123 reached the smallest p-value the bootstrap can attain, so gene sets with 11 and with 100 responsive genes could not be ranked against each other. It also gave q < 0.05 for 14 of the 50 null gene sets. STpathway's region dCor decreased with K in the narrow, strong-effect setting, from a median of 0.98 at K = 0 to 0.95 at K of 11 or more, but stayed at 0.98 in all groups of the broad, weak-effect setting. Across all 250 gene sets it spanned only 0.87 to 0.99, offering limited discrimination of pathway activity. GSDensity first applies a deviation test, which keeps a gene set only when the density of its genes in a joint gene–spot embedding departs from that of all genes more than for size-matched random gene sets, and tests region enrichment only for the retained sets. The deviation test retained 207 of the 250 gene sets, including 35 of the 50 null sets, and the region test gave q < 0.05 for 106 of them, 12 of which were null sets. Its significance did not consistently strengthen with K. In the broad, weak-effect setting the median q-value was 0.001 at K = 31 to 60 but 0.004 at K = 61 to 100. The test compares the proportions of spots labelled as highly active, and GSDensity sets this label by assuming that pathway activity has two modes across spots and cutting at the low point between them (Methods). When the activity has a single mode with a long upper tail, the cut falls in the tail and only the spots in the tail are labelled, whatever the regional difference. For example, for a gradient gene set with K = 96 in the narrow, strong-effect setting, the mean GSDensity activity was 2.9 times higher in the target than in the rest, yet the cut lay above the 99.9th percentile of the activity, so only 1 of 728 target spots and none of the 2,911 rest spots were labelled highly active and the test was not significant (q = 0.57). In the narrow, strong-effect setting with K of 31 or more, fewer than 1% of spots were labelled highly active in both the target and the rest for 26 of the 50 retained sets. FindMarkers followed by fgsea gave q < 0.05 for none of the 50 null gene sets and for 7, 35, 48 and 50 of the 50 gene sets with K = 1 to 10, 11 to 30, 31 to 60 and 61 to 100, all in the correct direction. Its normalized enrichment score did not reflect the size of the difference: at K = 31 to 60 the median was 1.93 in the broad, weak-effect setting and 2.41 in the narrow, strong-effect setting, although the median true effect was 0.69 and 0.70. Ranked by their own statistics, the methods separated gene sets with a regional difference from null gene sets with areas under the receiver operating characteristic curve of 0.96 for FindMarkers followed by fgsea, 0.93 for PISTE, 0.88 for GSVA, 0.76 for STpathway and 0.63 for GSDensity ([Fig. 2c](benchmark/analysis/simulation_data/result/simulation_results.png)). These methods can therefore detect whether a pathway differs between regions, but only PISTE measured how strongly it differs: the π score had a Pearson correlation of 0.94 with the true effect, whereas the normalized enrichment score of fgsea had 0.81 ([Fig. 2f, g](benchmark/analysis/simulation_data/result/simulation_results.png)).
+## Citation
 
-In all groups with K of 31 or more the median evidence with δ = 0.05 was at least 0.99, and at K = 11 to 30 it was 0.83 in the broad, weak-effect setting and 0.95 in the narrow, strong-effect setting. The median π score increased monotonically with K. Its median was 0.48 and 0.51 in the two K = 0 groups and rose to 0.75 at K = 61 to 100 in the broad, weak-effect setting and to 0.78 in the narrow, strong-effect setting. The estimated π score tracked the true effect, with a mean absolute error of 0.021 in the narrow, strong-effect setting and 0.044 in the broad, weak-effect setting ([Fig. 2d, f](benchmark/analysis/simulation_data/result/simulation_results.png)). Unlike GSVA's q-value, the π score continued to rank pathways that already had strong support. Among the 123 gene sets with K of 11 or more that reached GSVA's smallest p-value, the π score ranged from 0.56 to 0.87 and its group median rose with K, from 0.62 at K = 11 to 30 to 0.67 at K = 31 to 60 and 0.76 at K = 61 to 100. For the 59 gene sets with K of 11 or more that GSDensity retained but did not detect, the median π score was 0.65. The increase of the median π score across the four nonzero K groups held for each of the five spatial activity patterns ([Fig. 2i](benchmark/analysis/simulation_data/result/simulation_results.png)).
+A manuscript describing PISTE is in preparation.
 
-With $\delta=0.05$ ([Fig. 2e, h](benchmark/analysis/simulation_data/result/simulation_results.png)), the evidence exceeded 0.9 for all 50 gene sets with K = 61 to 100, 48 of the 50 with K = 31 to 60 and 26 of the 50 with K = 11 to 30, all in the correct direction, and for none of the 50 null gene sets. At K = 1 to 10 the evidence had a median of 0.40 (interquartile range 0.26 to 0.63) in the broad, weak-effect setting and 0.57 (0.28 to 0.80) in the narrow, strong-effect setting, and exceeded 0.9 for 2 of the 50 gene sets. Both contained 9 upregulated and 1 downregulated responsive genes, and the mean absolute error of their π score was 0.002. Across the 50 gene sets with K = 1 to 10, the mean absolute error was 0.034 (0.018 in the narrow, strong-effect setting and 0.049 in the broad, weak-effect setting; [Fig. 2f](benchmark/analysis/simulation_data/result/simulation_results.png)), compared with 0.033 over all 250 gene sets.
+## Contact
 
-[Figure 2. PISTE quantifies the strength of regional pathway differences in simulated data. a, Pathway activity maps of the five spatial patterns on the spot coordinates of DLPFC section 151673. b, PISTE π score, GSVA target-minus-rest score difference, STpathway region dCor, GSDensity target-minus-rest difference in the fraction of highly active spots and FindMarkers + fgsea normalized enrichment score (NES) by the number of responding genes K, one point per gene set coloured by setting (n = 25 per K group and setting), with larger points marking medians. Open circles mark gene sets with no difference by each method's own test and dotted lines mark the null value. c, Receiver operating characteristic curves of the five methods, each ranking the gene sets by its own effect size, with gene sets whose true effect differs from 0.5 by more than 0.05 as positives. The area under each curve is given in parentheses. d, Median and interquartile range of the π score in each K group and setting, with black lines marking the median true effect. e, Median and interquartile range of the evidence, with the number of gene sets with evidence above 0.9 out of 25 above each group. The dashed line marks 0.9. f, PISTE π score against the true effect, coloured by K, with the identity line, the Pearson correlation and the mean absolute error. g, FindMarkers + fgsea NES against the true effect, coloured by K, with the Pearson correlation. The dotted line marks zero. h, Evidence against π score, coloured by K. Dotted lines mark π = 0.45 and 0.55 and the dashed line evidence = 0.9. i, Median and interquartile range of the π score and median true effect for each spatial pattern (n = 5 per K group and setting).](benchmark/analysis/simulation_data/result/simulation_results.png)
-
-[Table 1. Median region-level statistics of the four methods across the 350 simulated gene sets.](benchmark/analysis/simulation_data/result/simulation_summary.xlsx)
-
-[Supplementary Table 1. Per-pathway simulation results for each of the seven simulated datasets.](benchmark/analysis/simulation_data/result/simulation_per_pathway_result.xlsx)
-### Resolving layer-specific pathways in human DLPFC
-
-To evaluate the performance of these methods on real data, we analyzed the human dorsolateral prefrontal cortex (DLPFC) Visium dataset of Maynard et al. (2021), because its six cortical layers and white matter (WM) were manually annotated and the molecular functions of each layer are well documented. The dataset consists of 12 sections from three donors, four from each, and the four sections of a donor form two pairs of directly adjacent sections. In every section we compared WM with all other annotated spots, using a prespecified panel of 30 MSigDB gene sets (Methods; Supplementary Table 2), and applied PISTE, GSVA, STpathway, GSDensity and FindMarkers followed by fgsea to each section separately (Supplementary Table 3). We also fitted PISTE jointly to the two sections of each adjacent pair, so that the regional differences it reports are those reproduced in both sections (Methods). For PISTE, a gene set was considered higher or lower in WM when $P(\pi>0.5\mid Y)$ or $P(\pi<0.5\mid Y)$ exceeded 0.975.
-
-[Supplementary Table 2. The 30 prespecified MSigDB gene sets for the DLPFC analysis.](benchmark/analysis/DLPFC/data/geneset_30.xlsx)
-
-[Supplementary Table 3. WM-versus-rest results of PISTE, STpathway, GSDensity, GSVA and FindMarkers + fgsea for the 30 gene sets in each of the 12 DLPFC sections.](benchmark/analysis/DLPFC/DLPFC12_pathway_results.xlsx)
-
-PISTE recovered the expected neuronal signals in every pair of adjacent sections (Fig. Xa). In the joint fits, synaptic vesicle exocytosis, glutamatergic synaptic transmission and NMDA receptor activation were lower in WM in all six pairs, and the glutamate release cycle and AMPA receptor trafficking in five, with median π scores of 0.24 to 0.34, consistent with the signaling-dominated energy budget of gray matter (Harris, Jolivet and Attwell, 2012). GABA synthesis, release, reuptake and degradation and voltage-gated potassium channel activity were lower in all six pairs, and voltage-gated calcium channel activity in five.
-
-Energy metabolism was lower in WM. Oxidative phosphorylation and glycolysis were lower in all six pairs (median π 0.29 and 0.27) and the TCA cycle in five (median π 0.33), whereas mitochondrial fatty acid β-oxidation, whose enzymes have low activity in brain mitochondria (Yang et al., 1987), showed no difference in any pair or section (median π 0.55). Oligodendrocytes can survive on glycolysis alone and supply lactate to axons (Fünfschilling et al., 2012), so lower glycolysis in WM indicates that, at the level of tissue, the higher energy demand of the neuron-rich gray matter dominates.
-
-Myelin and lipid pathways were more active in WM: myelin sheath, axon ensheathment and sphingolipid metabolism were higher in five of the six pairs and monocarboxylic acid transport in four, with median π scores of 0.58 to 0.68. Myelin maintenance and very-long-chain fatty acid metabolism had median π scores of 0.65 and 0.62 but were higher in WM in no pair. The only pair in which myelin sheath and axon ensheathment showed no difference, 151671 and 151672, came from donor Br5595 (151669–151672), whose WM spots carried little oligodendrocyte signal. In the raw counts, MBP, PLP1 and MOBP, myelin genes expressed almost exclusively by oligodendrocytes, made up 0.5% to 0.8% of the reads of the WM spots of the four Br5595 sections, two to four times their share in the other spots, whereas they made up 1.3% to 3.2% of the WM reads, 6 to 30 times their share elsewhere, in the other eight sections. In sections 151671 and 151672 the WM spots also had a median of only 845 and 677 UMIs, against about 3,800 to 4,000 in their other spots. PISTE accordingly placed the three myelin sets of this pair at π scores of 0.51 to 0.60, against 0.64 to 0.70 in the other five pairs. The weak WM signal may arise from tissue or RNA quality in WM, or from gray matter included in the white matter annotation.
-
-The joint fits reproduced the separate fits of the two sections (Fig. Xc, d). Over the 30 gene sets in the six pairs, the joint π scores differed from those of the single sections by a median of 0.008 and at most 0.069. Of the 113 pair–gene set combinations higher or lower in WM in the joint fit, 95 were higher or lower in the same direction in both sections and the remaining 18 in one of them, and no gene set changed direction. In the single sections, 60 of the 360 section–gene set combinations were higher and 155 lower in WM.
-
-The other methods recovered parts of these signals but could not separate strong from weak differences (Fig. Xe). GSVA, tested with a two-sided spatial block bootstrap (Methods), gave the smallest p-value the bootstrap can attain to at least 18 of the 30 gene sets in 9 of the 12 sections, so strong and weak differences received the same q-value. In sections 151671 and 151672 it gave this p-value to 30 and 29 of the sets and found 29 and 28 of them lower in WM, including myelin sheath, myelin maintenance and axon ensheathment, the opposite of the expected direction; the low read depth of these WM spots lowers their rank-based scores for every gene set. STpathway's region dCor carries no direction and spanned 0.72 to 0.99 across all sections and gene sets, so that within a section the 30 gene sets were confined to a narrow range, for example 0.83 to 0.99 in 151673. GSDensity retained 16 to 23 of the 30 gene sets per section after its deviation test, and the retained sets were not random: cholesterol biosynthesis was never retained, and sphingolipid metabolism and very-long-chain fatty acid metabolism only in one section each, although PISTE placed all three above 0.5 in 11 or 12 of the 12 sections (median π 0.60 to 0.62) and found sphingolipid metabolism higher in WM in 10 sections. Among the retained sets, its region test compares the proportions of spots labelled as highly active and detected few differences: myelin sheath was significant and higher in WM in 9 sections, but synaptic vesicle exocytosis, oxidative phosphorylation and mRNA splicing in at most one section each, because in nearly every section fewer than 2% of the spots of either region were labelled highly active for these sets. FindMarkers followed by fgsea agreed with PISTE on the strongest differences, finding the synaptic and energy-metabolism gene sets lower and myelin sheath and axon ensheathment higher in WM in most sections, but its normalized enrichment scores spanned only 1.17 to 2.24 in absolute value across all significant results and therefore did not reflect the size of the difference. It also missed lipid pathways that PISTE found higher in WM; for example, sphingolipid metabolism reached q < 0.05 in no section, whereas PISTE found it higher in WM in 10 sections. We also applied the methods to 20 random gene sets in each section, which should show no difference between WM and the other layers (Fig. Xf). At a significance level of 0.05, with PISTE requiring a posterior probability of either direction above 1 − α/2, PISTE found a difference for 1 of the 240 random sets in single sections and for none of the 120 in the joint fits, whereas GSVA, GSDensity and FindMarkers followed by fgsea found differences for 71.2%, 9.6% and 18.3% of them.
-
-We also observed that several pathways representing basic cellular processes tended toward higher inferred activity in WM. mRNA splicing was higher in WM in five of the six pairs, nucleotide excision repair in three and base excision repair in two. These processes are carried out by every cell, but oligodendrocytes, which dominate WM, rely on extensive QKI-regulated alternative splicing of myelin transcripts (Wu et al., 2002) and are prone to oxidative DNA damage owing to their high iron content and metabolic rate (Bradl and Lassmann, 2010). The higher activity in WM could therefore reflect either the larger proportion of oligodendrocytes or higher activity of these processes within the cells of WM. To test this, we estimated the cell-type composition of every section by RCTD deconvolution (Cable et al., 2022) using the LIBD spatialDLPFC snRNA-seq reference (Huuki-Myers et al., 2024). Oligodendrocytes made up 45% to 80% of the WM spots in eight sections, against 8% to 12% of the other spots (Fig. Xg). In the four Br5595 sections they made up only 24% to 33% of the WM spots, and excitatory neurons 24% to 44%, so the spots annotated as WM in these sections resemble gray matter in composition, in line with their weak myelin signal. To quantify the expected contribution of composition, we derived cell-type-specific pathway activities from the same reference using GSVA (Fig. Xb) and weighted these scores by the estimated cell-type proportions of each spot. Across the 30 gene sets, the resulting composition-predicted WM-versus-rest differences correlated with the π scores in every section (Pearson r 0.44 to 0.80; Fig. Xh), least in 151669 and 151670, and the medians over the 12 sections gave r = 0.78 (Fig. Xi), yet composition did not account for all signals. Most notably, oxidative phosphorylation showed opposite directions in all 12 sections: the snRNA-seq reference predicted higher activity in WM, whereas PISTE inferred lower activity from the spatial data. Because dissociation damages adult neurons, brain references are generated by single-nucleus sequencing (Habib et al., 2017), and nuclear transcriptomes underrepresent the cytoplasmic and mitochondrial transcripts enriched in the gray-matter neuropil, including those of the oxidative phosphorylation subunits encoded by mitochondrial DNA. The prediction from the nuclear reference therefore misses the higher oxidative phosphorylation activity in gray matter, whereas the spatial data, which measure whole tissue, capture it. The lower activity in WM is consistent with gray matter containing over 50% more mitochondria than WM (Mosharov et al., 2025).
-
-[Figure X. WM versus the other cortical layers in the 12 DLPFC sections. a, PISTE π scores of the 30 gene sets from the joint fit of each pair of adjacent sections. Gene sets are ordered by average-linkage hierarchical clustering of the π scores with Euclidean distance, with the leaves arranged to keep the categories of Supplementary Table 2 together, and pairs are coloured by donor. Asterisks mark gene sets with $P(\pi>0.5\mid Y)$ or $P(\pi<0.5\mid Y)$ above 0.975. b, GSVA scores of the 30 gene sets in the seven cell types of the LIBD snRNA-seq reference, medians over donors, in the row order of a. c, Posterior probability of the direction of π against the π score of the 30 gene sets in the joint fit of each pair, coloured by category, with the vertical axis on a logit scale. The dashed horizontal line marks 0.975, dotted lines 0.95 and 0.9, and the dashed vertical line π = 0.5. d, Number of gene sets higher and lower in WM in each single section and in the joint fit of each pair, with the numbers higher and lower above each bar. e, PISTE π score, GSVA target-minus-rest score difference, STpathway region dCor, GSDensity target-minus-rest difference in the fraction of highly active spots and FindMarkers + fgsea NES of the 30 gene sets in the single sections, with the bar below the axis marking their category, one point per section coloured by donor, with black lines marking the median over sections. Open circles mark gene sets with no difference by each method's own test and crosses mark gene sets not retained by the GSDensity deviation test. Dotted lines mark π = 0.5 and zero. f, False positive rates of PISTE, GSVA, GSDensity and FindMarkers + fgsea on 20 random gene sets in each of the 12 sections at significance levels of 0.05 and 0.10, marked by the dashed and dotted red lines. g, RCTD cell-type proportions of the WM spots and the remaining annotated spots of each section, with section labels coloured by donor. h, Pearson correlation across the 30 gene sets between the composition-predicted WM-versus-rest score difference and the PISTE π score in each section, coloured by donor. The dotted line marks the median over sections. i, Composition-predicted score difference against π score of the 30 gene sets, each the median over the 12 sections, coloured by category and numbered as in a. The pink line is the least-squares fit.](benchmark/analysis/DLPFC/figure/DLPFC12_figure.png)
-
-These results indicate that regional differences in cell composition can explain a substantial part of the inferred WM–gray matter differences, but not which pathway differences arise from composition and which persist beyond it. These considerations motivated us to distinguish composition-driven pathway differences from those that persist after accounting for cell composition. To this end, we extended PISTE with a composition covariate. For each spot, we used its deconvolved cell-type proportions to compute the expected expression of each gene and included this quantity as a covariate with a gene-specific coefficient (Methods). The regional effects therefore capture pathway differences beyond those predicted by cell composition.
-
-### Disentangling cell composition from pathway activity
-
-Cell composition acts on the expected counts of a spot, which are a mixture of cell-type expression profiles, and this relationship is lost after normalization such as Pearson residuals. The composition-adjusted mode therefore models the raw counts with a negative binomial likelihood and a sequencing-depth offset, and adds a composition term $\lambda_g\log m_{ig}$, where $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$ is the expression of gene $g$ in spot $i$ expected from its cell-type proportions $\omega_{ik}$ and the reference expression $\nu_{kg}$ (Methods). The coefficient $\lambda_g\sim N(1,0.25^2)$ is estimated for each gene rather than fixed at 1, and each gene has its own intercept. The regional levels therefore describe the pathway differences that remain after accounting for cell composition.
-
-To ask which WM differences remain once cell-type composition is accounted for, we refitted the 30 gene sets in all 12 sections with PISTE's composition-adjusted mode, using as composition offset the cell-type proportions of each spot estimated by RCTD (Cable et al., 2022) with the single-nucleus RNA-seq data of the same brain region from the LIBD spatialDLPFC study as reference (Huuki-Myers et al., 2024) (Fig. 3). Of the 360 section–gene set pairs, 56 were higher and 30 lower in WM ($P(\pi>0.5\mid Y)$ or $P(\pi<0.5\mid Y)>0.975$), compared with 60 and 155 in the observed mode, and no pair changed direction. Most of the lower activity of neuronal signalling in WM was explained by composition: the 12 synaptic and channel gene sets, lower in WM in 6 to 12 sections in the observed mode, were lower or higher in at most 2 sections after adjustment (median π 0.43 to 0.57), and only GABA synthesis, release and reuptake remained lower in 4 sections (median π 0.32). In contrast, myelination and lipid metabolism remained higher in WM after adjustment, so their higher activity is not explained by the larger proportion of oligodendrocytes in WM alone: myelin sheath and sphingolipid metabolism were higher in 7 and 8 of the 12 sections, very long chain fatty acid metabolism in 6 and myelin maintenance in 4. Oxidative phosphorylation remained lower in 11 of the 12 sections (median π 0.22, compared with 0.30 in the observed mode).
-
-These results separate two kinds of WM differences. The lower neuronal signalling activity in WM largely reflects the scarcity of neurons in WM rather than a change in how signalling genes are expressed in the cells that are present, and it disappeared once composition was modelled. Myelination and lipid metabolism remained higher in WM after adjustment, so their higher activity in WM cannot be explained by the larger number of oligodendrocytes alone. This suggests that oligodendrocytes in WM, which actively form and maintain myelin, express these genes at higher levels than oligodendrocytes elsewhere in the cortex. The lower oxidative phosphorylation in WM was likewise not explained by composition and may reflect the lower energy demand of WM, where synaptic signalling is sparse (Harris, Jolivet and Attwell, 2012).
-
-[Figure 3. PISTE π scores of the 30 gene sets in the 12 DLPFC sections in the composition-adjusted mode, WM versus the other annotated spots. Sections and gene sets are ordered by average-linkage hierarchical clustering of the π scores with Euclidean distance; the top bar marks the donor and the right bar the category in Supplementary Table 2. Filled and open circles mark gene sets higher and lower in WM, $P(\pi>0.5\mid Y)>0.975$ and $P(\pi<0.5\mid Y)>0.975$.](benchmark/analysis/DLPFC/adjusted/DLPFC12_adjusted_heatmap.png)
-
-### Mapping pathway activity in 3D mouse brain
-
-Brain regions are three-dimensional structures, whereas a single coronal section captures only a cross-section of each region and only the regions present in that section. A three-dimensional analysis describes each region over its full extent and compares pathway activity among all regions within the brain as a whole, providing a more comprehensive view of pathway activity across the brain. The SPDE representation of the Matérn field used by PISTE (REF) is defined in any spatial dimension, so PISTE extends to three dimensions by replacing the triangular mesh of a single section with a tetrahedral mesh of the whole tissue, while the rest of the model remains unchanged.
-
-We applied PISTE to the Stereo-seq whole-brain atlas of Han et al. (REF), in which consecutive coronal sections of an adult mouse brain were registered to the Allen Mouse Brain Common Coordinate Framework (CCFv3) (REF), with every spot assigned to an anatomical region. We analyzed the left hemisphere across 122 sections spanning 0.25–12.65 mm along the anterior–posterior axis, with adjacent sections a median of 100 µm apart (Methods). We fitted a single activity map to the whole left hemisphere on a tetrahedral mesh, rather than a separate map to each section, so that neighbouring sections share information, and obtained a three-dimensional map of pathway activity across the brain.
-
-[TODO: results]
-
-### PISTE reveals [TODO] in breast cancer
-Data: 
-[Integrative spatial omics reveals distinct tumor-promoting multicellular niches and immunosuppressive mechanisms in Black American and White American patients with TNBC. (Zhu et al.)](https://www.nature.com/articles/s41467-025-61034-3)  [data](https://zenodo.org/records/15247064) 
-> This dataset contains the 10X Visium Spatial Transcriptomic data of TNBC patients. There are two cohorts. Baylor Scott and White (BSW) cohort: `10x.visium.tar.gz`, containing 10 patients with TNBC from Baylor Scott and White affiliated Hospital. Each sample is made of Space Ranger processed spot-separated gene expression data (processed to HDF5 AnnData file). There are also H&E images, and spot coordinate files available. 
-As well in our paper, we integrated a published racial TNBC cohort for deriving some of initial results in the paper. This refers to the Bassiouni et al (Cancer Research) paper in Carpten's group. `GSM_giotto_processed.tar.gz` refers to this dataset, which we deposit here. The data were normalized by Giotto using standard procedure.
-
-## Discussion 
-#### Summary
-PISTE addresses a fundamental dependence problem in spatial pathway analysis.
-#### 和现有方法区别
-#### Biology insight 
-#### Limitations
-- computational cost (INLA对hyperparameter sensitive)
-- sensitivity to spatial covariance assumptions
-- pathway gene dependence (假设i.i.d 但实际是稀疏正负相关)
-- pathway overlap
-- uncertainty in cell type labels
-- future work
-
-PISTE describes a pathway as a whole, so it cannot resolve changes carried by only a few of its genes. When only a few genes respond, the pathway-level difference is small relative to the variation among genes, and π stays close to 0.5 even though those genes differ between regions. Such changes are better described at the gene level.
-
-The model also rests on assumptions that real data do not fully meet. Genes are treated as conditionally independent given the other terms of the model, whereas genes in a pathway are co-regulated with sparse positive and negative correlations, so the posterior may understate the uncertainty. Each spatial field is a stationary Matérn field, which cannot follow abrupt changes in spatial dependence across tissue boundaries. Regions of high or low activity need not be spatially connected and can include isolated spots at the edge of the tissue or of a larger region. Each pathway is fitted separately, so pathways that share genes give results that are not independent, and PISTE cannot tell which of two overlapping pathways drives a shared signal. The composition-adjusted mode treats the estimated cell-type proportions and the reference expression profiles as known, so errors in deconvolution or differences between the reference and the spatial platform pass directly into the estimated pathway difference. Finally, the activity map requires one spatial field per gene, so its computational cost grows with the number of genes and spots, whereas the regional comparison has no spatial fields and takes seconds per pathway.
-
-The regional comparison of a single section relies on an assumption that cannot be checked within that section. A spatial pattern of a gene at the scale of a region cannot be distinguished from a true regional difference of that gene, so the π score of a single section includes such patterns. In the adjacent DLPFC sections these patterns accounted for a small part of the gene-level regional differences, and in simulations at that level the single-section intervals were calibrated. In tissues with finer or less regular structure, however, these patterns may be larger, so that the intervals become too narrow and π moves towards 0.5. Adjacent sections remove only the noise that varies between sections. Technical patterns shared by both sections, such as a common trend in sequencing depth, remain in the joint fit and are treated as signal. The joint fit also requires adjacent sections from the same tissue block with the same regional annotation, which many data sets do not provide.
-
-In the three-dimensional analysis, resolution along the anterior–posterior axis is limited by the spacing between sections. Biological variation along this axis on a scale shorter than about one to two section spacings cannot be distinguished from the independent section effects and is absorbed by them. Our atlas is reconstructed from two-dimensional sections, and resolving such fine variation will require more advanced three-dimensional spatial sequencing technologies. Genuine biological differences at the level of a single section, for example when a section happens to pass through a small structure, are likewise partly absorbed by the section effects and treated as nuisance.
-
-## Methods
-### PISTE method
-
-#### Data input
-
-PISTE requires the expression of the pathway's genes in each spot and region labels, and, for a joint fit of adjacent sections, the section of each spot. In the observed mode the expression input must be normalized beforehand, and we recommend SCTransform (REF) for this purpose. The composition-adjusted mode instead takes raw counts and additionally requires deconvolved cell-type proportions for each spot and a single-cell or single-nucleus RNA-seq reference of cell-type mean expression.
-
-#### Pathway activity map
-
-In the activity-map mode, PISTE fits a Gaussian model to the normalized expression $Y_{ig}$ of the genes of a pathway. For spot $i=1,\ldots,N$ at location $s_i$ and gene $g=1,\ldots,G$,
-
-$$
-Y_{ig}=a_g+z(s_i)+w_g(s_i)+\epsilon_{ig},
-\qquad
-\epsilon_{ig}\sim N(0,\sigma_\epsilon^2),
-$$
-
-where $a_g$ is a gene intercept, $z$ is a spatial field shared by all genes of the pathway and $w_g$ is a spatial field specific to gene $g$. The fields are Gaussian Matérn fields represented on a triangular mesh of the section by the stochastic partial differential equation approach (Lindgren, Rue and Lindström, 2011), and the $w_g$ share one range and one variance. The range and variance of the fields are estimated with penalized complexity priors (Fuglstad et al., 2019), and the model is fitted with INLA (Rue, Martino and Chopin, 2009). [TODO: check whether the range of $w_g$ is estimated or fixed and which fields have penalized complexity priors.] The activity map is the posterior mean of $z$. All genes enter the model with the same sign, so the activity map is high where the genes of the pathway are expressed at higher levels together, and genes that change in opposite directions at the same location cancel out.
-
-#### Regions of high and low activity
-
-A region of high activity is the positive excursion set of $z$, the largest set of spots $E^{+}$ that satisfies
-
-$$
-P\{z(s_i)>u\ \text{for all}\ i\in E^{+}\mid Y\}\ge 1-\alpha,
-$$
-
-and a region of low activity is the negative excursion set $E^{-}$, defined in the same way with $z(s_i)<-u$ (Bolin and Lindgren, 2015). We set $\alpha=0.05$ and computed the excursion sets with the QC method of the excursions package (Bolin and Lindgren, 2018). [TODO: choose d. For d = 0.1: The threshold $u=0.1\sigma_\epsilon$ excludes changes in activity that are too small to be biologically relevant. For d = 0: We set $u=0$, so that a region contains the spots in which the activity is higher, or lower, than the baseline of the pathway.]
-
-#### Gaussian model for the observed mode
-
-In the observed mode, PISTE fits a Gaussian model to the normalized expression $Y_{ig}$. For spot $i=1,\ldots,N$, gene $g=1,\ldots,G$ and region $r(i)\in\{1,\ldots,R\}$,
-
-$$
-Y_{ig}=a_g+\mu_{r(i)}+b_{g,r(i)}+\epsilon_{ig},
-\qquad
-b_{gr}\mid\tau_r^2\sim N(0,\tau_r^2),
-\qquad
-\epsilon_{ig}\sim N(0,\sigma_\epsilon^2),
-$$
-
-where $a_g$ is a gene intercept and $\mu_r$ is the mean pathway level in region $r$. The gene effects $b_{gr}$ are conditionally independent across genes, and each region has its own variance $\tau_r^2$, which measures how consistently the pathway's genes behave in that region. The model has $R+1$ hyperparameters regardless of the number of genes.
-
-#### Joint model for adjacent sections
-
-Beyond the regional effects, the expression of each gene varies smoothly across a section for reasons unrelated to the pathway, such as local differences in cell composition and capture. When this variation extends over a distance comparable to the size of a region, it shifts the mean of the gene in that region in the same way as a genuine gene-level regional effect, so the two cannot be told apart within one section, and ignoring the dependence makes regional comparisons over-confident (REF: Ospina et al., 2024). Separating them requires replication, as in differential expression of single-cell data, where variation within a sample is distinguished from variation between conditions only through biological replicates (REF: Zimmerman et al., 2021; Squair et al., 2021). Directly adjacent sections of the same tissue block provide this replication, because the regional effects of a gene are shared by the sections, whereas the spatial variation specific to each section is independent. When adjacent sections $k=1,\ldots,S$ are available, PISTE therefore fits them jointly,
-
-$$
-Y_{igk}=a_{gk}+\mu_{r(i)}+b_{g,r(i)}+u_{g,r(i),k}+\epsilon_{igk},
-\qquad
-u_{grk}\mid\nu_r^2\sim N(0,\nu_r^2),
-\qquad
-\epsilon_{igk}\sim N(0,\sigma_k^2),
-$$
-
-where each section has its own gene intercepts $a_{gk}$ and residual variance $\sigma_k^2$, and the regional means $\mu_r$ are shared by the sections. The gene-level regional effect is split into a component $b_{gr}$ shared by the sections, with variance $\tau_r^2$ as in the single-section model, and a component $u_{grk}$ specific to each section, with variance $\nu_r^2$. The score $\pi$ is defined on the shared component, so that it measures the regional difference reproduced across sections. For a single section, PISTE fits the model of the previous subsection, and $\pi$ then describes the regional difference observed in that section.
-
-#### Negative binomial model for the composition-adjusted mode
-
-In the composition-adjusted mode, PISTE models the raw counts $C_{ig}$. Let $\omega_{ik}$ be the proportion of cell type $k$ in spot $i$ and $\nu_{kg}$ the depth-normalized mean expression of gene $g$ in cell type $k$ in the reference. The expression of gene $g$ in spot $i$ expected from composition alone is
-
-$$
-m_{ig}=\sum_k\omega_{ik}\nu_{kg},
-$$
-
-and PISTE fits
-
-$$
-C_{ig}\sim\mathrm{NB}(\eta_{ig},\phi_g),
-\qquad
-\log\eta_{ig}=\log d_i+\lambda_g\log m_{ig}+a_g+\mu_{r(i)}+b_{g,r(i)},
-$$
-
-where $\eta_{ig}$ is the expected count, $d_i$ is the total count of spot $i$ and $\lambda_g$ is a composition coefficient, with all other terms as in the Gaussian model. Because composition determines expression on the count scale, it enters through the log link, and $\log d_i$ is an offset. The coefficient $\lambda_g$ is estimated for each gene with a prior centered at 1, so that the model starts from the exact mixture but allows the relation between the reference and the spatial data to differ across genes. A gene-specific difference in scale between the reference and the spatial data multiplies the expected count by a constant and is absorbed by $a_g$, which also removes each gene's baseline level, so that $b_{gr}$ describes deviations from the regional level rather than overall abundance. Genes with $m_{ig}=0$ in any spot are removed before fitting. The size parameter of gene $g$ is $\phi_g=\phi S_g$, where $S_g$ is the inverse of its DESeq2 dispersion estimated on the whole transcriptome (REF), scaled to a geometric mean of 1, and $\phi$ is shared by all genes. The regional means $\mu_r$ thus describe the regional difference that composition does not explain. This adjustment treats $\omega_{ik}$ and $\nu_{kg}$ as known and assumes that a cell type has the same expression profile in every region. It has $R+1$ hyperparameters, the regional variances and $\phi$.
-
-#### Priors and posterior inference
-
-All priors are weakly informative, with scales much wider than the range of the data, so that the posterior is determined by the data while the priors remain proper. Fixed effects, including the regional means, have $N(0,10^2)$ priors, which are flat over the range of normalized expression and log counts. Each gene intercept $a_g$ is the sum of a common intercept and a gene-specific deviation with a $N(0,10^2)$ prior, and the prior of the common intercept is set so that the mean of the $a_g$, the baseline pathway level, also has a $N(0,10^2)$ prior. The composition coefficients have $\lambda_g\sim N(1,0.25^2)$. The regional log precisions follow $\log(1/\tau_r^2)\sim N(0,3^2)$ in both models, and $\log(1/\nu_r^2)$ has the same prior in the joint model, a proper approximation to a flat prior on the log scale that covers gene-to-gene standard deviations from about 0.05 to 20. The residual precision of the Gaussian model, and of each section in the joint model, has a penalized-complexity prior with $P(\sigma_\epsilon>2)=0.05$ (Simpson et al., 2017), which favors smaller residual variance only weakly, and the shared size parameter of the negative binomial model has $\log\phi\sim N(\log 10,1.5^2)$, which covers the overdispersion typical of spatial counts. In the Gaussian model, the posterior of the regional means is Gaussian given the variances, and PISTE integrates over the variances numerically on a grid of points around their posterior mode. In the negative binomial model, INLA integrates over the hyperparameters with the central composite design (CCD) (REF). For each integration point $k$ with normalized weight $q_k$, both give a Gaussian posterior $N(m_k,\Sigma_k)$ for the regional means together with the variances $\tau_{r,k}^2$, and the joint posterior of the regional means is approximated by the mixture of these Gaussians.
-
-#### Directional pathway score and posterior evidence
-
-Within each region, the levels of the pathway genes, on the scale of the normalized expression in the Gaussian model and of the log expected count in the negative binomial model, are distributed around the regional mean $\mu_r$ with variance $\tau_r^2$, $Z_r\sim N(\mu_r,\tau_r^2)$, and this distribution describes the activity of the pathway in that region. The directional score $\pi_{rs}=P(Z_r>Z_s)=\Phi\{(\mu_r-\mu_s)/(\tau_r^2+\tau_s^2+\kappa_{rs}^2)^{1/2}\}$ is the probability that a pathway gene is expressed at a higher level in region $r$ than in region $s$. It is close to 1 or 0 when most genes of the pathway differ in the same direction, and close to 0.5 when they do not. The term $\kappa_{rs}^2$ is the noise in a gene's observed regional mean. When only a few genes respond, the regional difference and the gene-to-gene variance are both at the noise level, and $\pi_{rs}$ stays near 0.5. In the Gaussian model, $\kappa_{rs}^2=\sigma_\epsilon^2(1/n_r+1/n_s)$, where $n_r$ is the number of spots in region $r$. In the joint model, $\pi_{rs}$ uses the shared variances $\tau_r^2$ and $\tau_s^2$, and $\kappa_{rs}^2$ is the noise of a gene's regional difference combined over the sections, $\kappa_{rs}^2=\{\sum_k 1/(\sigma_k^2(1/n_{kr}+1/n_{ks})+\nu_r^2+\nu_s^2)\}^{-1}$, where $n_{kr}$ is the number of spots of region $r$ in section $k$. In the negative binomial model the noise depends on a gene's counts, so spot $i$ contributes the information $w_{ig}=(1/\tilde\eta_{ig}+1/\phi_g)^{-1}$ about gene $g$, where $\tilde\eta_{ig}$ is the count expected from composition and sequencing depth alone, gene $g$ has $\kappa_{g,rs}^2=1/\sum_{i\in r}w_{ig}+1/\sum_{i\in s}w_{ig}$, and $\kappa_{rs}^2$ is the harmonic mean of $\kappa_{g,rs}^2$ over genes, which gives little weight to genes with very few counts. We report its posterior mean, the π score, which has the closed form
-
-$$
-\bar\pi_{rs}=\sum_k q_k\,\Phi\!\left(\frac{m_{k,r}-m_{k,s}}{\sqrt{\tau_{r,k}^2+\tau_{s,k}^2+\kappa_{rs,k}^2+\Sigma_{k,rr}+\Sigma_{k,ss}-2\Sigma_{k,rs}}}\right),
-$$
-
-together with the posterior evidence $P(\pi_{rs}>0.5\mid Y)$ for higher activity in region $r$ than in region $s$ and $P(\pi_{rs}<0.5\mid Y)$ for lower activity. Within integration point $k$, $\pi_{rs}>0.5$ exactly when $\mu_r-\mu_s>0$, whose posterior is $N(d_k,v_k)$ with $d_k=m_{k,r}-m_{k,s}$ and $v_k=\Sigma_{k,rr}+\Sigma_{k,ss}-2\Sigma_{k,rs}$, so both probabilities have closed forms,
-
-$$
-P(\pi_{rs}>0.5\mid Y)=\sum_k q_k\,\Phi\!\left(\frac{d_k}{\sqrt{v_k}}\right),\qquad
-P(\pi_{rs}<0.5\mid Y)=1-P(\pi_{rs}>0.5\mid Y).
-$$
-
-To compare a region with the rest of the tissue, we average the pairwise scores with spot-count weights, $\pi_{r,\mathrm{rest}}=\sum_{s\neq r}a_{rs}\pi_{rs}$ with $a_{rs}\propto n_s$. With two regions the evidence is computed analytically; with more regions it is computed by deterministic quasi-Monte Carlo integration over the mixture, doubling the number of Sobol points until two consecutive refinements change the evidence by less than 0.002, so no posterior sampling is involved. Regional mean contrasts and variance components are reported as diagnostics only.
-
-### Simulation framework
-
-#### Tissue layout and genes
-
-We simulated raw spatial transcriptomic counts at the 3,639 tissue-covered spots of the dorsolateral prefrontal cortex (DLPFC) section 151673 from the spatialLIBD resource (REF), using the observed spot coordinates rescaled to $[0,1]$ with a common scale for both axes, so that all simulated spatial patterns are defined on a realistic tissue layout. Each simulated dataset contains 10,000 genes: 50 non-overlapping test pathways of 100 genes each, 1,000 background spatially variable genes (SVGs) and 4,000 background genes with no spatial effect. Seven independent datasets were generated.
-
-#### Pathway design
-
-The 50 test pathways cover the full factorial of five response-size groups, five spatial-pattern classes and two effect-size distributions. For pathway $p$, the number of responsive genes $K_p$ among its 100 members was either 0 or drawn uniformly from one of four ranges, 1–10, 11–30, 31–60 or 61–100, and the remaining $100-K_p$ members were left unresponsive. Pathways with $K_p=0$ are true nulls, for which the two effect-size distributions give replicate pathways, and pathways in the 1–10 group serve as weak-signal controls.
-
-#### Spatial activity patterns
-
-Each pathway was assigned a spatial activity map $A_i^{(p)}$, scaled to $[0,1]$, from one of five classes chosen to represent common tissue architectures. Discrete domains represent compartmentalized structures such as cortical layers, with piecewise-constant activity across three bands separated by randomly shifted, wavy boundaries. Smooth gradients represent continuous processes such as metabolic zonation and were drawn from a Gaussian random field with a Matérn covariance of smoothness 3/2 and range 0.25. Radial or niche-centered patterns represent niches centered on vessels or ducts, with activity decaying exponentially with distance from a randomly chosen spot at a scale drawn uniformly from 0.12 to 0.24. Localized hotspots represent focal structures such as tertiary lymphoid structures and consist of two Gaussian hotspots of widths 0.06 and 0.09 centered on randomly chosen spots. Interface-specific patterns represent tissue boundaries such as the tumor–stroma interface or an invasive front, with
-
-$$
-A_i^{(p)} = \mathbb{1}(h_i \le 0.14)\exp(-h_i/0.06),
-$$
-
-where $h_i$ is the distance of spot $i$ to a sinusoidal boundary. The target region of each pathway is the most active band for domain maps, the 20% most active spots for gradient and radial maps, the spots with $A_i^{(p)}\ge 0.5$ for hotspot maps and the spots with $A_i^{(p)}>0$ for interface maps. Responsive genes inherit their pathway's activity map, $H_{ig}=A_i^{(p)}$, whereas unresponsive pathway genes and background genes without a spatial effect have $H_{ig}=0$. Each background SVG received its own radial activity map, generated independently of the test-pathway maps, to mimic the spatially structured background variation of real tissue.
-
-#### Effect sizes and response direction
-
-For each responsive gene $g$, the absolute target-versus-rest log2 fold change of the depth-corrected expected expression, $E_g>0$, was drawn from one of two log-normal distributions,
-
-$$
-\log E_g \sim \begin{cases}
-N(\log 0.4,\ 0.3^2), & \text{broad and weak},\\
-N(\log 0.9,\ 0.4^2), & \text{narrow and strong}.
-\end{cases}
-$$
-
-Response direction was assigned before count generation, with $d_g=+1$ for target-upregulated and $d_g=-1$ for target-downregulated genes. To mimic the heterogeneous composition of real pathways, $\lfloor 0.4\sqrt{K_p}\rfloor$ randomly chosen responsive genes of each pathway were downregulated and the others upregulated, so that pathways with fewer responsive genes contain a larger share of genes responding in the opposite direction. Background SVGs were assigned a random direction and an effect from the broad and weak distribution.
-
-#### Count generation
-
-Raw read counts were then generated from a negative binomial model,
-
-$$
-Y_{ig} \sim \mathrm{NB}(\mu_{ig}, \theta_g), \qquad
-\mathrm{Var}(Y_{ig}) = \mu_{ig} + \frac{\mu_{ig}^2}{\theta_g},
-$$
-
-$$
-\log \mu_{ig} = \log c_i + \log m_g + d_g b_g H_{ig} + e_{ig}
-$$
-
-for pathway genes and
-
-$$
-\log \mu_{ig} = \log c_i + \log f_i + \log m_g + d_g b_g H_{ig} + e_{ig}
-$$
-
-for background genes, where $b_g\ge 0$ was calibrated numerically so that the target-versus-rest log2 fold change of the depth-corrected mean $m_g\exp(d_g b_g H_{ig})$ equals $d_g E_g$, and $b_g=0$ for genes without a spatial effect. The term $e_{ig}=0.13\,z_{ig}$ adds spatial autocorrelation to every gene, where $z_{\cdot g}$ is a unit-variance Gaussian random field with a Matérn covariance of smoothness 3/2 and range 0.075, drawn independently for each gene and independently of the activity maps; the standard deviation and range were estimated on section 151673 from 1,500 randomly chosen genes with a mean count of at least 0.3, by fitting a Matérn covariance of smoothness 3/2 by weighted least squares to the empirical spatial covariogram of the relative deviations $y_{ig}/\mu_{ig}-1$, where $\mu_{ig}$ is the layer mean of gene $g$ scaled by the total count of spot $i$. This variation is not part of the true regional difference, so pathways with $K_p=0$ remain null. Upregulated pathway genes raise the total count of their target region, and normalization by total counts would then lower the unresponsive genes there. To avoid this, the background factor $f_i$ was chosen so that the depth-free expected total count is the same at every spot. The expected total count of spot $i$ is then proportional to $c_i$ and does not depend on pathway activity. The baseline mean $m_g$ and dispersion $\theta_g$ were estimated jointly from the observed counts of section 151673 by an intercept-only DESeq2 fit (REF), and each simulated gene received one intact empirical pair, sampled without replacement from the genes detected in at least 100 spots, so that the simulated data preserve the mean–dispersion relationship of Visium data. The spot depth factors $c_i$ are the DESeq2 size factors of the same section, randomly permuted across spots and rescaled to a geometric mean of 1. The simulated counts were then normalized with SCTransform (REF) for all downstream analyses, because STpathway and GSDensity both take SCTransform output as input.
-
-#### Evaluation on simulated data
-
-Each simulated dataset was analyzed with the five methods as described in Compared methods and benchmarking, with the target region of each pathway defined by its activity map. Each statistic was summarized by its median over the 35 gene sets of each of the ten groups defined by effect-size distribution and response-size group.
-
-
-#### Cell composition
-
-To evaluate the composition-adjusted mode, we simulated a second set of datasets on the same spots, in which every spot is a mixture of oligodendrocytes (Oligo) and excitatory neurons (Excit). The 10,000 genes were sampled from genes expressed in both types in the LIBD spatialDLPFC snRNA-seq data (cellType_broad_hc) (REF) and kept their dispersions estimated in section 151673. The cell-type expression profiles were generated rather than taken directly from the reference, so that the profiles behind the simulated counts are known exactly. Each gene kept its mean expression $\bar\nu_g$ over the two types, as pooled counts per 10,000, and received an Oligo-to-Excit ratio $r_g$, giving $\nu_{Og}=2\bar\nu_g r_g/(1+r_g)$ and $\nu_{Eg}=2\bar\nu_g/(1+r_g)$. Outside scenario D, $r_g$ was the ratio of a randomly chosen reference gene, so that the profiles follow the cell-type differences of real genes.
-
-A wavy line at a random angle split the tissue into a target region, holding 40–60% of the spots, and the rest. The Excit proportion of spot $i$ was drawn as $\omega_{iE}\sim\mathrm{Beta}(p_R\phi,(1-p_R)\phi)$, with $\omega_{iO}=1-\omega_{iE}$, $p_R=0.5-\Delta/2$ in the target region and $0.5+\Delta/2$ in the rest, and $\phi=12$, the median concentration of the RCTD proportions within the cortical layers of section 151673. We used $\Delta=0$, 0.2, 0.4 and 0.6; at $\Delta=0.6$ the target region is on average 80% Oligo and the rest 20%, resembling the oligodendrocyte-rich white matter. Everything else is shared across the four values of $\Delta$ within a dataset, so they are paired, and four datasets were generated for each value of $\Delta$.
-
-Each dataset contains 20 pathways of 100 genes. Scenario A has five pathways without an effect, and scenarios B, C and D have one pathway per response group, with the effect in both cell types in B and D and in Excit only in C. In scenario D, $r_g$ was drawn from the ratios of the genes in the GOCC_MYELIN_SHEATH set (median 3.1), so that D pathways are expressed more in Oligo, as myelin-related pathways are, and appear higher in the target region from composition alone. Response groups and downregulated genes follow the main simulation, the absolute log2 fold change of each responsive gene follows a log-normal distribution with median 0.6 and log-scale standard deviation 0.4, and the effect is uniform within the target region. Of the 8,000 background genes, 1,000 have a radial effect that is the same in both cell types. Counts were generated as in the main simulation, with
-
-$$
-\mu_{ig}=c_i L_0\sum_k\omega_{ik}\nu_{kg}\exp(d_g b_{kg}R_i)\exp(e_{ig}),
-$$
-
-where $R_i$ indicates the target region, $b_{kg}$ is the effect of gene $g$ in cell type $k$ (zero in the cell types without an effect) and $L_0$ is the expected total count of a spot.
-
-The true composition-adjusted score is computed from the per-gene regional means of the log fold change relative to $m_{ig}=\sum_k\omega_{ik}\nu_{kg}$, which is $d_g b_g R_i$ in scenarios A, B and D and $\log\{1+s_{ig}(e^{d_g b_g R_i}-1)\}$ in scenario C, where $s_{ig}$ is the share of Excit in $m_{ig}$. The true observed score is computed from the Pearson-scaled deviation of the noise-free mean from the gene's spot-constant mean and therefore includes the composition difference.
-
-Cell-type proportions were estimated with RCTD in full mode (REF), with the simulated profiles as the reference. Each dataset was analyzed with PISTE in the composition-adjusted mode using the RCTD proportions and, as a reference, the true proportions, and in the observed mode on SCTransform residuals, on all spots, with the target region against the rest.
-
-### Compared methods and benchmarking
-
-#### Benchmarking design
-
-We benchmarked PISTE against three representative pathway-analysis methods, GSVA (REF), [STpathway](https://pmc.ncbi.nlm.nih.gov/articles/PMC11503753/) and [GSDensity](https://www.nature.com/articles/s41467-023-44206-x), and against Seurat FindMarkers followed by fgsea (Korotkevich et al., 2021). [TODO: software versions and code sources.] Because the methods return statistics that are not directly comparable, each method's output was mapped onto a common question, whether a pathway differs between a target region and the remaining tissue.
-
-The benchmarking protocol was identical for simulated and real data, and only the dataset and the definition of the target region differed. On simulated data, the target region of each pathway was the one defined by its activity map, and each method's region-level statistic was compared with the prespecified pathway activity across the eight strata defined by response size and effect-size distribution, and separately across the five spatial-pattern classes.
-
-#### DLPFC data
-
-On the DLPFC data, all methods were applied to each of the 12 sections of Maynard et al. (2021), from donors Br5292 (151507–151510), Br5595 (151669–151672) and Br8100 (151673–151676), using the 47,329 spots with a layer annotation (3,431 to 4,788 per section). Each donor contributed two pairs of directly adjacent sections. In each section the WM spots (166 to 652) were the target region and the remaining annotated spots the rest. The four Br5595 sections have no separate Layer 1 annotation and a combined Layer 2/3, so their rest region consists of Layers 2/3 to 6. All methods used the Space Ranger filtered matrix and kept every spot with a layer annotation. WM serves as a partial biological reference because myelin-related and oligodendrocyte-associated pathways are expected a priori to be WM-enriched (REF). The DLPFC panel consisted of 30 MSigDB gene sets: synaptic transmission and plasticity (n = 9), voltage-gated sodium, potassium and calcium channel activity (n = 3), energy metabolism (oxidative phosphorylation, TCA cycle, glycolysis, pyruvate metabolism and mitochondrial fatty acid β-oxidation; n = 5), myelination (n = 3), lipid metabolism (n = 4), dendrite morphogenesis (n = 1) and basal RNA, protein and DNA maintenance (n = 5). The sets had 15 to 211 detected genes per section, a mean pairwise Jaccard index of 0.008 and a maximum of 0.23 (Supplementary Table 2). Cell-type composition was estimated for every section with RCTD in full mode (Cable et al., 2022) from the raw counts of all tissue spots, using cell-type profiles from all 54,394 annotated nuclei of the LIBD spatialDLPFC reference in seven broad classes (Huuki-Myers et al., 2024).
-
-#### Preprocessing
-
-Following Maynard et al. (2021), we used the Space Ranger filtered count matrix and retained all spots with a layer annotation. No additional spot-level filtering was applied, because it can preferentially remove spots from biologically distinct regions and the genuine signal they carry (Totty et al., 2025). Mitochondrial genes were retained, as several of the processes we aimed to study, including mitochondrial function and oxidative phosphorylation, involve mitochondrially encoded genes, and removing these genes would lose their signal. Genes detected in fewer than five spots were excluded before normalization. The same preprocessing was applied to all datasets.
-
-#### Normalization
-
-All methods started from the same SCTransform fit of the raw counts (REF). GSDensity received the SCTransform-corrected counts, which its functions log-normalize before the embedding. GSVA, STpathway and PISTE, run in the observed mode, received the Pearson residuals. FindMarkers received the log-transformed SCTransform-corrected counts.
-
-#### GSVA
-
-GSVA scored each pathway in each spot from the SCTransform Pearson residuals, estimating the cumulative distribution of each gene across spots directly from the empirical distribution without kernel smoothing. Because the scores of neighbouring spots are spatially autocorrelated, we tested target-versus-rest differences in mean score with a two-sided spatial block bootstrap. Spot coordinates were scaled to the unit square and divided into square blocks of side 0.10, and the blocks were resampled with replacement 1,999 times. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets tested in each dataset.
-
-#### STpathway
-
-STpathway adapts the Brownian distance covariance test (Székely and Rizzo, 2009) to pathway analysis. In its predefined-region mode, used here, the Pearson residuals of a set's genes are split into a target-region matrix and a rest matrix, gene-by-gene Euclidean distance matrices are computed within each region, and the dependence between the two is summarized by the distance correlation (dCor) and assessed with 199 permutations. A dCor close to zero indicates that the genes are organized differently in the two regions, so a lower dCor indicates a larger regional difference. The statistic carries no direction.
-
-#### GSDensity
-
-The GSDensity pathway activity of each spot was computed by random walk with restart on a 300-nearest-neighbour graph, the deviation of each set was tested by comparing the density of its genes in the joint gene–spot embedding with those of 100 size-matched random gene sets through the Kullback–Leibler divergence, and sets with Benjamini–Hochberg q < 0.05 within each dataset were retained. For these sets, spots were labelled as highly active or not with the GSDensity labelling function, which estimates the density of the pathway activity across spots with a Gaussian kernel at the critical bandwidth that yields two modes and labels spots above the antimode as highly active (locmodes in the multimode R package, REF). The activity of each set was divided by its mean before labelling, which leaves the labels unchanged and avoids numerical tolerance problems at the original scale. The proportions of highly active spots in the target region and the remaining spots were compared by a chi-squared test with continuity correction. P-values were adjusted by the Benjamini–Hochberg procedure across the retained gene sets in each dataset. On the DLPFC sections the joint gene–spot embedding was computed as in the authors' 10x Visium tutorial, by multiple correspondence analysis (10 dimensions) of the SCTransform-corrected counts, and the deviation test used 100 grid points. Because the installed version of its grid partitioning only forms groups of equal size, the 22 to 99 genes detected in the fewest spots that belong to none of the 30 gene sets were left out of the grid in each section, so that the number of genes was a multiple of 100.
-
-#### FindMarkers and fgsea
-
-Every gene was compared between the target region of a gene set and the remaining spots with the two-sided Wilcoxon rank-sum test of the FindMarkers function of Seurat (Hao et al., 2024), computed with presto (Korsunsky et al., 2019). Genes were ranked by the area under the receiver operating characteristic curve (AUC) minus 0.5, where the AUC is the Mann–Whitney U statistic divided by the product of the numbers of spots in the two regions and exceeds 0.5 for genes expressed higher in the target region. The gene set was then tested on this ranking by preranked gene set enrichment analysis with fgsea, which gives a normalized enrichment score (NES) whose sign indicates the direction. P-values were adjusted by the Benjamini–Hochberg procedure across the gene sets of each dataset.
-
-#### PISTE
-
-For PISTE, we report the π score and the posterior evidence of the target region versus the rest of the tissue, as defined in Directional pathway score and posterior evidence. To compare PISTE with the other methods at the same level of 0.05, we call the pathway more or less active in the target region when the evidence in that direction is at least 0.975, which is the same as $2\min\{P(\pi_{rs}>0.5\mid Y),P(\pi_{rs}<0.5\mid Y)\}\le 0.05$. This quantity is a posterior probability and not a frequentist p-value.
-
-### Mouse whole-brain data
-
-We used mouse 1 of the adult mouse whole-brain Stereo-seq atlas (REF), whose 123 coronal sections were registered to CCFv3, with each spot assigned to a CCFv3 structure and hemisphere. We kept the spots of the left hemisphere, because the right hemisphere was truncated unevenly across sections, whereas the left-hemisphere tissue area of every section was 0.87 to 1.14 times the CCFv3 hemisphere area at the same position. Spots without a region label, which lie outside the registered brain, were removed. One section with an inconsistent registered position was excluded. The remaining 122 sections are 40 to 270 µm apart (median 100 µm). Spots were aggregated into 100-µm bins within each section. [TODO: normalization, region comparisons and gene sets.]
-
-The spatial field of each gene was defined on a tetrahedral mesh of the left hemisphere, built from the CCFv3 left-hemisphere mask together with all observed bins so that every bin lies inside the mesh. [TODO: mesh resolution, range of the spatial field and handling of section effects.]
-
-### TNBC data
-
-We analyzed the Visium spatial transcriptomics data of triple-negative breast cancer (TNBC) assembled by Zhu et al. (2025). The discovery cohort is the racially balanced cohort of Bassiouni et al. (2023) (GEO GSE210616), consisting of flash-frozen tumors from 20 patients, 10 Black American (BA) and 10 White American (WA), with one section per patient and 1,500 to 2,500 spots per section. The Baylor Scott and White (BSW) cohort of formalin-fixed paraffin-embedded tumors (Zhu et al., 2025) was used for replication. [TODO: confirm design: Each section was fitted separately, and BA and WA patients were compared at the patient level.] [TODO: number of BSW patients, 10 on Zenodo and 9 in Zhu et al.]
+Please report problems and questions on the
+[issue tracker](https://github.com/lingzhuu/pathwayLGM/issues).
