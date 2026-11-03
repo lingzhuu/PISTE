@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.io import mmread
 from PIL import Image
 
-DATA_DIR = "C:/Users/lxs888/Downloads/bc_data"
+DATA_DIR = "data/bc_data"
 SAMPLE = "CID4535"
 
 # %% 2. Read the author-provided filtered matrix, gene names, and spot barcodes

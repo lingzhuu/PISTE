@@ -1,5 +1,5 @@
 # DLPFC 12 sections: WM (target) versus all other labelled spots (rest),
-# PISTE 0.7.0 (lingzhuu/pathwayLGM main, src/piste),
+# PISTE 0.7.0 (src/piste),
 # composition-adjusted mode (negative binomial on raw counts, measurement
 # error kappa2 in pi = harmonic mean of the gene kappa2_g), 30 gene sets of
 # benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt (the sets of Figure X).
@@ -10,39 +10,34 @@
 #   * RCTD full-mode proportions of the 7 LIBD types
 #     (RCTD_LIBD/<section>/<section>_spot_celltype_proportions.csv) and the
 #     reference profiles RCTD used (mean nucleus UMI fractions,
-#     DLPFC_151673_RCTD_LIBD/reference/reference_profiles.rds)
+#     reference_profiles.rds)
 #   * library size = total UMI of the spot over all genes
 #   * DESeq2 dispersion scales estimated on all genes of the section
-# Other settings as the observed run
-# (PISTE_WM_brain30_observed_0.6.1.1/scripts/run_wm_brain30.R):
+# Other settings as the observed run:
 #   * pixel coordinates shifted to 0 and divided by the larger range
 #   * mesh max_edge .25, cutoff .08, offset (.1, .2); h = .3; intercept only
 #   * baseline 'rest', pi = TRUE, delta .05 and level .95 (package defaults)
-#   * seed 42 before each fit; INLA threads 2:1 (lab PC)
+#   * seed 42 before each fit; INLA threads 2:1
 # Resumable: each gene set is written to <job>.partial and renamed to <job>
 # only after it finished; the dispersion scales of a section are saved once
 # and reused. screen_summary.rds keeps `joint` (CCD weights, regional means
 # and kappa2 per configuration), so pi and evidence can be recomputed without
 # refitting.
 # The three myelin gene sets run first in all 12 sections, then the rest.
+# Inputs under data/ (one folder per section, RCTD_LIBD/, reference_profiles.rds); results in
+# results/DLPFC_adjusted/. Run from the repository root.
 # Usage: Rscript run_wm_adjusted.R [SECTION ...]   (default: all 12)
 Sys.setenv(OMP_NUM_THREADS = "2", OPENBLAS_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 Sys.setlocale("LC_CTYPE", "English_United States.utf8")
-st2 <- "C:/Users/lxs888/Documents/ChatGPT/ST 2"
-.libPaths(file.path(st2, "tools", c("R-library-piste-0.7.0", "R-library-rctd",
-                                    "R-library-gsva", "R-library",
-                                    "R-library-piste-0.6.1", "R-library-sct-v2")))
 suppressPackageStartupMessages({library(Matrix); library(PISTE)})
 version <- "0.7.0"
 stopifnot(as.character(packageVersion("PISTE")) == version,
-          packageVersion("INLA") == package_version("26.08.07"),
-          startsWith(find.package("PISTE"),
-                     file.path(st2, "tools/R-library-piste-0.7.0")))
+          packageVersion("INLA") == package_version("26.08.07"))
 
-data_root <- file.path(st2, "data/DLPFC_12_sections_20261007")
-out_root <- file.path(data_root, "PISTE_WM_DLPFC30_adjusted_0.7.0")
-gmt_file <- file.path(out_root, "DLPFC12_gene_sets.gmt")
-reference_file <- file.path(st2, "data/DLPFC_151673_RCTD_LIBD/reference/reference_profiles.rds")
+data_root <- "data"
+out_root <- file.path("results", "DLPFC_adjusted")
+gmt_file <- "benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt"
+reference_file <- file.path(data_root, "reference_profiles.rds")
 types <- c("Astro", "EndoMural", "Excit", "Inhib", "Micro", "Oligo", "OPC")
 h <- .3
 cfg <- list(threads = "2:1", pi = TRUE, baseline_region = "rest",
