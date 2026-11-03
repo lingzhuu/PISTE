@@ -24,8 +24,8 @@
 # and kappa2 per configuration), so pi and evidence can be recomputed without
 # refitting.
 # The three myelin gene sets run first in all 12 sections, then the rest.
-# Inputs under data/ (one folder per section, RCTD_LIBD/, reference_profiles.rds); results in
-# results/DLPFC_adjusted/. Run from the repository root.
+# Inputs in benchmark/analysis/DLPFC/data/ (one folder per section, RCTD_LIBD/,
+# reference_profiles.rds); results in benchmark/analysis/DLPFC/adjusted/. Run from this folder.
 # Usage: Rscript run_wm_adjusted.R [SECTION ...]   (default: all 12)
 Sys.setenv(OMP_NUM_THREADS = "2", OPENBLAS_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 Sys.setlocale("LC_CTYPE", "English_United States.utf8")
@@ -34,9 +34,10 @@ version <- "0.7.0"
 stopifnot(as.character(packageVersion("PISTE")) == version,
           packageVersion("INLA") == package_version("26.08.07"))
 
-data_root <- "data"
-out_root <- file.path("results", "DLPFC_adjusted")
-gmt_file <- "benchmark/analysis/DLPFC/data/DLPFC12_gene_sets.gmt"
+work_dir <- "../.."
+data_root <- file.path(work_dir, "data")
+out_root <- file.path(work_dir, "adjusted")
+gmt_file <- file.path(data_root, "DLPFC12_gene_sets.gmt")
 reference_file <- file.path(data_root, "reference_profiles.rds")
 types <- c("Astro", "EndoMural", "Excit", "Inhib", "Micro", "Oligo", "OPC")
 h <- .3
