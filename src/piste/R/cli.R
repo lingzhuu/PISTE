@@ -4,7 +4,7 @@
 # Command-line interface: run PISTE on every gene set of a GMT file from a
 # shell, without writing R code.
 #
-#   piste compare --input sample.h5ad --region-key layer --gmt sets.gmt \
+#   piste compare --input sample.h5ad --region layer --gmt sets.gmt \
 #                   --out results/
 #   piste map --input sample.h5ad --coords positions.csv --gmt sets.gmt \
 #               --out results/
@@ -16,7 +16,7 @@
 #   compare: read inputs -> align spots -> compare_regions() (compare_regions.R)
 #   map:     read inputs -> align spots -> map_activity() (map_activity.R)
 #
-# Several sections can be given to compare with --sections or --section-key;
+# Several sections can be given to compare with --section;
 # they are normalised separately and fitted on their own, or jointly with
 # --joint-sections when they are adjacent sections of the same tissue.
 # =============================================================================
@@ -36,11 +36,9 @@ cli_option_table <- function(command) {
     c("input", NA, FALSE, "both", "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
     c("layer", NA, FALSE, "both", ".h5ad only: read layers/<LAYER> instead of X."),
     c("genes-in-rows", "false", TRUE, "both", ".csv/.tsv only: rows are genes and columns are spots."),
-    c("regions", NA, FALSE, "compare", "Table with spot ID and region label."),
-    c("region-key", NA, FALSE, "compare", ".h5ad only: obs column with the region labels."),
+    c("region", NA, FALSE, "compare", "Region labels: an obs column of the .h5ad, or a table with spot ID and region label."),
     c("coords", NA, FALSE, "map", "Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file."),
-    c("sections", NA, FALSE, "compare", "Optional table with spot ID and section label; sections are normalised separately and fitted on their own."),
-    c("section-key", NA, FALSE, "compare", ".h5ad only: obs column with the section labels."),
+    c("section", NA, FALSE, "compare", "Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are normalised separately and fitted on their own."),
     c("joint-sections", "false", TRUE, "compare", "Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue)."),
     c("gmt", NA, FALSE, "both", "Gene sets in GMT format."),
     c("out", NA, FALSE, "both", "Output directory."),
@@ -167,13 +165,9 @@ cli_check_options <- function(opts, command) {
       stop("--mode adjusted needs --proportions and --reference.")
     }
   }
-  if (is.null(opts$regions) && is.null(opts$`region-key`)) {
-    stop("Give the region labels with --regions or --region-key.")
-  }
+  if (is.null(opts$region)) stop("Give the region labels with --region.")
   if (isTRUE(opts$`joint-sections`)) {
-    if (is.null(opts$sections) && is.null(opts$`section-key`)) {
-      stop("--joint-sections needs the section labels (--sections or --section-key).")
-    }
+    if (is.null(opts$section)) stop("--joint-sections needs the section labels (--section).")
     if (opts$mode == "adjusted") stop("--joint-sections applies to the observed mode.")
   }
   opts
@@ -203,21 +197,19 @@ cli_load_inputs <- function(opts) {
   counts <- data$counts
   cli_log(nrow(counts), " spots x ", ncol(counts), " genes")
 
-  spot_labels <- function(path, key, what) {
-    labels <- if (!is.null(path)) {
-      read_spot_table(path)
+  # A label option names an obs column of the .h5ad input or a table file.
+  spot_labels <- function(value, what) {
+    labels <- if (!is.null(data$obs) && value %in% names(data$obs)) {
+      setNames(as.character(data$obs[[value]]), rownames(data$obs))
+    } else if (file.exists(value)) {
+      read_spot_table(value)
     } else {
-      if (is.null(data$obs) || !key %in% names(data$obs)) {
-        stop("--", what, "-key ", key, " is not an obs column of ", opts$input)
-      }
-      setNames(as.character(data$obs[[key]]), rownames(data$obs))
+      stop("--", what, " ", value, " is neither an obs column of ", opts$input, " nor a file")
     }
     labels[!is.na(labels) & nzchar(labels) & labels != "NA"]
   }
-  region <- spot_labels(opts$regions, opts$`region-key`, "region")
-  section <- if (!is.null(opts$sections) || !is.null(opts$`section-key`)) {
-    spot_labels(opts$sections, opts$`section-key`, "section")
-  }
+  region <- spot_labels(opts$region, "region")
+  section <- if (!is.null(opts$section)) spot_labels(opts$section, "section")
 
   spots <- intersect(rownames(counts), names(region))
   if (!is.null(section)) spots <- intersect(spots, names(section))

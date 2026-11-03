@@ -15,7 +15,7 @@ the folder with your data at `/work`:
 ```bash
 docker build -t piste .        # once, from the PISTE repository
 docker run --rm -v "$PWD":/work piste \
-  piste compare --input sample.h5ad --region-key layer \
+  piste compare --input sample.h5ad --region layer \
                   --gmt pathways.gmt --out results
 ```
 
@@ -35,9 +35,9 @@ piste --version
 | Input | Formats |
 |-------|---------|
 | Expression (`--input`) | AnnData `.h5ad` (`X` or `--layer`), 10x `.h5`, 10x matrix directory (`matrix.mtx`, `features.tsv`, `barcodes.tsv`), `.csv`/`.tsv` with spots as rows (or `--genes-in-rows`), `.rds` matrix |
-| Region labels (compare) | An `obs` column of the `.h5ad` (`--region-key`), or `--regions`: a table with spot ID and region |
+| Region labels (compare) | `--region`: an `obs` column of the `.h5ad`, or a table with spot ID and region |
 | Spot coordinates (map) | `--coords`: a table with spot ID, `x` and `y`, or a Space Ranger `tissue_positions` file |
-| Section labels (optional) | An `obs` column of the `.h5ad` (`--section-key`), or `--sections`: a table with spot ID and section |
+| Section labels (optional) | `--section`: an `obs` column of the `.h5ad`, or a table with spot ID and section |
 | Gene sets | `--gmt`: GMT file |
 | Cell-type proportions (adjusted mode) | `--proportions`: table of spots x cell types, e.g. RCTD weights |
 | Reference (adjusted mode) | `--reference`: table of cell types x genes on a linear scale, or single-cell raw counts (`.h5ad`, `.h5` or matrix directory) with `--celltype-key` |
@@ -52,7 +52,7 @@ Pearson residuals clipped as in Seurat). Use `--normalized` if the input is
 already normalized.
 
 ```bash
-piste compare --input 151673.h5ad --region-key layer_guess_reordered \
+piste compare --input 151673.h5ad --region layer_guess_reordered \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --out results_observed
 ```
@@ -62,16 +62,15 @@ region is compared with the others and with each other.
 
 ## Adjacent sections
 
-Several sections can be given in one run with `--section-key` or
-`--sections`. Each section is normalized separately and fitted on its own.
+Several sections can be given in one run with `--section`. Each section is normalized separately and fitted on its own.
 For adjacent sections of the same tissue block with the same regions,
 `--joint-sections` fits them jointly: the regional effects are shared, each
 section has its own deviation, and π is computed from the shared part (see
 [`observed_fit()`](api.md#observed_fit)).
 
 ```bash
-piste compare --input 151673_151674.h5ad --region-key layer_guess_reordered \
-                --section-key sample_id --joint-sections \
+piste compare --input 151673_151674.h5ad --region layer_guess_reordered \
+                --section sample_id --joint-sections \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --out results_joint
 ```
@@ -83,7 +82,7 @@ a reference.
 
 ```bash
 piste compare --mode adjusted \
-                --input 151673.h5ad --region-key layer_guess_reordered \
+                --input 151673.h5ad --region layer_guess_reordered \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --proportions rctd_proportions.csv \
                 --reference dlpfc_snrna.h5ad --celltype-key cellType_broad_hc \
@@ -136,10 +135,8 @@ appear as regions of the pathway.
 --input INPUT                  Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
 --layer LAYER                  .h5ad only: read layers/<LAYER> instead of X.
 --genes-in-rows                .csv/.tsv only: rows are genes and columns are spots.
---regions REGIONS              Table with spot ID and region label.
---region-key REGION_KEY        .h5ad only: obs column with the region labels.
---sections SECTIONS            Optional table with spot ID and section label; sections are normalised separately and fitted on their own.
---section-key SECTION_KEY      .h5ad only: obs column with the section labels.
+--region REGION                Region labels: an obs column of the .h5ad, or a table with spot ID and region label.
+--section SECTION              Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are normalised separately and fitted on their own.
 --joint-sections               Observed mode: fit the sections jointly, sharing the regional effects (adjacent sections of the same tissue).
 --gmt GMT                      Gene sets in GMT format.
 --out OUT                      Output directory.

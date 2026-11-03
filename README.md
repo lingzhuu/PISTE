@@ -70,7 +70,7 @@ head(map$gene_sets)
 ### Command line
 
 ```bash
-piste compare --input sample.h5ad --region-key layer --target WM \
+piste compare --input sample.h5ad --region layer --target WM \
               --gmt pathways.gmt --out results_compare
 
 piste map --input sample.h5ad --coords tissue_positions.csv \
