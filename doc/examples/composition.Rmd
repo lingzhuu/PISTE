@@ -132,17 +132,17 @@ counts <- t(counts(spe))                       # spots x genes, raw counts
 xy     <- spatialCoords(spe)
 region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 
-res <- run_piste(counts, xy, region, gmt, mode = "adjusted",
+res <- compare_regions(counts, xy, region, gmt, mode = "adjusted",
                    proportions = omega, reference = nu,
                    baseline = "rest", out = "results_adjusted",
                    cfg = list(threads = "8:1"))
 ```
 
-`run_piste()` builds the composition offset from `omega` and `nu`, builds
+`compare_regions()` builds the composition offset from `omega` and `nu`, builds
 the mesh and fits every gene set to the raw counts. Results are written to
 `results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#run_piste) for all options.
+evaluation uses B threads. See [API](../api.md#compare_regions) for all options.
 
 ## 6. Read the results
 
@@ -166,4 +166,4 @@ prediction. For the first gene set:
 head(res$results[[1]]$gene_coefficients)
 ```
 
-See [API](../api.md#run_piste) for all outputs.
+See [API](../api.md#compare_regions) for all outputs.

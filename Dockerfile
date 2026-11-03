@@ -3,7 +3,7 @@
 # Build from the repository root:
 #   docker build -t piste .
 # Run the command-line interface on files in the current folder:
-#   docker run --rm -v "$PWD":/work piste piste run --help
+#   docker run --rm -v "$PWD":/work piste piste compare --help
 # Or open R with the current folder mounted at /work:
 #   docker run --rm -it -v "$PWD":/work piste
 #

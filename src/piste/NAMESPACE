@@ -3,14 +3,18 @@
 import(INLA)
 import(Matrix)
 
-importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx)
+importFrom(stats, as.formula, model.matrix, reformulate, setNames, approx,
+           optim, optimHess, dnorm, pnorm, uniroot)
 importFrom(utils, modifyList, packageVersion, write.csv, combn,
            flush.console, object.size)
 
-export(build_mesh)
-export(run_piste)
+export(compare_regions)
+export(map_activity)
+export(field_fit)
+export(field_regions)
 export(reference_profile)
 export(screen_joint_fit)
+export(observed_fit)
 export(screen_summarize)
 export(screen_write)
 export(pathway_pi)

@@ -6,19 +6,20 @@ Authors@R: c(
     person("PISTE research contributors", role = "aut"),
     person("Research handoff maintainer", role = "cre",
            email = "maintainer@example.org"))
-Description: Fits spatial pathway models with a shared baseline intercept,
-    relative regional effects, conditionally independent regional gene
-    effects and replicated gene-specific spatial fields. The observed mode
-    models normalised expression as Gaussian; the adjusted mode models raw
-    counts as negative binomial with a cell-type composition offset, so that
-    regional differences are adjusted for composition. Computes directional
-    pathway probabilities and posterior evidence using compact CCD
-    configuration mixtures. Includes a command-line interface that runs
-    every gene set of a GMT file.
+Description: Fits pathway models with a shared baseline intercept, relative
+    regional effects and conditionally independent regional gene effects. The
+    observed mode models normalised expression as Gaussian and is fitted in
+    closed form, for one section or jointly for adjacent sections that share
+    the regional effects; the adjusted mode models raw counts as negative
+    binomial with a cell-type composition offset, so that regional differences
+    are adjusted for composition, and is fitted with INLA. Computes directional
+    pathway probabilities and posterior tail probabilities from Gaussian
+    mixtures over the hyperparameters. Includes a command-line interface that
+    runs every gene set of a GMT file.
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: INLA, Matrix, methods, stats, utils, qrng, fmesher, DESeq2,
+Imports: INLA, fmesher, excursions, Matrix, methods, stats, utils, qrng, DESeq2,
     S4Vectors, SummarizedExperiment, sctransform, hdf5r
 Suggests: glmGamPoi
 biocViews:
@@ -26,8 +27,10 @@ Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:
     'pi_engine.R'
     'inla_screen.R'
-    'mesh.R'
-    'run_piste.R'
+    'observed_fit.R'
+    'compare_regions.R'
+    'field_fit.R'
+    'map_activity.R'
     'adjusted_inputs.R'
     'cli_io.R'
     'cli.R'

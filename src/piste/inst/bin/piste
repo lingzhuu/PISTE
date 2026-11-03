@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Command-line entry point of PISTE. Usage: piste run --help
+# Command-line entry point of PISTE. Usage: piste compare --help, piste map --help
 status <- tryCatch(
   PISTE::piste_cli(commandArgs(trailingOnly = TRUE)),
   error = function(e) {

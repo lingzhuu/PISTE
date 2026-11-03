@@ -2,16 +2,20 @@
 
 **P**athway **I**nference from **S**patial **T**ranscriptomic **E**xpression
 
-PISTE is an R package that tests whether a gene pathway is more active in one
-tissue region than in another in spatial transcriptomics data. It models all
-genes of a gene set jointly, accounts for the spatial dependence between
-neighbouring spots with gene-specific spatial random fields, and fits the
-model with INLA. For every pair of regions, and for each region against the
-rest of the tissue, PISTE reports a directional score π between 0 and 1 and
-its posterior evidence.
+PISTE is an R package for pathway-level analysis of spatial transcriptomics
+data. It models all genes of a gene set jointly as a latent Gaussian model
+fitted with INLA and answers two questions:
 
-PISTE can be run on normalized expression (observed mode) or on raw counts
-adjusted for cell-type composition (composition-adjusted mode).
+- **Region comparison**: is the pathway more active in one labelled region
+  than in another? PISTE reports a directional score π between 0 and 1 and
+  its posterior evidence, for every pair of regions and for each region
+  against the rest of the tissue. Adjacent sections can be fitted jointly.
+- **Spatial map**: where in the tissue is the pathway more or less active?
+  PISTE fits a spatial field shared by the genes of the set and returns the
+  regions of higher and lower activity, without region labels.
+
+Region comparison can be run on normalized expression (observed mode) or on
+raw counts adjusted for cell-type composition (composition-adjusted mode).
 
 ![Overview of PISTE](figure/method_overview.png)
 
@@ -50,21 +54,29 @@ docker build -t piste .
 ```r
 library(PISTE)
 
-# counts: spots x genes raw counts; xy: spots x 2 spot coordinates;
-# region: region label of each spot; gene_sets: named list or GMT file
-res <- run_piste(counts, xy, region, "pathways.gmt", baseline = "WM",
-                 out = "results")
+# counts: spots x genes raw counts; region: region label of each spot;
+# coords: spots x 2 spot coordinates; gene_sets: named list or GMT file
+
+# Region comparison
+res <- compare_regions(counts, region, "pathways.gmt", baseline = "WM",
+                       out = "results_compare")
 head(res$overall)
+
+# Spatial map
+map <- map_activity(counts, coords, "pathways.gmt", out = "results_map")
+head(map$gene_sets)
 ```
 
 ### Command line
 
 ```bash
-piste run --input sample.h5ad --region-key layer --target WM \
-          --gmt pathways.gmt --out results
+piste compare --input sample.h5ad --region-key layer --target WM \
+              --gmt pathways.gmt --out results_compare
+
+piste map --input sample.h5ad --coords tissue_positions.csv \
+          --gmt pathways.gmt --out results_map
 ```
 
 ## Citation
 
 A manuscript describing PISTE is in preparation.
-
