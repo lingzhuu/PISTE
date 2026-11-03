@@ -25,7 +25,7 @@ PISTE requires R 4.1.0 or later.
 
 ```r
 install.packages("remotes")
-remotes::install_github("lingzhuu/pathwayLGM", subdir = "src/piste",
+remotes::install_github("lingzhuu/PISTE", subdir = "src/piste",
                         dependencies = TRUE)
 ```
 
@@ -42,8 +42,8 @@ A Docker image with R, INLA, PISTE and the `piste` command can be built from
 the repository:
 
 ```bash
-git clone https://github.com/lingzhuu/pathwayLGM.git
-cd pathwayLGM
+git clone https://github.com/lingzhuu/PISTE.git
+cd PISTE
 docker build -t piste .
 ```
 

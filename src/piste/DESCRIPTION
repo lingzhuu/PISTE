@@ -16,7 +16,7 @@ Description: Fits pathway models with a shared baseline intercept, relative
     pathway probabilities and posterior tail probabilities from Gaussian
     mixtures over the hyperparameters. Includes a command-line interface that
     runs every gene set of a GMT file.
-License: file LICENSE
+License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 Imports: INLA, fmesher, excursions, Matrix, methods, stats, utils, qrng, DESeq2,

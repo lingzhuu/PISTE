@@ -1,6 +1,6 @@
 site_name: PISTE
 site_description: Spatial pathway inference for spatial transcriptomics with INLA
-repo_url: https://github.com/lingzhuu/pathwayLGM
+repo_url: https://github.com/lingzhuu/PISTE
 edit_uri: edit/dev/doc/source/
 docs_dir: source
 
