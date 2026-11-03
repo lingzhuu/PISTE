@@ -1,15 +1,15 @@
-# Target-vs-rest PathwayLGM fits for all pathways.
+# Target-vs-rest PISTE fits for all pathways.
 
 # ---- config ---------------------------------------------------------------------
 work_dir <- "../../analysis/DLPFC"
 data_dir <- file.path(work_dir, "data")
 
 # ---- load -----------------------------------------------------------------------
-library(PathwayLGM)
+library(PISTE)
 
 x <- readRDS(file.path(data_dir, "raw_data.rds"))
 residual <- readRDS(file.path(data_dir, "processed", "pearson_residuals.rds"))
-out <- file.path(work_dir, "PathwayLGM")
+out <- file.path(work_dir, "PISTE")
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 
 # ---- run ------------------------------------------------------------------------

@@ -156,7 +156,7 @@ observed_fit <- function(Y, region, section = NULL, cfg = list()) {
     section_spots = matrix(st$n, S, R, byrow = TRUE, dimnames = list(sections, labels)),
     rest_weights = contrasts$rest_weights, contrast_coefficients = contrasts$coefficients,
     gene_labels = colnames(Y), gene_dependence = "conditional_iid", cfg = cfg,
-    model_version = as.character(utils::packageVersion("PathwayLGM")),
+    model_version = as.character(utils::packageVersion("PISTE")),
     hyperparameters = d, curvature_floored = curvature_floored,
     fit_seconds = proc.time()[["elapsed"]] - started)
   list(fit = NULL, joint = if (isTRUE(cfg$pi)) joint else NULL, metadata = metadata,

@@ -1,15 +1,15 @@
 # =============================================================================
 # cli.R
 #
-# Command-line interface: run SpaPath on every gene set of a GMT file from a
+# Command-line interface: run PISTE on every gene set of a GMT file from a
 # shell, without writing R code.
 #
-#   spapath compare --input sample.h5ad --region-key layer --gmt sets.gmt \
+#   piste compare --input sample.h5ad --region-key layer --gmt sets.gmt \
 #                   --out results/
-#   spapath map --input sample.h5ad --coords positions.csv --gmt sets.gmt \
+#   piste map --input sample.h5ad --coords positions.csv --gmt sets.gmt \
 #               --out results/
 #
-# The `spapath` executable (inst/bin/spapath) calls spapath_cli(); the same
+# The `piste` executable (inst/bin/piste) calls piste_cli(); the same
 # function can be called from R with a character vector of arguments.
 #
 # Pipeline
@@ -26,7 +26,7 @@
 # Options
 # -----------------------------------------------------------------------------
 
-#' Command-line options of `spapath compare` and `spapath map`
+#' Command-line options of `piste compare` and `piste map`
 #'
 #' One row per option: name, default (NA = none), whether it is a flag, the
 #' commands it belongs to and its help text.
@@ -72,7 +72,7 @@ cli_option_table <- function(command) {
 }
 
 
-#' Usage text of `spapath compare` or `spapath map`
+#' Usage text of `piste compare` or `piste map`
 #' @noRd
 cli_usage <- function(command) {
   options <- cli_option_table(command)
@@ -82,7 +82,7 @@ cli_usage <- function(command) {
     default <- if (!o$flag && !is.na(o$default)) paste0(" [default: ", o$default, "]") else ""
     paste0("  ", formatC(label, width = -30), " ", o$help, default)
   }, character(1))
-  c(paste0("Usage: spapath ", command, " [options]"),
+  c(paste0("Usage: piste ", command, " [options]"),
     "",
     if (command == "compare") "Compare regions on every gene set of a GMT file." else
       "Map the spatial activity of every gene set of a GMT file.",
@@ -91,9 +91,9 @@ cli_usage <- function(command) {
     lines,
     "",
     "Other commands:",
-    if (command == "compare") "  spapath map --help            Map spatial activity without region labels." else
-      "  spapath compare --help        Compare labelled regions.",
-    "  spapath --version             Print the package version.")
+    if (command == "compare") "  piste map --help            Map spatial activity without region labels." else
+      "  piste compare --help        Compare labelled regions.",
+    "  piste --version             Print the package version.")
 }
 
 
@@ -121,7 +121,7 @@ cli_parse_args <- function(args, command) {
       name <- sub("=.*$", "", name)
     }
     row <- match(name, options$name)
-    if (is.na(row)) stop("Unknown option --", name, ". See spapath ", command, " --help.")
+    if (is.na(row)) stop("Unknown option --", name, ". See piste ", command, " --help.")
 
     if (options$flag[row]) {
       values[[name]] <- TRUE
@@ -353,11 +353,11 @@ cli_map <- function(opts) {
 # Entry point
 # -----------------------------------------------------------------------------
 
-#' Command-line entry point of SpaPath
+#' Command-line entry point of PISTE
 #'
-#' Runs SpaPath on every gene set of a GMT file. Called by the `spapath`
-#' executable installed with the package; see `spapath compare --help` and
-#' `spapath map --help`.
+#' Runs PISTE on every gene set of a GMT file. Called by the `piste`
+#' executable installed with the package; see `piste compare --help` and
+#' `piste map --help`.
 #'
 #' Outputs in `--out`: one folder per gene set and `gene_sets.csv` with the
 #' status of each set. `compare` writes the files of [screen_write()] and
@@ -368,18 +368,18 @@ cli_map <- function(opts) {
 #'   `c("compare", "--input", "sample.h5ad", ...)`.
 #' @return Invisibly, the exit status (0 on success).
 #' @export
-spapath_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
+piste_cli <- function(args = commandArgs(trailingOnly = TRUE)) {
   if (!length(args) || args[1] %in% c("-h", "--help", "help")) {
     writeLines(c(cli_usage("compare"), "", cli_usage("map")))
     return(invisible(0))
   }
   if (args[1] %in% c("--version", "version")) {
-    writeLines(paste("SpaPath (PathwayLGM)", as.character(utils::packageVersion("PathwayLGM"))))
+    writeLines(paste("PISTE", as.character(utils::packageVersion("PISTE"))))
     return(invisible(0))
   }
   command <- args[1]
   if (!command %in% c("compare", "map")) {
-    stop("Unknown command '", command, "'. Use: spapath compare [options] or spapath map [options]")
+    stop("Unknown command '", command, "'. Use: piste compare [options] or piste map [options]")
   }
 
   opts <- cli_parse_args(args[-1], command)

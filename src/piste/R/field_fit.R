@@ -98,7 +98,7 @@ field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
        sigma_e = 1 / sqrt(hyper["noise_precision", "mean"]), hyperparameters = hyper,
        metadata = list(N = N, K = K, gene_labels = colnames(Y), gene_field = gene_field,
                        mesh_nodes = mesh$n, threads = threads,
-                       model_version = as.character(utils::packageVersion("PathwayLGM")),
+                       model_version = as.character(utils::packageVersion("PISTE")),
                        fit_seconds = proc.time()[["elapsed"]] - started))
 }
 

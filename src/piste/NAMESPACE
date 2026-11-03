@@ -1,4 +1,4 @@
-# Hand-maintained NAMESPACE for PathwayLGM.
+# Hand-maintained NAMESPACE for PISTE.
 
 import(INLA)
 import(Matrix)
@@ -21,4 +21,4 @@ export(pathway_pi)
 export(pathway_pi_integrate)
 export(composition_offset)
 export(estimate_dispersion_scale)
-export(spapath_cli)
+export(piste_cli)

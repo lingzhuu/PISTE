@@ -1,10 +1,10 @@
 # API
 
 ```r
-library(PathwayLGM)
+library(PISTE)
 ```
 
-SpaPath answers two questions about a gene set. **Region comparison** asks
+PISTE answers two questions about a gene set. **Region comparison** asks
 whether the pathway is more active in one labelled region than in another
 and reports a directional score π with its evidence; it needs region labels
 and no coordinates. **Spatial map** asks where in the tissue the pathway is

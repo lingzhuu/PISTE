@@ -29,7 +29,7 @@ BiocManager::install("spatialLIBD")
 ``` r
 library(spatialLIBD)
 library(SpatialExperiment)
-library(PathwayLGM)
+library(PISTE)
 
 spe <- fetch_data(type = "spe")
 spe <- spe[, spe$sample_id == "151673"]
@@ -78,7 +78,7 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 3. Run SpaPath
+## 3. Run PISTE
 
 
 ``` r

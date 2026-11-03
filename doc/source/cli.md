@@ -1,21 +1,21 @@
 # Command line
 
-SpaPath can be run from a Linux shell without writing R code. One command
+PISTE can be run from a Linux shell without writing R code. One command
 reads the data, normalizes it and runs every gene set of a GMT file.
-`spapath compare` compares labelled regions and runs the same workflow as
-[`compare_regions()`](api.md#compare_regions) in R; `spapath map` maps the
+`piste compare` compares labelled regions and runs the same workflow as
+[`compare_regions()`](api.md#compare_regions) in R; `piste map` maps the
 spatial activity of each gene set without region labels and runs the same
 workflow as [`map_activity()`](api.md#map_activity).
 
 ## Run with Docker
 
-The Docker image contains R, INLA, SpaPath and the `spapath` command. Mount
+The Docker image contains R, INLA, PISTE and the `piste` command. Mount
 the folder with your data at `/work`:
 
 ```bash
-docker build -t spapath .        # once, from the SpaPath repository
-docker run --rm -v "$PWD":/work spapath \
-  spapath compare --input sample.h5ad --region-key layer \
+docker build -t piste .        # once, from the PISTE repository
+docker run --rm -v "$PWD":/work piste \
+  piste compare --input sample.h5ad --region-key layer \
                   --gmt pathways.gmt --out results
 ```
 
@@ -25,9 +25,9 @@ After [installing the R package](installation.md), put the command on your
 `PATH` once:
 
 ```bash
-ln -s "$(Rscript -e 'cat(system.file("bin/spapath", package = "PathwayLGM"))')" \
-      ~/.local/bin/spapath
-spapath --version
+ln -s "$(Rscript -e 'cat(system.file("bin/piste", package = "PISTE"))')" \
+      ~/.local/bin/piste
+piste --version
 ```
 
 ## Input formats
@@ -52,7 +52,7 @@ Pearson residuals clipped as in Seurat). Use `--normalized` if the input is
 already normalized.
 
 ```bash
-spapath compare --input 151673.h5ad --region-key layer_guess_reordered \
+piste compare --input 151673.h5ad --region-key layer_guess_reordered \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --out results_observed
 ```
@@ -70,7 +70,7 @@ section has its own deviation, and π is computed from the shared part (see
 [`observed_fit()`](api.md#observed_fit)).
 
 ```bash
-spapath compare --input 151673_151674.h5ad --region-key layer_guess_reordered \
+piste compare --input 151673_151674.h5ad --region-key layer_guess_reordered \
                 --section-key sample_id --joint-sections \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --out results_joint
@@ -82,7 +82,7 @@ The input is raw counts, together with cell-type proportions of each spot and
 a reference.
 
 ```bash
-spapath compare --mode adjusted \
+piste compare --mode adjusted \
                 --input 151673.h5ad --region-key layer_guess_reordered \
                 --target WM --gmt DLPFC_brain_and_reference.gmt \
                 --proportions rctd_proportions.csv \
@@ -95,13 +95,13 @@ dispersions are estimated once on all genes with DESeq2.
 
 ## Spatial map
 
-`spapath map` needs spot coordinates instead of region labels. Each gene set
+`piste map` needs spot coordinates instead of region labels. Each gene set
 gets a map of its activity and the regions where it is higher or lower than
 the minimum effect (see [`field_fit()`](api.md#field_fit) and
 [`field_regions()`](api.md#field_regions)).
 
 ```bash
-spapath map --input 151673.h5ad --coords tissue_positions.csv \
+piste map --input 151673.h5ad --coords tissue_positions.csv \
             --gmt DLPFC_brain_and_reference.gmt --out results_map
 ```
 
@@ -111,7 +111,7 @@ appear as regions of the pathway.
 
 ## Output
 
-`spapath compare`:
+`piste compare`:
 
 | File | Content |
 |------|---------|
@@ -120,7 +120,7 @@ appear as regions of the pathway.
 | `gene_sets.csv` | Number of genes used and status (`done`, `skipped`, `failed`) of each gene set |
 | `<gene set>/` | All files written by [`screen_write()`](api.md#screen_write) for that gene set (`<section>/<gene set>/` when sections are fitted one by one) |
 
-`spapath map`:
+`piste map`:
 
 | File | Content |
 |------|---------|
@@ -130,7 +130,7 @@ appear as regions of the pathway.
 
 ## Options
 
-`spapath compare`:
+`piste compare`:
 
 ```text
 --input INPUT                  Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
@@ -158,7 +158,7 @@ appear as regions of the pathway.
 --help                         Show this help.
 ```
 
-`spapath map`:
+`piste map`:
 
 ```text
 --input INPUT                  Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.

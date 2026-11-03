@@ -15,7 +15,7 @@ other annotated spots.
 
 ## Requirements
 
-Besides SpaPath ([Installation](../installation.md)), which already includes
+Besides PISTE ([Installation](../installation.md)), which already includes
 DESeq2 for the dispersion step, this example uses:
 
 | Package | Source | Used for |
@@ -107,7 +107,7 @@ accurate but considerably slower, and a GPU is recommended (REF).
 scales them to counts per 10,000:
 
 ```{r reference, cache = TRUE}
-library(PathwayLGM)
+library(PISTE)
 
 nu <- reference_profile(t(ref_counts), sce$cellType_broad_hc)   # cell types x genes
 dim(nu)
@@ -121,7 +121,7 @@ dim(nu)
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 5. Run SpaPath
+## 5. Run PISTE
 
 RCTD drops spots with too few counts, so keep the spots that have
 proportions. White matter is compared with all other spots:

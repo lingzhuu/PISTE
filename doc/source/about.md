@@ -2,7 +2,7 @@
 
 ## Citation
 
-Please cite SpaPath as follows:
+Please cite PISTE as follows:
 
 ## Contributors
 
