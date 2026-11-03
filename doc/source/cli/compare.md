@@ -13,12 +13,6 @@ piste compare --input FILE --region LABELS --gmt FILE --out DIR [options]
 `--input` INPUT
 :   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
 
-`--layer` LAYER
-:   .h5ad only: read layers/&lt;LAYER&gt; instead of X.
-
-`--genes-in-rows`
-:   .csv/.tsv only: rows are genes and columns are spots.
-
 `--region` REGION
 :   Region labels: an obs column of the .h5ad, or a table with spot ID and region label.
 
@@ -41,16 +35,13 @@ piste compare --input FILE --region LABELS --gmt FILE --out DIR [options]
 :   Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights.
 
 `--reference` REFERENCE
-:   Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype-key.
+:   Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype.
 
-`--celltype-key` CELLTYPE_KEY
+`--celltype` CELLTYPE
 :   Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type.
 
 `--target` TARGET
 :   Compare this region with all other spots, which are pooled into 'rest'.
-
-`--baseline` BASELINE
-:   Baseline region of the model (default: the first label found).
 
 `--min-genes` MIN_GENES
 :   Skip gene sets with fewer usable genes than this (at least 2). Default: `5`.
@@ -60,9 +51,3 @@ piste compare --input FILE --region LABELS --gmt FILE --out DIR [options]
 
 `--alpha` ALPHA
 :   A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2. Default: `0.05`.
-
-`--p-value`
-:   Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value).
-
-`--no-pi`
-:   Skip pi scores and evidence; report regional means only.

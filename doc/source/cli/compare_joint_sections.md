@@ -13,12 +13,6 @@ piste compare -joint_sections --input FILE --region LABELS --section LABELS --gm
 `--input` INPUT
 :   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
 
-`--layer` LAYER
-:   .h5ad only: read layers/&lt;LAYER&gt; instead of X.
-
-`--genes-in-rows`
-:   .csv/.tsv only: rows are genes and columns are spots.
-
 `--region` REGION
 :   Region labels: an obs column of the .h5ad, or a table with spot ID and region label.
 
@@ -37,17 +31,8 @@ piste compare -joint_sections --input FILE --region LABELS --section LABELS --gm
 `--target` TARGET
 :   Compare this region with all other spots, which are pooled into 'rest'.
 
-`--baseline` BASELINE
-:   Baseline region of the model (default: the first label found).
-
 `--min-genes` MIN_GENES
 :   Skip gene sets with fewer usable genes than this (at least 2). Default: `5`.
 
 `--alpha` ALPHA
 :   A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2. Default: `0.05`.
-
-`--p-value`
-:   Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value).
-
-`--no-pi`
-:   Skip pi scores and evidence; report regional means only.

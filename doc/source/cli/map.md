@@ -13,12 +13,6 @@ piste map --input FILE --coords FILE --gmt FILE --out DIR [options]
 `--input` INPUT
 :   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
 
-`--layer` LAYER
-:   .h5ad only: read layers/&lt;LAYER&gt; instead of X.
-
-`--genes-in-rows`
-:   .csv/.tsv only: rows are genes and columns are spots.
-
 `--coords` COORDS
 :   Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file.
 

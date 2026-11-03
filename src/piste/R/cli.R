@@ -37,8 +37,6 @@
 cli_option_table <- function(command) {
   rows <- list(
     c("input", NA, FALSE, "compare,joint,map", "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
-    c("layer", NA, FALSE, "compare,joint,map", ".h5ad only: read layers/<LAYER> instead of X."),
-    c("genes-in-rows", "false", TRUE, "compare,joint,map", ".csv/.tsv only: rows are genes and columns are spots."),
     c("region", NA, FALSE, "compare,joint", "Region labels: an obs column of the .h5ad, or a table with spot ID and region label."),
     c("coords", NA, FALSE, "map", "Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file."),
     c("section", NA, FALSE, "compare", "Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are normalised separately and fitted on their own."),
@@ -50,10 +48,9 @@ cli_option_table <- function(command) {
     c("normalized", "false", TRUE, "joint", "The input is already normalised; skip SCTransform."),
     c("normalized", "false", TRUE, "map", "The input is already normalised; skip SCTransform."),
     c("proportions", NA, FALSE, "compare", "Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights."),
-    c("reference", NA, FALSE, "compare", "Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype-key."),
-    c("celltype-key", NA, FALSE, "compare", "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
+    c("reference", NA, FALSE, "compare", "Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype."),
+    c("celltype", NA, FALSE, "compare", "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
     c("target", NA, FALSE, "compare,joint", "Compare this region with all other spots, which are pooled into 'rest'."),
-    c("baseline", NA, FALSE, "compare,joint", "Baseline region of the model (default: the first label found)."),
     c("no-gene-field", "false", TRUE, "map", "Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions."),
     c("d", "0.1", FALSE, "map", "Minimum effect of a region, in units of the noise sd."),
     c("min-genes", "5", FALSE, "compare,joint,map", "Skip gene sets with fewer usable genes than this (at least 2)."),
@@ -61,8 +58,6 @@ cli_option_table <- function(command) {
     c("threads", "8:1", FALSE, "map", "INLA threads."),
     c("alpha", "0.05", FALSE, "compare,joint", "A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2."),
     c("alpha", "0.05", FALSE, "map", "A region of higher or lower activity has joint posterior probability at least 1 - ALPHA."),
-    c("p-value", "false", TRUE, "compare,joint", "Also report p_value = 2 min(P(pi > 0.5), P(pi < 0.5)), the doubled posterior probability of the less likely direction (not a frequentist p-value)."),
-    c("no-pi", "false", TRUE, "compare,joint", "Skip pi scores and evidence; report regional means only."),
     c("help", "false", TRUE, "compare,joint,map", "Show this help.")
   )
   table <- as.data.frame(do.call(rbind, rows), stringsAsFactors = FALSE)
@@ -198,8 +193,7 @@ cli_log <- function(...) {
 #' @noRd
 cli_load_inputs <- function(opts) {
   cli_log("Reading expression from ", opts$input)
-  data <- read_expression(opts$input, layer = opts$layer,
-                          genes_in_rows = isTRUE(opts$`genes-in-rows`))
+  data <- read_expression(opts$input)
   counts <- data$counts
   cli_log(nrow(counts), " spots x ", ncol(counts), " genes")
 
@@ -247,20 +241,20 @@ cli_load_inputs <- function(opts) {
 #' A table is used as is. Single-cell counts are pooled per cell type and
 #' scaled to counts per 10,000.
 #' @noRd
-cli_reference_profile <- function(path, celltype_key) {
+cli_reference_profile <- function(path, celltype) {
   name <- tolower(basename(path))
   if (grepl("\\.(csv|tsv|txt)(\\.gz)?$", name)) {
     return(as.matrix(read_delimited(path, row_names = TRUE)))
   }
 
-  if (is.null(celltype_key)) stop("A single-cell --reference needs --celltype-key.")
+  if (is.null(celltype)) stop("A single-cell --reference needs --celltype.")
   reference <- read_expression(path)
-  cell_type <- if (!is.null(reference$obs) && celltype_key %in% names(reference$obs)) {
-    setNames(as.character(reference$obs[[celltype_key]]), rownames(reference$obs))
-  } else if (file.exists(celltype_key)) {
-    read_spot_table(celltype_key)
+  cell_type <- if (!is.null(reference$obs) && celltype %in% names(reference$obs)) {
+    setNames(as.character(reference$obs[[celltype]]), rownames(reference$obs))
+  } else if (file.exists(celltype)) {
+    read_spot_table(celltype)
   } else {
-    stop("--celltype-key must be an obs column of the reference .h5ad or a table of cell ID and cell type.")
+    stop("--celltype must be an obs column of the reference .h5ad or a table of cell ID and cell type.")
   }
   cells <- intersect(rownames(reference$counts), names(cell_type)[!is.na(cell_type)])
   reference_profile(reference$counts[cells, , drop = FALSE], cell_type[cells])
@@ -271,7 +265,7 @@ cli_reference_profile <- function(path, celltype_key) {
 #' @noRd
 cli_adjusted_tables <- function(opts) {
   proportions <- as.matrix(read_delimited(opts$proportions, row_names = TRUE))
-  reference <- cli_reference_profile(opts$reference, opts$`celltype-key`)
+  reference <- cli_reference_profile(opts$reference, opts$celltype)
   list(proportions = proportions, reference = reference)
 }
 
@@ -287,8 +281,7 @@ cli_adjusted_tables <- function(opts) {
 #' @noRd
 cli_load_map_inputs <- function(opts) {
   cli_log("Reading expression from ", opts$input)
-  data <- read_expression(opts$input, layer = opts$layer,
-                          genes_in_rows = isTRUE(opts$`genes-in-rows`))
+  data <- read_expression(opts$input)
   coords <- read_coordinates(opts$coords)
   spots <- intersect(rownames(data$counts), rownames(coords))
   if (length(spots) < 10) {
@@ -313,9 +306,7 @@ cli_compare <- function(opts, joint = FALSE) {
 
   tables <- if (opts$mode == "adjusted") cli_adjusted_tables(opts) else list()
   cfg <- list()
-  if (isTRUE(opts$`no-pi`)) cfg$pi <- FALSE
   cfg$pi_alpha <- opts$alpha
-  if (isTRUE(opts$`p-value`)) cfg$pi_report_p_value <- TRUE
   if (!is.null(opts$threads)) cfg$threads <- opts$threads
 
   res <- compare(inputs$counts, inputs$region, gene_sets,
@@ -323,7 +314,7 @@ cli_compare <- function(opts, joint = FALSE) {
                  normalized = isTRUE(opts$normalized),
                  proportions = tables$proportions,
                  reference = tables$reference,
-                 baseline = opts$baseline, section = inputs$section,
+                 section = inputs$section,
                  joint_sections = joint,
                  min_genes = opts$`min-genes`, cfg = cfg)
   cli_log("Results in ", opts$out)

@@ -25,7 +25,7 @@ res <- compare(counts, region, "DLPFC_brain_and_reference.gmt", out = "results")
 piste compare --mode adjusted --input 151673.h5ad \
               --region layer_guess_reordered --target WM \
               --proportions rctd_proportions.csv \
-              --reference dlpfc_snrna.h5ad --celltype-key cellType_broad_hc \
+              --reference dlpfc_snrna.h5ad --celltype cellType_broad_hc \
               --gmt DLPFC_brain_and_reference.gmt --out results_adjusted
 ```
 
