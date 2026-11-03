@@ -4,7 +4,7 @@ PISTE requires R 4.1.0 or later. Install it from GitHub with:
 
 ```r
 install.packages("remotes")
-remotes::install_github("lingzhuu/pathwayLGM", subdir = "src/piste",
+remotes::install_github("lingzhuu/PISTE", subdir = "src/piste",
                         dependencies = TRUE)
 ```
 
@@ -59,8 +59,8 @@ PISTE, all its dependencies, the `piste` [command](cli.md) and the
 packages used in the examples.
 
 ```bash
-git clone https://github.com/lingzhuu/pathwayLGM.git
-cd pathwayLGM
+git clone https://github.com/lingzhuu/PISTE.git
+cd PISTE
 docker build -t piste .
 docker run --rm -it -v "$PWD":/work piste
 ```
@@ -68,8 +68,8 @@ docker run --rm -it -v "$PWD":/work piste
 ## Install from source
 
 ```bash
-git clone https://github.com/lingzhuu/pathwayLGM.git
-R CMD INSTALL pathwayLGM/src/piste
+git clone https://github.com/lingzhuu/PISTE.git
+R CMD INSTALL PISTE/src/piste
 ```
 
 `R CMD INSTALL` does not install dependencies; install the packages in the
