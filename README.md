@@ -64,28 +64,7 @@ piste run --input sample.h5ad --region-key layer --target WM \
           --gmt pathways.gmt --out results
 ```
 
-## Documentation
-
-- [Installation](doc/source/installation.md)
-- [Command line](doc/source/cli.md)
-- [API](doc/source/api.md)
-- Examples: [observed mode](doc/source/examples/observed.md) and
-  [composition-adjusted mode](doc/source/examples/composition.md)
-
-## Repository structure
-
-| Folder | Contents |
-|--------|----------|
-| `src/piste` | The R package and the `piste` command |
-| `doc` | Documentation and examples |
-| `benchmark` | Code and results of the benchmark on simulated data and DLPFC |
-| `analysis` | Code for the tumor and brain analyses |
-
 ## Citation
 
 A manuscript describing PISTE is in preparation.
 
-## Contact
-
-Please report problems and questions on the
-[issue tracker](https://github.com/lingzhuu/pathwayLGM/issues).
