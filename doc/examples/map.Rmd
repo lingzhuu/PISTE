@@ -4,8 +4,7 @@
 
 This example maps where T-cell exhaustion and the interferon-γ response are
 more or less active in one triple-negative breast cancer Visium section
-(GSM6433597; Bassiouni et al., 2023), with the normalized expression
-published by Zhu et al. (2025). No region labels are used.
+(GSM6433597; Bassiouni et al., 2023), processed by Zhu et al. (2025). No region labels are used.
 
 ## Requirements
 
@@ -18,7 +17,9 @@ This example also uses:
 ## 1. Load the data
 
 Download `GSM_giotto_processed.tar.gz` from
-[Zenodo 15247064](https://zenodo.org/records/15247064) and extract it.
+[Zenodo 15247064](https://zenodo.org/records/15247064) and extract it. The
+expression in `Giotto_norm_expr.txt` was already normalized by the original
+authors with Giotto, so it is used as is.
 
 ```{r load}
 library(PISTE)
