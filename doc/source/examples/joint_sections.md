@@ -1,11 +1,11 @@
-# Adjacent sections on DLPFC
+# Joint analysis of sections on DLPFC
 
 <!-- Generated from doc/examples/joint_sections.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
-This example tests pathways in white matter (WM) against the cortical layers
-in two adjacent DLPFC Visium sections, 151673 and 151674, from the same donor
-(spatialLIBD; Maynard et al., 2021). The two sections are fitted jointly, so
-that the score reflects the regional difference reproduced in both.
+This example tests pathways in white matter (WM) against the rest of the
+tissue in three DLPFC Visium sections of the same donor, 151673, 151674 and
+151675 (spatialLIBD; Maynard et al., 2021). The sections are fitted jointly,
+so that the score reflects the regional difference reproduced across them.
 
 ## Requirements
 
@@ -24,13 +24,13 @@ library(SpatialExperiment)
 library(PISTE)
 
 spe <- fetch_data(type = "spe")
-spe <- spe[, spe$sample_id %in% c("151673", "151674")]
+spe <- spe[, spe$sample_id %in% c("151673", "151674", "151675")]
 spe <- spe[, !is.na(spe$layer_guess_reordered)]
 
 counts <- t(counts(spe))                       # spots x genes, raw counts
 colnames(counts) <- make.unique(rowData(spe)$gene_name)
 rownames(counts) <- paste(spe$sample_id, colnames(spe), sep = "_")
-region  <- as.character(spe$layer_guess_reordered)
+region  <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 section <- spe$sample_id
 table(section, region)
 ```
@@ -61,7 +61,7 @@ gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ## 4. Run PISTE
 
 ``` r
-res <- compare(expression, region, gmt, baseline = "WM",
+res <- compare(expression, region, gmt, baseline = "rest",
                section = section, joint_sections = TRUE,
                out = "results_joint")
 ```
@@ -77,4 +77,4 @@ wm[, c("gene_set", "genes", "score", "evidence")]
 
 `score` and `evidence` are read as in the
 [observed-mode example](observed.md#5-read-the-results), here for the
-difference shared by the two sections.
+difference shared by the sections.
