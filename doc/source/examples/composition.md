@@ -15,21 +15,13 @@ other annotated spots.
 
 ## Requirements
 
-Besides PISTE ([Installation](../installation.md)), which already includes
-DESeq2 for the dispersion step, this example uses:
+This example also uses:
 
 | Package | Source | Used for |
 |---------|--------|----------|
-| spatialLIBD | Bioconductor | Provides the DLPFC Visium data, its layer annotation and the LIBD DLPFC snRNA-seq reference, and plots spots on the H&E image |
+| spatialLIBD | Bioconductor | Provides the DLPFC Visium data, its layer annotation and the LIBD DLPFC snRNA-seq reference |
 | HDF5Array | Bioconductor | Loads the snRNA-seq reference, which is stored on disk in HDF5 format |
 | spacexr | GitHub | RCTD deconvolution |
-
-
-``` r
-install.packages(c("BiocManager", "remotes"))
-BiocManager::install(c("spatialLIBD", "HDF5Array"))
-remotes::install_github("dmcable/spacexr", build_vignettes = FALSE)
-```
 
 ## 1. Load the Visium data and the snRNA-seq reference
 
@@ -59,23 +51,8 @@ table(sce$cellType_broad_hc)
 #>      3979      2157      1601     10894      1940     24809     11067     21157
 ```
 
-The H&E image of the section and its manual layer annotation, Layer1 to
-Layer6 and white matter:
-
-
-``` r
-plot(imgRaster(spe, sample_id = "151673", image_id = "lowres"))
-```
-
-![plot of chunk he-image](figures/composition-he-image-1.png)
-
-
-``` r
-vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
-         colors = libd_layer_colors)
-```
-
-![plot of chunk layers](figures/composition-layers-1.png)
+The section and its layer annotation are shown in the
+[observed-mode example](observed.md).
 
 ## 2. Deconvolve with RCTD
 
@@ -167,10 +144,9 @@ res <- compare(counts, region, gmt, mode = "adjusted",
 ```
 
 `compare()` builds the composition offset from `omega` and `nu` and
-fits every gene set to the raw counts. Results are written to
-`results_adjusted`. `cfg$threads` sets the number of threads INLA uses, as
+fits every gene set to the raw counts. `cfg$threads` sets the number of threads INLA uses, as
 `"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads. See [API](../api.md#compare) for all options.
+evaluation uses B threads.
 
 ## 6. Read the results
 
@@ -227,11 +203,9 @@ wm[, c("gene_set", "genes", "score", "evidence")]
 #> 20 0.2341761 1.327769e-07
 ```
 
-For the WM row, `score` is the posterior mean of π, how often a pathway
-gene's expression state in WM exceeds its state in the other spots after
-adjusting for cell-type composition, and `evidence` is the posterior
-probability that π > 0.5. Evidence near 1 indicates higher activity in WM and
-evidence near 0 higher activity in the other spots. For each gene set,
+`score` and `evidence` are read as in the
+[observed-mode example](observed.md#5-read-the-results), here after
+adjusting for cell-type composition. For each gene set,
 `gene_coefficients` lists each gene's intercept `a_g` and composition slope
 `lambda_g`; `lambda_g` near 1 means the gene follows the reference
 prediction. For the first gene set:
@@ -250,5 +224,3 @@ head(res$results[[1]]$gene_coefficients)
 #> 5 CACNA1B       a_g -2.6102274 -3.0774041 -2.6101919 -2.1432525
 #> 6  CACNB4       a_g -3.2453446 -3.8240017 -3.2452924 -2.6669838
 ```
-
-See [API](../api.md#compare) for all outputs.

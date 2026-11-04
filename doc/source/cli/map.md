@@ -5,25 +5,22 @@ Map the spatial activity of every gene set of a GMT file, without region labels.
 ## Usage
 
 ```text
-piste map --input FILE --coords FILE --gmt FILE --out DIR [options]
+piste map --input FILE --coords FILE --gene_set FILE --out DIR [options]
 ```
 
 ## Arguments
 
 `--input` INPUT
-:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
+:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Normalised expression; raw counts in adjusted mode.
 
 `--coords` COORDS
 :   Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file.
 
-`--gmt` GMT
+`--gene_set` GENE_SET
 :   Gene sets in GMT format.
 
 `--out` OUT
 :   Output directory.
-
-`--normalized`
-:   The input is already normalised; skip SCTransform.
 
 `--no-gene-field`
 :   Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions.

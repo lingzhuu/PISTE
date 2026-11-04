@@ -7,20 +7,18 @@
 #   res <- map_activity(counts, coords, gene_sets, gene_field = FALSE)   # fast
 #
 # Steps
-#   normalise with SCTransform -> field_fit() and field_regions() for each
+#   field_fit() and field_regions() for each
 #   gene set -> combined summary table
 # =============================================================================
 
 
 #' Map the spatial activity of a panel of gene sets
 #'
-#' Normalises the counts with SCTransform, fits the spatial field of each gene
-#' set with [field_fit()] and calls its regions of higher and lower activity
+#' Fits the spatial field of each gene set with [field_fit()] and calls its regions of higher and lower activity
 #' with [field_regions()]. No region labels are needed.
 #'
-#' @param counts Spots x genes matrix (dense or sparse) of raw counts, with
-#'   spot rownames and gene colnames; with `normalized = TRUE`, normalised
-#'   expression instead.
+#' @param counts Spots x genes matrix (dense or sparse) of normalised
+#'   expression, with spot rownames and gene colnames.
 #' @param coords Spots x 2 matrix of spot coordinates, in the spot order of
 #'   `counts`.
 #' @param gene_sets Named list of gene vectors, or the path of a GMT file.
@@ -31,7 +29,6 @@
 #' @param out Optional output folder. When given, each gene set is written to
 #'   its own subfolder (`spots.csv`, `hyperparameters.csv`), together with
 #'   `gene_sets.csv`.
-#' @param normalized `counts` is already normalised, so SCTransform is skipped.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
 #' @param threads INLA `num.threads`.
 #' @param verbose Print progress messages.
@@ -40,19 +37,14 @@
 #'   fitted gene set, the [field_regions()] table and the hyperparameters).
 #' @export
 map_activity <- function(counts, coords, gene_sets, gene_field = TRUE, d = .1,
-                         alpha = .05, out = NULL, normalized = FALSE, min_genes = 5,
+                         alpha = .05, out = NULL, min_genes = 5,
                          threads = "8:1", verbose = TRUE) {
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
   if (is.character(gene_sets)) gene_sets <- read_gmt(gene_sets)
   stopifnot(nrow(coords) == nrow(counts), !is.null(rownames(counts)), !is.null(colnames(counts)))
 
   pathway_genes <- unique(unlist(gene_sets))
-  expression <- if (normalized) {
-    as.matrix(counts[, intersect(pathway_genes, colnames(counts)), drop = FALSE])
-  } else {
-    log_step("Normalising with SCTransform")
-    sctransform_residuals(counts, pathway_genes)
-  }
+  expression <- as.matrix(counts[, intersect(pathway_genes, colnames(counts)), drop = FALSE])
   log_step(ncol(expression), " of ", length(pathway_genes), " pathway genes are usable",
            if (gene_field) "; gene fields on" else "")
 

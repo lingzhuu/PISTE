@@ -4,11 +4,11 @@
 # Command-line interface: run PISTE on every gene set of a GMT file from a
 # shell, without writing R code.
 #
-#   piste compare --input sample.h5ad --region layer --gmt sets.gmt \
+#   piste compare --input sample.h5ad --region layer --gene_set sets.gmt \
 #                   --out results/
 #   piste compare -joint_sections --input sections.h5ad --region layer --section sample \
-#                         --gmt sets.gmt --out results/
-#   piste map --input sample.h5ad --coords positions.csv --gmt sets.gmt \
+#                         --gene_set sets.gmt --out results/
+#   piste map --input sample.h5ad --coords positions.csv --gene_set sets.gmt \
 #               --out results/
 #
 # The `piste` executable (inst/bin/piste) calls piste_cli(); the same
@@ -20,7 +20,7 @@
 #   map:     read inputs -> align spots -> map_activity() (map_activity.R)
 #
 # Several sections can be given to compare with --section; they are
-# normalised separately and fitted on their own. compare -joint_sections fits adjacent sections
+# fitted on their own. compare -joint_sections fits adjacent sections
 # of the same tissue jointly.
 # =============================================================================
 
@@ -36,17 +36,14 @@
 #' @noRd
 cli_option_table <- function(command) {
   rows <- list(
-    c("input", NA, FALSE, "compare,joint,map", "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized."),
+    c("input", NA, FALSE, "compare,joint,map", "Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Normalised expression; raw counts in adjusted mode."),
     c("region", NA, FALSE, "compare,joint", "Region labels: an obs column of the .h5ad, or a table with spot ID and region label."),
     c("coords", NA, FALSE, "map", "Spot coordinates: table with spot ID, x and y, or a Space Ranger tissue_positions file."),
-    c("section", NA, FALSE, "compare", "Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are normalised separately and fitted on their own."),
+    c("section", NA, FALSE, "compare", "Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are fitted on their own."),
     c("section", NA, FALSE, "joint", "Section labels: an obs column of the .h5ad, or a table with spot ID and section label. The sections are fitted jointly, sharing the regional effects."),
-    c("gmt", NA, FALSE, "compare,joint,map", "Gene sets in GMT format."),
+    c("gene_set", NA, FALSE, "compare,joint,map", "Gene sets in GMT format."),
     c("out", NA, FALSE, "compare,joint,map", "Output directory."),
     c("mode", "observed", FALSE, "compare", "observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition)."),
-    c("normalized", "false", TRUE, "compare", "Observed mode: the input is already normalised; skip SCTransform."),
-    c("normalized", "false", TRUE, "joint", "The input is already normalised; skip SCTransform."),
-    c("normalized", "false", TRUE, "map", "The input is already normalised; skip SCTransform."),
     c("proportions", NA, FALSE, "compare", "Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights."),
     c("reference", NA, FALSE, "compare", "Adjusted mode: reference expression, either a table of cell types x genes on a linear scale (e.g. counts per 10,000) or a single-cell .h5ad/.h5/matrix directory of raw counts with --celltype."),
     c("celltype", NA, FALSE, "compare", "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
@@ -144,7 +141,7 @@ cli_parse_args <- function(args, command) {
 #' Check option combinations and convert numeric options
 #' @noRd
 cli_check_options <- function(opts, command) {
-  required <- c("input", "gmt", "out", switch(command, map = "coords", joint = c("region", "section")))
+  required <- c("input", "gene_set", "out", switch(command, map = "coords", joint = c("region", "section")))
   missing <- required[vapply(opts[required], is.null, logical(1))]
   if (length(missing)) stop("Missing required option(s): ", paste0("--", missing, collapse = ", "))
 
@@ -301,8 +298,8 @@ cli_compare <- function(opts, joint = FALSE) {
   opts <- cli_check_options(opts, if (joint) "joint" else "compare")
   if (joint) opts$mode <- "observed"
   inputs <- cli_load_inputs(opts)
-  gene_sets <- read_gmt(opts$gmt)
-  cli_log(length(gene_sets), " gene sets in ", opts$gmt)
+  gene_sets <- read_gmt(opts$gene_set)
+  cli_log(length(gene_sets), " gene sets in ", opts$gene_set)
 
   tables <- if (opts$mode == "adjusted") cli_adjusted_tables(opts) else list()
   cfg <- list()
@@ -311,7 +308,6 @@ cli_compare <- function(opts, joint = FALSE) {
 
   res <- compare(inputs$counts, inputs$region, gene_sets,
                  mode = opts$mode, out = opts$out,
-                 normalized = isTRUE(opts$normalized),
                  proportions = tables$proportions,
                  reference = tables$reference,
                  section = inputs$section,
@@ -328,13 +324,12 @@ cli_compare <- function(opts, joint = FALSE) {
 cli_map <- function(opts) {
   opts <- cli_check_options(opts, "map")
   inputs <- cli_load_map_inputs(opts)
-  gene_sets <- read_gmt(opts$gmt)
-  cli_log(length(gene_sets), " gene sets in ", opts$gmt)
+  gene_sets <- read_gmt(opts$gene_set)
+  cli_log(length(gene_sets), " gene sets in ", opts$gene_set)
 
   res <- map_activity(inputs$counts, inputs$coords, gene_sets,
                       gene_field = !isTRUE(opts$`no-gene-field`), d = opts$d,
                       alpha = opts$alpha, out = opts$out,
-                      normalized = isTRUE(opts$normalized),
                       min_genes = opts$`min-genes`, threads = opts$threads)
   cli_log("Results in ", opts$out)
   invisible(res$gene_sets)

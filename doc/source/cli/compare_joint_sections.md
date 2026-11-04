@@ -5,13 +5,13 @@ Compare regions on every gene set of a GMT file, fitting adjacent sections of th
 ## Usage
 
 ```text
-piste compare -joint_sections --input FILE --region LABELS --section LABELS --gmt FILE --out DIR [options]
+piste compare -joint_sections --input FILE --region LABELS --section LABELS --gene_set FILE --out DIR [options]
 ```
 
 ## Arguments
 
 `--input` INPUT
-:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
+:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Normalised expression; raw counts in adjusted mode.
 
 `--region` REGION
 :   Region labels: an obs column of the .h5ad, or a table with spot ID and region label.
@@ -19,14 +19,11 @@ piste compare -joint_sections --input FILE --region LABELS --section LABELS --gm
 `--section` SECTION
 :   Section labels: an obs column of the .h5ad, or a table with spot ID and section label. The sections are fitted jointly, sharing the regional effects.
 
-`--gmt` GMT
+`--gene_set` GENE_SET
 :   Gene sets in GMT format.
 
 `--out` OUT
 :   Output directory.
-
-`--normalized`
-:   The input is already normalised; skip SCTransform.
 
 `--target` TARGET
 :   Compare this region with all other spots, which are pooled into 'rest'.

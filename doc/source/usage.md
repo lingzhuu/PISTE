@@ -1,60 +1,53 @@
 # Example usage
 
-The examples use the DLPFC section 151673, with the cortical layers in
-`layer_guess_reordered` and the gene sets in `DLPFC_brain_and_reference.gmt`.
-All arguments are listed in the [command line](cli/index.md) and
-[R API](api.md) reference.
-
 ## Compare regions
 
-White matter against the other layers:
-
 ```bash
-piste compare --input 151673.h5ad --region layer_guess_reordered --target WM \
-              --gmt DLPFC_brain_and_reference.gmt --out results
+piste compare --input <normalized.h5ad> --region <region_column> --target <region> \
+              --gene_set <gene_sets.gmt> --out <output_dir>
 ```
 
 ```r
 library(PISTE)
-res <- compare(counts, region, "DLPFC_brain_and_reference.gmt", out = "results")
+res <- compare(<expression>, <region>, "<gene_sets.gmt>", out = "<output_dir>")
 ```
 
 ## Adjust for cell-type composition
 
 ```bash
-piste compare --mode adjusted --input 151673.h5ad \
-              --region layer_guess_reordered --target WM \
-              --proportions rctd_proportions.csv \
-              --reference dlpfc_snrna.h5ad --celltype cellType_broad_hc \
-              --gmt DLPFC_brain_and_reference.gmt --out results_adjusted
+piste compare --mode adjusted --input <counts.h5ad> \
+              --region <region_column> --target <region> \
+              --proportions <proportions.csv> \
+              --reference <reference.h5ad> --celltype <celltype_column> \
+              --gene_set <gene_sets.gmt> --out <output_dir>
 ```
 
 ```r
-res <- compare(counts, region, "DLPFC_brain_and_reference.gmt", mode = "adjusted",
-               proportions = proportions, reference = reference,
-               out = "results_adjusted")
+res <- compare(<counts>, <region>, "<gene_sets.gmt>", mode = "adjusted",
+               proportions = <proportions>, reference = <reference>,
+               out = "<output_dir>")
 ```
 
 ## Fit adjacent sections jointly
 
 ```bash
-piste compare -joint_sections --input 151673_151674.h5ad --region layer_guess_reordered \
-                              --section sample_id --target WM \
-                              --gmt DLPFC_brain_and_reference.gmt --out results_joint
+piste compare -joint_sections --input <normalized.h5ad> --region <region_column> \
+                              --section <section_column> --target <region> \
+                              --gene_set <gene_sets.gmt> --out <output_dir>
 ```
 
 ```r
-res <- compare(counts, region, "DLPFC_brain_and_reference.gmt",
-               section = section, joint_sections = TRUE, out = "results_joint")
+res <- compare(<expression>, <region>, "<gene_sets.gmt>",
+               section = <section>, joint_sections = TRUE, out = "<output_dir>")
 ```
 
 ## Map spatial activity
 
 ```bash
-piste map --input 151673.h5ad --coords tissue_positions.csv \
-          --gmt DLPFC_brain_and_reference.gmt --out results_map
+piste map --input <normalized.h5ad> --coords <tissue_positions.csv> \
+          --gene_set <gene_sets.gmt> --out <output_dir>
 ```
 
 ```r
-res <- map_activity(counts, coords, "DLPFC_brain_and_reference.gmt", out = "results_map")
+res <- map_activity(<expression>, <coords>, "<gene_sets.gmt>", out = "<output_dir>")
 ```

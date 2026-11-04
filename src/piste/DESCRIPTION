@@ -20,8 +20,7 @@ License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 Imports: INLA, fmesher, excursions, Matrix, methods, stats, utils, qrng, DESeq2,
-    S4Vectors, SummarizedExperiment, sctransform, hdf5r
-Suggests: glmGamPoi
+    S4Vectors, SummarizedExperiment, hdf5r
 biocViews:
 Additional_repositories: https://inla.r-inla-download.org/R/stable
 Collate:

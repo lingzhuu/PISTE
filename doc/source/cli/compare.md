@@ -5,21 +5,21 @@ Compare regions on every gene set of a GMT file, in observed or composition-adju
 ## Usage
 
 ```text
-piste compare --input FILE --region LABELS --gmt FILE --out DIR [options]
+piste compare --input FILE --region LABELS --gene_set FILE --out DIR [options]
 ```
 
 ## Arguments
 
 `--input` INPUT
-:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Raw counts unless --normalized.
+:   Expression: .h5ad, 10x .h5, 10x matrix directory, .csv/.tsv (spots x genes) or .rds. Normalised expression; raw counts in adjusted mode.
 
 `--region` REGION
 :   Region labels: an obs column of the .h5ad, or a table with spot ID and region label.
 
 `--section` SECTION
-:   Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are normalised separately and fitted on their own.
+:   Optional section labels: an obs column of the .h5ad, or a table with spot ID and section label; sections are fitted on their own.
 
-`--gmt` GMT
+`--gene_set` GENE_SET
 :   Gene sets in GMT format.
 
 `--out` OUT
@@ -27,9 +27,6 @@ piste compare --input FILE --region LABELS --gmt FILE --out DIR [options]
 
 `--mode` MODE
 :   observed (Gaussian model of normalised expression) or adjusted (NB model of raw counts adjusted for cell-type composition). Default: `observed`.
-
-`--normalized`
-:   Observed mode: the input is already normalised; skip SCTransform.
 
 `--proportions` PROPORTIONS
 :   Adjusted mode: table of cell-type proportions, spots x cell types, e.g. RCTD weights.

@@ -14,8 +14,9 @@ fitted with INLA and answers two questions:
   PISTE fits a spatial field shared by the genes of the set and returns the
   regions of higher and lower activity, without region labels.
 
-Region comparison can be run on normalized expression (observed mode) or on
-raw counts adjusted for cell-type composition (composition-adjusted mode).
+PISTE takes normalized expression, computed beforehand (for example with
+SCTransform). Region comparison can also be adjusted for cell-type
+composition; this mode takes raw counts.
 
 ![Overview of PISTE](figure/method_overview.png)
 
@@ -54,16 +55,16 @@ docker build -t piste .
 ```r
 library(PISTE)
 
-# counts: spots x genes raw counts; region: region label of each spot;
+# expression: spots x genes normalized expression; region: region label of each spot;
 # coords: spots x 2 spot coordinates; gene_sets: named list or GMT file
 
 # Region comparison
-res <- compare(counts, region, "pathways.gmt", baseline = "WM",
+res <- compare(expression, region, "pathways.gmt", baseline = "WM",
                out = "results_compare")
 head(res$overall)
 
 # Spatial map
-map <- map_activity(counts, coords, "pathways.gmt", out = "results_map")
+map <- map_activity(expression, coords, "pathways.gmt", out = "results_map")
 head(map$gene_sets)
 ```
 
@@ -71,10 +72,10 @@ head(map$gene_sets)
 
 ```bash
 piste compare --input sample.h5ad --region layer --target WM \
-              --gmt pathways.gmt --out results_compare
+              --gene_set pathways.gmt --out results_compare
 
 piste map --input sample.h5ad --coords tissue_positions.csv \
-          --gmt pathways.gmt --out results_map
+          --gene_set pathways.gmt --out results_map
 ```
 
 ## Citation

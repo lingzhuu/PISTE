@@ -4,15 +4,10 @@
 library(PISTE)
 ```
 
-PISTE answers two questions about a gene set. **Region comparison** asks
-whether the pathway is more active in one labelled region than in another
-and reports a directional score π with its evidence; it needs region labels
-and no coordinates. **Spatial map** asks where in the tissue the pathway is
-more or less active; it needs spot coordinates and no region labels.
-
-Each interface can be run in quick mode, which runs the whole workflow for a
-panel of gene sets in one call, or step by step with the functions it is
-built from.
+**Region comparison** needs region labels and no spot coordinates;
+**spatial map** needs spot coordinates and no region labels. Each can be run
+in quick mode, which runs every gene set of a panel in one call, or step by
+step with the functions it is built from.
 
 ## Region comparison
 
@@ -20,7 +15,7 @@ built from.
 
 | Function | Description |
 |----------|-------------|
-| [`compare()`](#compare) | Compare the regions on every gene set of a panel, from raw counts to result tables. |
+| [`compare()`](#compare) | Compare the regions on every gene set of a panel. |
 | [`reference_profile()`](#reference_profile) | Reference expression of each cell type from single-cell counts, for the adjusted mode. |
 
 ### Step-by-step mode
@@ -42,7 +37,7 @@ built from.
 
 | Function | Description |
 |----------|-------------|
-| [`map_activity()`](#map_activity) | Map the spatial activity of every gene set of a panel, from raw counts to regions of higher and lower activity. |
+| [`map_activity()`](#map_activity) | Map the spatial activity of every gene set of a panel. |
 
 ### Step-by-step mode
 
@@ -59,16 +54,14 @@ built from.
 ```r
 compare(counts, region, gene_sets,
         mode = c("observed", "adjusted"), out = NULL,
-        normalized = FALSE, proportions = NULL, reference = NULL,
+        proportions = NULL, reference = NULL,
         baseline = NULL, section = NULL, joint_sections = FALSE,
         min_genes = 5, cfg = list(), verbose = TRUE)
 ```
 
 Compares the regions on every gene set of a panel in one call:
 
-1. In observed mode, normalizes the counts of each section with SCTransform
-   (sctransform v2 Pearson residuals, clipped at ±√(N/30) as in Seurat). In
-   adjusted mode, estimates the dispersion scales with
+1. In adjusted mode, estimates the dispersion scales with
    `estimate_dispersion_scale()` and the composition offset with
    `composition_offset()`, and keeps the genes with a dispersion scale and
    positive predicted expression in every spot.
@@ -83,16 +76,15 @@ Spot coordinates are not used.
 
 | Argument | Description |
 |----------|-------------|
-| `counts` | Spots x genes matrix (dense or sparse) of raw counts with spot rownames and gene colnames. With `normalized = TRUE` in observed mode, normalized expression instead. |
+| `counts` | Spots x genes matrix (dense or sparse) with spot rownames and gene colnames: normalized expression in observed mode, raw counts in adjusted mode. |
 | `region` | Region label of each spot, in the spot order of `counts`. Spots without a label are dropped. |
 | `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
 | `mode` | `"observed"` (default) or `"adjusted"`. |
 | `out` | Optional output folder; see Value. |
-| `normalized` | Observed mode. `TRUE` when `counts` is already normalized, to skip SCTransform. |
 | `proportions` | Adjusted mode. Spots x cell types matrix of cell-type proportions, e.g. normalized RCTD weights, with spot rownames. |
 | `reference` | Adjusted mode. Cell types x genes matrix of reference mean expression on a linear scale, e.g. from `reference_profile()`. |
 | `baseline` | Baseline region of the model. Default: the first label in `region`. |
-| `section` | Optional section label of each spot. Sections are normalized separately and, by default, fitted one by one; the result tables then get a `section` column. |
+| `section` | Optional section label of each spot. By default the sections are fitted one by one; the result tables then get a `section` column. |
 | `joint_sections` | Observed mode. Fit the sections given by `section` jointly (see [`observed_fit()`](#observed_fit)). Use it only for adjacent sections of the same tissue block with the same region labels. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `cfg` | Options; see [Options in `cfg`](#options-in-cfg). |
@@ -159,7 +151,7 @@ variance; the regional means μ<sub>r</sub> and the gene-level regional effects
 γ<sub>g,r</sub> are shared, and each section adds its own deviation
 η<sub>g,r,k</sub> ~ N(0, ν<sub>r</sub><sup>2</sup>). π is computed from the
 shared part, so it measures the regional difference reproduced across
-sections. The sections are normalized separately and need not be aligned.
+sections. The sections need not be aligned.
 
 Given the variances, the posterior of the regional means is Gaussian and
 exact. The variances are integrated numerically on a grid around their
@@ -415,12 +407,11 @@ unblocked DESeq2 run. Requires DESeq2.
 
 ```r
 map_activity(counts, coords, gene_sets, gene_field = TRUE, d = 0.1,
-             alpha = 0.05, out = NULL, normalized = FALSE, min_genes = 5,
+             alpha = 0.05, out = NULL, min_genes = 5,
              threads = "8:1", verbose = TRUE)
 ```
 
-Normalizes the counts with SCTransform (sctransform v2 Pearson residuals,
-clipped at ±√(N/30) as in Seurat), fits each gene set with
+Fits each gene set with
 [`field_fit()`](#field_fit) and calls its regions with
 [`field_regions()`](#field_regions). Gene sets with fewer than `min_genes`
 usable genes are skipped; a gene set whose fit fails is reported and the run
@@ -430,13 +421,12 @@ goes on. Region labels are not used.
 
 | Argument | Description |
 |----------|-------------|
-| `counts` | Spots x genes matrix (dense or sparse) of raw counts with spot rownames and gene colnames. With `normalized = TRUE`, normalized expression instead. |
+| `counts` | Spots x genes matrix (dense or sparse) of normalized expression with spot rownames and gene colnames. |
 | `coords` | Spots x 2 matrix of spot coordinates, in the spot order of `counts`. |
 | `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
 | `gene_field` | Add a spatial field of each gene; see [`field_fit()`](#field_fit). `FALSE` is about 50 times faster but less accurate. |
 | `d`, `alpha` | Minimum effect and joint posterior level of the regions; see [`field_regions()`](#field_regions). |
 | `out` | Optional output folder; see Value. |
-| `normalized` | `TRUE` when `counts` is already normalized, to skip SCTransform. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `threads` | INLA `num.threads`. |
 | `verbose` | Print progress messages. |

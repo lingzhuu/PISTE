@@ -15,12 +15,7 @@ This example also uses:
 | Package | Source | Used for |
 |---------|--------|----------|
 | spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation, and plots spots on the H&E image |
-
-
-``` r
-install.packages("BiocManager")
-BiocManager::install("spatialLIBD")
-```
+| sctransform | CRAN | Normalizes the counts |
 
 
 ## 1. Load the data
@@ -69,7 +64,20 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 
 ![plot of chunk layers](figures/observed-layers-1.png)
 
-## 2. Gene sets
+## 2. Normalize
+
+PISTE takes normalized expression. Here the counts are normalized with
+SCTransform (sctransform v2 Pearson residuals, clipped at ±√(N/30) as in
+Seurat):
+
+
+``` r
+vst_out <- sctransform::vst(t(counts), vst.flavor = "v2", verbosity = 0,
+                            res_clip_range = c(-1, 1) * sqrt(nrow(counts) / 30))
+expression <- t(vst_out$y)                     # spots x genes, normalized
+```
+
+## 3. Gene sets
 
 20 MSigDB gene sets are stored as a GMT file:
 
@@ -78,19 +86,17 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 3. Run PISTE
+## 4. Run PISTE
 
 
 ``` r
-res <- compare(counts, region, gmt, baseline = "WM",
-           out = "results_observed")
+res <- compare(expression, region, gmt, baseline = "WM",
+               out = "results_observed")
 ```
 
-`compare()` normalizes the counts with SCTransform and fits every gene
-set, with WM as the baseline region. Results are written to
-`results_observed`. See [API](../api.md#compare) for all options.
+`compare()` fits every gene set, with WM as the baseline region.
 
-## 4. Read the results
+## 5. Read the results
 
 
 ``` r
@@ -150,5 +156,4 @@ other regions. For the WM row, `score` is the posterior mean of π, how often a
 pathway gene's expression state in WM exceeds its state in the cortical
 layers, and `evidence` is the posterior probability that π > 0.5. Evidence
 near 1 indicates higher activity in WM and evidence near 0 higher activity in
-the cortical layers. `res$pairwise` gives the same quantities for every pair
-of regions. See [API](../api.md#compare) for all outputs.
+the cortical layers.

@@ -10,9 +10,8 @@
 #                  proportions = omega, reference = nu)    # adjusted
 #
 # Steps
-#   normalise with SCTransform (observed) or build the dispersion scales and
-#   composition offset (adjusted) -> fit, summarise (and write) each gene set
-#   -> combined summary tables
+#   build the dispersion scales and composition offset (adjusted) -> fit,
+#   summarise (and write) each gene set -> combined summary tables
 #
 # The step-by-step functions it calls (observed_fit(),
 # estimate_dispersion_scale(), composition_offset(),
@@ -23,34 +22,31 @@
 
 #' Compare regions on a panel of gene sets
 #'
-#' Runs the whole workflow in one call: normalisation (observed mode) or the
-#' composition inputs (adjusted mode), and one fit per gene set. The observed
+#' Runs the whole workflow in one call: the composition inputs (adjusted
+#' mode) and one fit per gene set. The observed
 #' mode is fitted for each section on its own or, with
 #' `joint_sections = TRUE`, jointly for the sections given by `section`,
 #' which share the regional effects (see [observed_fit()]). Spot positions
 #' are not used.
 #'
-#' @param counts Spots x genes matrix (dense or sparse) of raw counts, with
-#'   spot rownames and gene colnames. In observed mode with
-#'   `normalized = TRUE`, normalised expression instead.
+#' @param counts Spots x genes matrix (dense or sparse) with spot rownames
+#'   and gene colnames: normalised expression in observed mode, raw counts in
+#'   adjusted mode.
 #' @param region Region label of each spot, in the spot order of `counts`.
 #' @param gene_sets Named list of gene vectors, or the path of a GMT file.
-#' @param mode `"observed"` (Gaussian model of SCTransform-normalised
-#'   expression) or `"adjusted"` (negative binomial model of raw counts
+#' @param mode `"observed"` (Gaussian model of normalised expression) or `"adjusted"` (negative binomial model of raw counts
 #'   adjusted for cell-type composition).
 #' @param out Optional output folder. When given, each gene set is written to
 #'   its own subfolder with [screen_write()] (one subfolder per section when
 #'   the sections are fitted separately), together with
 #'   `overall_scores.csv`, `pairwise_scores.csv` and `gene_sets.csv`.
-#' @param normalized Observed mode: `counts` is already normalised, so
-#'   SCTransform is skipped.
 #' @param proportions Adjusted mode: spots x cell types matrix of cell-type
 #'   proportions, e.g. normalised RCTD weights, with spot rownames.
 #' @param reference Adjusted mode: cell types x genes matrix of reference
 #'   mean expression on a linear scale, e.g. from [reference_profile()].
 #' @param baseline Baseline region of the model (default: the first label).
 #' @param section Optional section label of each spot, in the spot order of
-#'   `counts`. Sections are normalised separately. By default every section
+#'   `counts`. By default every section
 #'   is fitted on its own and the result tables get a `section` column.
 #' @param joint_sections Observed mode: fit the sections given by `section`
 #'   jointly, sharing the regional means and the gene-level regional effects
@@ -76,8 +72,7 @@
 #' @export
 compare <- function(counts, region, gene_sets,
                     mode = c("observed", "adjusted"), out = NULL,
-                    normalized = FALSE, proportions = NULL,
-                    reference = NULL, baseline = NULL, section = NULL,
+                    proportions = NULL, reference = NULL, baseline = NULL, section = NULL,
                     joint_sections = FALSE, min_genes = 5, cfg = list(),
                     verbose = TRUE) {
   mode <- match.arg(mode)
@@ -111,7 +106,6 @@ compare <- function(counts, region, gene_sets,
     if (is.null(proportions) || is.null(reference)) {
       stop("The adjusted mode needs proportions and reference.")
     }
-    if (normalized) stop("normalized applies to the observed mode only.")
   }
   sections <- unique(section)
   per_section <- split(seq_along(section), factor(section, levels = sections))
@@ -125,13 +119,7 @@ compare <- function(counts, region, gene_sets,
   inputs <- lapply(sections, function(s) {
     rows <- per_section[[s]]
     if (mode == "observed") {
-      expression <- if (normalized) {
-        as.matrix(counts[rows, intersect(pathway_genes, colnames(counts)), drop = FALSE])
-      } else {
-        log_step("Normalising ", if (length(sections) > 1) paste0("section ", s, " ") else "",
-                 "with SCTransform")
-        sctransform_residuals(counts[rows, , drop = FALSE], pathway_genes)
-      }
+      expression <- as.matrix(counts[rows, intersect(pathway_genes, colnames(counts)), drop = FALSE])
       list(expression = expression, available = colnames(expression),
            region = region[rows])
     } else {
@@ -272,26 +260,6 @@ reference_profile <- function(counts, cell_type) {
   pooled <- sapply(split(seq_along(cell_type), cell_type),
                    function(rows) Matrix::colSums(counts[rows, , drop = FALSE]))
   t(sweep(pooled, 2, colSums(pooled), "/") * 1e4)
-}
-
-
-#' SCTransform Pearson residuals for selected genes
-#'
-#' Runs sctransform v2 on all genes (as Seurat's SCTransform does) and keeps
-#' the residuals of `genes`, clipped at +-sqrt(N / 30) like Seurat. Unlike
-#' Seurat's SCTransform() (do.center = TRUE) the residuals are not centred
-#' per gene; the model's shared gene intercept a_g absorbs each gene's
-#' overall level, so centring is unnecessary.
-#' @return Dense spots x genes matrix.
-#' @noRd
-sctransform_residuals <- function(counts, genes) {
-  n_spots <- nrow(counts)
-  umi <- Matrix::t(methods::as(counts, "CsparseMatrix"))
-  vst_out <- sctransform::vst(umi, vst.flavor = "v2", verbosity = 0,
-                              res_clip_range = c(-1, 1) * sqrt(n_spots / 30))
-  residuals <- vst_out$y
-  genes <- intersect(genes, rownames(residuals))
-  t(residuals[genes, , drop = FALSE])
 }
 
 

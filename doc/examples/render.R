@@ -1,7 +1,7 @@
 # Knit the example R Markdown files into the documentation pages.
 #
 # Run from the repository root:
-#   Rscript doc/examples/render.R                # both examples
+#   Rscript doc/examples/render.R                # all examples
 #   Rscript doc/examples/render.R observed       # one example
 #
 # Each <page>.Rmd is knitted to doc/source/examples/<page>.md, with figures in
@@ -15,7 +15,7 @@ library(knitr)
 knit_hooks$set(crop = hook_pdfcrop)   # crop = TRUE trims the white margins of a figure
 
 pages <- commandArgs(trailingOnly = TRUE)
-if (!length(pages)) pages <- c("observed", "composition")
+if (!length(pages)) pages <- c("observed", "composition", "map")
 
 source_dir <- normalizePath("doc/examples")
 page_dir   <- normalizePath("doc/source/examples")
