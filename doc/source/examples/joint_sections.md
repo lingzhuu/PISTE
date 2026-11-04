@@ -3,8 +3,8 @@
 <!-- Generated from doc/examples/joint_sections.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
 This example tests pathways in white matter (WM) against the rest of the
-tissue in three DLPFC Visium sections of the same donor, 151673, 151674 and
-151675 (spatialLIBD; Maynard et al., 2021). The sections are fitted jointly,
+tissue in adjacent DLPFC Visium sections of the same donor, 151673 and 151674
+(spatialLIBD; Maynard et al., 2021). The sections are fitted jointly,
 so that the score reflects the regional difference reproduced across them.
 
 ## Requirements
@@ -24,7 +24,7 @@ library(SpatialExperiment)
 library(PISTE)
 
 spe <- fetch_data(type = "spe")
-spe <- spe[, spe$sample_id %in% c("151673", "151674", "151675")]
+spe <- spe[, spe$sample_id %in% c("151673", "151674")]
 spe <- spe[, !is.na(spe$layer_guess_reordered)]
 
 counts <- t(counts(spe))                       # spots x genes, raw counts
