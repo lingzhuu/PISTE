@@ -25,6 +25,7 @@ nav:
   - Tutorials:
       - Observed mode on DLPFC: examples/observed.md
       - Composition-adjusted mode on DLPFC: examples/composition.md
+      - Adjacent sections on DLPFC: examples/joint_sections.md
       - Spatial map on breast cancer: examples/map.md
   - Command line:
       - compare: cli/compare.md

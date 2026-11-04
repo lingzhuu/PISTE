@@ -15,7 +15,7 @@ library(knitr)
 knit_hooks$set(crop = hook_pdfcrop)   # crop = TRUE trims the white margins of a figure
 
 pages <- commandArgs(trailingOnly = TRUE)
-if (!length(pages)) pages <- c("observed", "composition", "map")
+if (!length(pages)) pages <- c("observed", "composition", "joint_sections", "map")
 
 source_dir <- normalizePath("doc/examples")
 page_dir   <- normalizePath("doc/source/examples")
