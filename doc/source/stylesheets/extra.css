@@ -1,0 +1,57 @@
+:root {
+  --md-primary-fg-color: #5368a6;
+  --md-primary-fg-color--light: #d9e0f0;
+  --md-primary-fg-color--dark: #2b3f6b;
+  --md-accent-fg-color: #2b3f6b;
+  --md-typeset-a-color: #3f5a96;
+}
+
+/* Header in the sidebar colour */
+.md-header {
+  background-color: #eef1f8;
+  color: #1f2a44;
+  box-shadow: none;
+  border-bottom: 1px solid #dde3f0;
+}
+.md-header__topic:first-child { font-weight: 600; letter-spacing: 0.06em; }
+.md-search__form { background-color: #ffffff; border: 1px solid #cfd7ea; border-radius: 6px; }
+.md-search__form:hover { background-color: #ffffff; }
+.md-search__input, .md-search__icon { color: #1f2a44; }
+.md-search__input::placeholder { color: #5f6b85; }
+
+/* Fog-blue left sidebar */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary {
+    background-color: #eef1f8;
+    border-right: 1px solid #dde3f0;
+    height: calc(100vh - 2.4rem);
+    min-height: calc(100vh - 2.4rem);
+  }
+  .md-nav--primary > .md-nav__title { display: none; }
+  .md-sidebar--primary .md-sidebar__scrollwrap { margin: 0; padding: 1.2rem 0.6rem; }
+  .md-main__inner { margin-top: 0; }
+}
+
+/* Navigation links; groups collapse and expand on click */
+.md-nav--primary .md-nav__link { color: #1f2a44; border-radius: 6px; padding: 0.15rem 0.5rem; }
+.md-nav--primary .md-nav__link:hover { color: #2b3f6b; }
+.md-nav--primary .md-nav__link--active {
+  background-color: #d9e0f0;
+  color: #2b3f6b;
+  font-weight: 500;
+}
+.md-nav--primary .md-nav__item--nested > .md-nav > .md-nav__list {
+  margin-left: 0.6rem;
+  border-left: 1px solid #cfd7ea;
+}
+
+/* Body text */
+.md-typeset { font-size: 0.85rem; line-height: 1.75; }
+.md-typeset h1 { font-weight: 600; color: #1f2a44; }
+.md-typeset h2 { font-weight: 600; }
+.md-content { max-width: 52rem; }
+
+/* Footer in the sidebar colour */
+.md-footer, .md-footer-meta { background-color: #eef1f8; color: #1f2a44; }
+.md-footer__link, .md-footer__title, .md-footer-meta__inner, .md-footer-meta a { color: #1f2a44; }
+.md-footer-meta { border-top: 1px solid #dde3f0; }

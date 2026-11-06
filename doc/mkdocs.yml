@@ -6,9 +6,19 @@ docs_dir: source
 
 theme:
   name: material
+  logo: figures/logo.svg
+  favicon: figures/logo.svg
+  font:
+    text: IBM Plex Sans
+    code: IBM Plex Mono
   features:
     - content.code.copy
     - navigation.indexes
+    - navigation.footer
+    - toc.integrate
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
