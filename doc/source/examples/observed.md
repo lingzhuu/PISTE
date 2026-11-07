@@ -79,7 +79,7 @@ expression <- t(vst_out$y)                     # spots x genes, normalized
 
 ## 3. Gene sets
 
-20 MSigDB gene sets are stored as a GMT file:
+Read the gene sets to analyse from a GMT file:
 
 
 ``` r
