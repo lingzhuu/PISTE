@@ -24,8 +24,7 @@
 #' @param gene_sets Named list of gene vectors, or the path of a GMT file.
 #' @param gene_field Add a spatial field of each gene (see [field_fit()]);
 #'   `FALSE` is about 50 times faster but less accurate.
-#' @param d,alpha Minimum effect and joint posterior level of the regions
-#'   (see [field_regions()]).
+#' @param alpha Joint posterior level of the regions (see [field_regions()]).
 #' @param out Optional output folder. When given, each gene set is written to
 #'   its own subfolder (`spots.csv`, `hyperparameters.csv`), together with
 #'   `gene_sets.csv`.
@@ -36,7 +35,7 @@
 #'   used, status, sd of z, spots called higher and lower) and `results` (per
 #'   fitted gene set, the [field_regions()] table and the hyperparameters).
 #' @export
-map_activity <- function(counts, coords, gene_sets, gene_field = TRUE, d = .1,
+map_activity <- function(counts, coords, gene_sets, gene_field = TRUE,
                          alpha = .05, out = NULL, min_genes = 5,
                          threads = "8:1", verbose = TRUE) {
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
@@ -73,7 +72,7 @@ map_activity <- function(counts, coords, gene_sets, gene_field = TRUE, d = .1,
       log_step("  failed: ", conditionMessage(fit))
       next
     }
-    spots <- field_regions(fit, d, alpha)
+    spots <- field_regions(fit, alpha)
     status[i, c("status", "sd_z", "spots_higher", "spots_lower", "fit_seconds")] <-
       list("done", fit$hyperparameters["sd_z", "mean"], sum(spots$call == "higher"),
            sum(spots$call == "lower"), fit$metadata$fit_seconds)

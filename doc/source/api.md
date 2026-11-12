@@ -406,7 +406,7 @@ unblocked DESeq2 run. Requires DESeq2.
 ## map_activity
 
 ```r
-map_activity(counts, coords, gene_sets, gene_field = TRUE, d = 0.1,
+map_activity(counts, coords, gene_sets, gene_field = TRUE,
              alpha = 0.05, out = NULL, min_genes = 5,
              threads = "8:1", verbose = TRUE)
 ```
@@ -425,7 +425,7 @@ goes on. Region labels are not used.
 | `coords` | Spots x 2 matrix of spot coordinates, in the spot order of `counts`. |
 | `gene_sets` | Named list of gene vectors, or the path of a GMT file. |
 | `gene_field` | Add a spatial field of each gene; see [`field_fit()`](#field_fit). `FALSE` is about 50 times faster but less accurate. |
-| `d`, `alpha` | Minimum effect and joint posterior level of the regions; see [`field_regions()`](#field_regions). |
+| `alpha` | Joint posterior level of the regions; see [`field_regions()`](#field_regions). |
 | `out` | Optional output folder; see Value. |
 | `min_genes` | Minimum number of usable genes for a gene set to be fitted (at least 2). |
 | `threads` | INLA `num.threads`. |
@@ -491,13 +491,13 @@ gene fields, `range_w` and `sd_w`; ranges on the scaled coordinates) and
 ## field_regions
 
 ```r
-field_regions(fit, d = 0.1, alpha = 0.05)
+field_regions(fit, alpha = 0.05)
 ```
 
-Calls the regions where z exceeds the minimum effect u = `d` σ<sub>ε</sub>.
+Calls the regions where z is above or below the baseline of the pathway.
 A spot is called `higher` when it belongs to the largest set of spots on
-which z > u everywhere with joint posterior probability at least
-1 − `alpha`, and `lower` likewise for z < −u. The sets are excursion sets
+which z > 0 everywhere with joint posterior probability at least
+1 − `alpha`, and `lower` likewise for z < 0. The sets are excursion sets
 (Bolin & Lindgren 2015) computed with the QC method of the excursions
 package. Because the probability is joint, the region as a whole has
 posterior probability 1 − `alpha`, not each spot on its own.
@@ -505,10 +505,9 @@ posterior probability 1 − `alpha`, not each spot on its own.
 | Argument | Description |
 |----------|-------------|
 | `fit` | Output of [`field_fit()`](#field_fit). |
-| `d` | Minimum effect in units of σ<sub>ε</sub>. `0` calls any spot where z is credibly above or below zero, however small. |
 | `alpha` | One minus the joint posterior probability of a region. |
 
 Returns a data frame with one row per spot: `spot`, `z_mean`, `z_sd`,
-`p_higher` = P(z > u), `p_lower` = P(z < −u) and `call` (`higher`, `lower`
+`p_higher` = P(z > 0), `p_lower` = P(z < 0) and `call` (`higher`, `lower`
 or `none`).
 

@@ -15,9 +15,9 @@
 # The model is fitted with INLA.
 #
 # Regions of the map are joint excursion sets (Bolin & Lindgren 2015): the
-# largest set of spots on which z > u everywhere with posterior probability
-# 1 - alpha, and likewise z < -u, with the minimum effect u = d * sigma_e,
-# computed by the excursions package with its QC method.
+# largest set of spots on which z > 0 everywhere with posterior probability
+# 1 - alpha, and likewise z < 0, computed by the excursions package with its
+# QC method.
 
 # Meshes on the scaled coordinates (max.edge inside / outside, cutoff, offset
 # inside / outside).
@@ -105,26 +105,24 @@ field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
 
 #' Regions of higher and lower pathway activity
 #'
-#' Calls the spots where the pathway field z exceeds the minimum effect
-#' u = `d` * sigma_e, jointly: a spot is called `"higher"` when it belongs to
-#' the largest set of spots on which z > u everywhere with posterior
-#' probability at least 1 - `alpha`, and `"lower"` likewise for z < -u. The
+#' Calls the spots where the pathway field z is above or below the baseline of
+#' the pathway, jointly: a spot is called `"higher"` when it belongs to the
+#' largest set of spots on which z > 0 everywhere with posterior probability
+#' at least 1 - `alpha`, and `"lower"` likewise for z < 0. The
 #' sets are computed with the QC method of [excursions::excursions.inla()].
 #'
 #' @param fit Output of [field_fit()].
-#' @param d Minimum effect, in units of the noise sd sigma_e.
 #' @param alpha One minus the joint posterior probability of a region.
 #' @return Data frame with one row per spot: `spot`, `z_mean`, `z_sd`,
-#'   `p_higher` = P(z > u), `p_lower` = P(z < -u) and `call`.
+#'   `p_higher` = P(z > 0), `p_lower` = P(z < 0) and `call`.
 #' @export
-field_regions <- function(fit, d = .1, alpha = .05) {
-  u <- d * fit$sigma_e
+field_regions <- function(fit, alpha = .05) {
   threads <- as.integer(sub(":.*", "", fit$metadata$threads))
-  excursion <- function(level, type)
+  excursion <- function(type)
     excursions::excursions.inla(fit$inla, name = "field", ind = unique(fit$node), method = "QC", alpha = alpha,
-                                u = level, type = type, max.threads = threads, seed = 42)
-  higher <- excursion(u, ">")
-  lower <- excursion(-u, "<")
+                                u = 0, type = type, max.threads = threads, seed = 42)
+  higher <- excursion(">")
+  lower <- excursion("<")
   z <- fit$inla$summary.random$field[fit$node, ]
   data.frame(spot = fit$spots, z_mean = z$mean, z_sd = z$sd,
              p_higher = higher$rho[fit$node], p_lower = lower$rho[fit$node],

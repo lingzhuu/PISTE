@@ -25,9 +25,6 @@ piste map --input FILE --coords FILE --gene_set FILE --out DIR [options]
 `--no-gene-field`
 :   Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions.
 
-`--d` D
-:   Minimum effect of a region, in units of the noise sd. Default: `0.1`.
-
 `--min-genes` MIN_GENES
 :   Skip gene sets with fewer usable genes than this (at least 2). Default: `5`.
 

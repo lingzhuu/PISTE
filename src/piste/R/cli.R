@@ -49,7 +49,6 @@ cli_option_table <- function(command) {
     c("celltype", NA, FALSE, "compare", "Adjusted mode: obs column (in a .h5ad reference) or table with cell ID and cell type."),
     c("target", NA, FALSE, "compare,joint", "Compare this region with all other spots, which are pooled into 'rest'."),
     c("no-gene-field", "false", TRUE, "map", "Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions."),
-    c("d", "0.1", FALSE, "map", "Minimum effect of a region, in units of the noise sd."),
     c("min-genes", "5", FALSE, "compare,joint,map", "Skip gene sets with fewer usable genes than this (at least 2)."),
     c("threads", NA, FALSE, "compare", "Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1)."),
     c("threads", "8:1", FALSE, "map", "INLA threads."),
@@ -154,11 +153,7 @@ cli_check_options <- function(opts, command) {
   if (!is.finite(opts$alpha) || opts$alpha <= 0 || opts$alpha >= 1) {
     stop("--alpha must satisfy 0 < alpha < 1.")
   }
-  if (command == "map") {
-    opts$d <- as.numeric(opts$d)
-    if (!is.finite(opts$d) || opts$d < 0) stop("--d must be a non-negative number.")
-    return(opts)
-  }
+  if (command == "map") return(opts)
 
   if (command == "joint") return(opts)
   opts$mode <- match.arg(opts$mode, c("observed", "adjusted"))
@@ -328,7 +323,7 @@ cli_map <- function(opts) {
   cli_log(length(gene_sets), " gene sets in ", opts$gene_set)
 
   res <- map_activity(inputs$counts, inputs$coords, gene_sets,
-                      gene_field = !isTRUE(opts$`no-gene-field`), d = opts$d,
+                      gene_field = !isTRUE(opts$`no-gene-field`),
                       alpha = opts$alpha, out = opts$out,
                       min_genes = opts$`min-genes`, threads = opts$threads)
   cli_log("Results in ", opts$out)
