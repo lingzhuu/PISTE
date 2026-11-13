@@ -70,8 +70,20 @@
           <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="6" cy="7" r="2.2" fill="currentColor"/><circle cx="13" cy="6" r="2.2" fill="currentColor" opacity=".7"/><circle cx="9" cy="13" r="2.2" fill="currentColor" opacity=".85"/><circle cx="17" cy="12" r="2.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="18.5" r="2.2" fill="currentColor" opacity=".75"/></svg>
         </div>
         <div class="drop-title">Spot coordinates</div>
-        <div class="drop-desc">CSV or TSV: spot name, x, y; extra columns (for example clusters) can be used to pick a region</div>
+        <div class="drop-desc">CSV or TSV: spot name, x, y (for Visium, tissue_positions.csv works as it is)</div>
         <div class="drop-status" id="status-coord"></div>
+      </label>
+      <label class="drop" id="drop-img">
+        <input type="file" id="file-img" accept=".png,.jpg,.jpeg,.json" multiple>
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 3.5 3.5L16 13l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="drop-title">Tissue image <span class="opt">optional</span></div>
+        <div class="drop-desc">PNG or JPG; for Visium select the image together with scalefactors_json.json</div>
+        <div class="drop-status" id="status-img"></div>
+        <div class="scale-row" id="scale-row" hidden>Image pixels per coordinate unit
+          <input type="number" id="img-scale" step="any" min="0" value="1">
+        </div>
       </label>
     </div>
   </section>
@@ -97,11 +109,6 @@
             Erase
           </button>
         </div>
-        <div class="annot" id="annot-box" hidden>
-          <select id="annot-col"></select>
-          <select id="annot-val"></select>
-          <button class="btn small" id="btn-annot">Use as region</button>
-        </div>
         <button class="btn small ghost" id="btn-clear">Clear</button>
         <div class="count" id="region-count">No region yet</div>
       </div>
@@ -125,20 +132,26 @@
         <p class="hint">Gene sets with fewer than the minimum number of genes found in the data are skipped.</p>
       </div>
     </div>
-    <div class="sets">
-      <label class="radio">
-        <input type="radio" name="sets" value="hallmark" checked>
-        <span><b>MSigDB Hallmark</b><br><small>50 gene sets (human gene symbols)</small></span>
-      </label>
-      <label class="radio">
-        <input type="radio" name="sets" value="gmt">
-        <span><b>Your own GMT file</b><br><small id="gmt-name">No file chosen</small></span>
-        <input type="file" id="file-gmt" accept=".gmt,.txt">
-      </label>
-      <label class="mingenes">Minimum genes
-        <input type="number" id="min-genes" value="5" min="2" max="50">
+    <div class="seg set-tabs" role="tablist">
+      <button class="seg-btn active" data-src="text">Type genes</button>
+      <button class="seg-btn" data-src="file">Upload a list</button>
+    </div>
+    <div class="set-panel" id="panel-text">
+      <input type="text" id="set-name" class="set-name" placeholder="Gene set name (optional)">
+      <textarea id="set-genes" rows="5" placeholder="Gene symbols separated by spaces, commas or new lines, e.g.&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
+      <div class="set-count" id="text-count"></div>
+    </div>
+    <div class="set-panel" id="panel-file" hidden>
+      <label class="drop small-drop" id="drop-gmt">
+        <input type="file" id="file-gmt" accept=".txt,.csv,.tsv,.gmt,.list">
+        <div class="drop-title">Gene list file</div>
+        <div class="drop-desc">Plain text with one gene per line is one gene set; a GMT file gives several gene sets</div>
+        <div class="drop-status" id="gmt-name"></div>
       </label>
     </div>
+    <label class="mingenes">Minimum genes found in the data
+      <input type="number" id="min-genes" value="5" min="2" max="50">
+    </label>
     <div class="run-row">
       <button class="btn primary" id="btn-run" disabled>Compare region with the rest</button>
       <span class="run-msg" id="run-msg"></span>

@@ -11,7 +11,8 @@ const CALL_LEVEL = 0.975;
 const $ = (id) => document.getElementById(id);
 const state = {
   webR: null, ready: false,
-  coords: null,          // {ids, x, y, annot: {col: values}}
+  coords: null,          // {ids, x, y}
+  image: null,           // {img, scale}
   expr: null,            // {file, delim, header, rowNames}
   region: null,          // Uint8Array, 1 = region
   tool: "add",
@@ -121,18 +122,11 @@ async function readCoords(file) {
   }
   const keep = lower.indexOf("in_tissue") > 0 ? cols[lower.indexOf("in_tissue")].map((v) => v === "1") : null;
   const idx = rows.map((_, i) => i).filter((i) => !keep || keep[i]);
-  const annot = {};
-  header.forEach((h, j) => {
-    if (j === 0 || j === xi || j === yi || lower[j] === "in_tissue") return;
-    const values = idx.map((i) => cols[j][i]);
-    const levels = [...new Set(values)];
-    if (levels.length >= 2 && levels.length <= 60) annot[h] = values;
-  });
   return {
     ids: idx.map((i) => cols[0][i]),
     x: Float64Array.from(idx, (i) => +cols[xi][i]),
     y: Float64Array.from(idx, (i) => +cols[yi][i]),
-    xName: header[xi], yName: header[yi], annot,
+    xName: header[xi], yName: header[yi],
   };
 }
 
@@ -237,8 +231,10 @@ function draw() {
   const { k, ox, oy, r, dpr } = view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const im = state.image;
+  if (im) ctx.drawImage(im.img, ox, oy, (k * im.img.width) / im.scale, (k * im.img.height) / im.scale);
   for (const pass of [0, 1]) {
-    ctx.fillStyle = pass ? "#d23b2b" : "#c3cbdd";
+    ctx.fillStyle = pass ? (im ? "rgba(210,59,43,.72)" : "#d23b2b") : (im ? "rgba(83,104,166,.22)" : "#c3cbdd");
     ctx.beginPath();
     for (let i = 0; i < c.x.length; i++) {
       if (state.region[i] !== pass) continue;
@@ -289,24 +285,11 @@ canvas.addEventListener("pointerup", () => {
   regionChanged();
 });
 
-document.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll(".seg-btn").forEach((x) => x.classList.toggle("active", x === b));
+document.querySelectorAll(".toolbar .seg-btn").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".toolbar .seg-btn").forEach((x) => x.classList.toggle("active", x === b));
   state.tool = b.dataset.tool;
 }));
 $("btn-clear").addEventListener("click", () => { if (state.region) { state.region.fill(0); regionChanged(); } });
-$("annot-col").addEventListener("change", fillAnnotValues);
-$("btn-annot").addEventListener("click", () => {
-  const values = state.coords.annot[$("annot-col").value], level = $("annot-val").value;
-  values.forEach((v, i) => { state.region[i] = v === level ? 1 : 0; });
-  regionChanged();
-});
-
-function fillAnnotValues() {
-  const values = state.coords.annot[$("annot-col").value];
-  const levels = [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  $("annot-val").innerHTML = levels.map((l) => `<option>${esc(l)}</option>`).join("");
-}
-
 function regionChanged() {
   draw();
   const n = state.region.reduce((a, b) => a + b, 0);
@@ -330,17 +313,42 @@ async function loadCoords(file) {
     $("drop-coord").classList.add("loaded");
     st.textContent = `${file.name} · ${c.ids.length.toLocaleString()} spots (x = ${c.xName}, y = ${c.yName})`;
     $("canvas-empty").hidden = true;
-    const cols = Object.keys(c.annot);
-    $("annot-box").hidden = !cols.length;
-    if (cols.length) {
-      $("annot-col").innerHTML = cols.map((h) => `<option>${esc(h)}</option>`).join("");
-      fillAnnotValues();
-    }
     layout(); regionChanged();
   } catch (e) {
     st.className = "drop-status err"; st.textContent = e.message;
   }
 }
+
+async function loadImage(files) {
+  const st = $("status-img");
+  st.className = "drop-status";
+  try {
+    const imgFile = files.find((f) => /\.(png|jpe?g)$/i.test(f.name));
+    const json = files.find((f) => /\.json$/i.test(f.name));
+    if (imgFile) {
+      const img = new Image();
+      img.src = URL.createObjectURL(imgFile);
+      await img.decode();
+      state.image = { img, scale: +$("img-scale").value || 1, name: imgFile.name };
+    }
+    if (json && state.image) {
+      const sf = JSON.parse(await json.text());
+      const name = state.image.name.toLowerCase();
+      const scale = name.includes("lowres") ? sf.tissue_lowres_scalef : sf.tissue_hires_scalef;
+      if (scale) { state.image.scale = scale; $("img-scale").value = scale; }
+    }
+    if (!state.image) throw new Error("Choose a PNG or JPG image.");
+    $("drop-img").classList.add("loaded");
+    $("scale-row").hidden = false;
+    st.textContent = `${state.image.name} · ${state.image.img.width} × ${state.image.img.height}`;
+    draw();
+  } catch (e) {
+    st.className = "drop-status err"; st.textContent = e.message;
+  }
+}
+$("file-img").addEventListener("change", (e) => e.target.files.length && loadImage([...e.target.files]));
+$("img-scale").addEventListener("change", () => { if (state.image) { state.image.scale = +$("img-scale").value || 1; draw(); } });
+$("img-scale").addEventListener("click", (e) => e.preventDefault());
 
 async function loadExpr(file) {
   const st = $("status-expr");
@@ -357,44 +365,74 @@ async function loadExpr(file) {
 
 $("file-coord").addEventListener("change", (e) => e.target.files[0] && loadCoords(e.target.files[0]));
 $("file-expr").addEventListener("change", (e) => e.target.files[0] && loadExpr(e.target.files[0]));
-for (const id of ["drop-expr", "drop-coord"]) {
+for (const id of ["drop-expr", "drop-coord", "drop-img"]) {
   const el = $(id);
   el.addEventListener("dragover", (e) => { e.preventDefault(); el.classList.add("over"); });
   el.addEventListener("dragleave", () => el.classList.remove("over"));
   el.addEventListener("drop", (e) => {
     e.preventDefault(); el.classList.remove("over");
     const f = e.dataTransfer.files[0];
-    if (f) (id === "drop-expr" ? loadExpr : loadCoords)(f);
+    if (!f) return;
+    if (id === "drop-img") loadImage([...e.dataTransfer.files]);
+    else (id === "drop-expr" ? loadExpr : loadCoords)(f);
   });
 }
 
+const EXAMPLE_GENES = "MBP PLP1 MOBP MAG MOG CNP MAL CLDN11 ERMN OPALIN TF CNTN2 ENPP6 UGT8 GJB1 PLLP ASPA FA2H";
 $("btn-example").addEventListener("click", async () => {
   const get = async (name) => new File([await (await fetch("data/" + name)).blob()], name);
   $("btn-example").disabled = true;
   await loadCoords(await get("example_coordinates.csv"));
   await loadExpr(await get("example_expression.csv.gz"));
-  if (state.coords.annot.layer) {
-    $("annot-col").value = "layer"; fillAnnotValues(); $("annot-val").value = "WM";
-    $("btn-annot").click();
-  }
+  await loadImage([await get("example_tissue_hires.jpg"), await get("example_scalefactors.json")]);
+  const wm = new Set((await (await fetch("data/example_region.txt")).text()).split(/\s+/));
+  state.coords.ids.forEach((id, i) => { state.region[i] = wm.has(id) ? 1 : 0; });
+  regionChanged();
+  document.querySelector('.set-tabs [data-src="text"]').click();
+  $("set-name").value = "Myelination";
+  $("set-genes").value = EXAMPLE_GENES;
+  $("set-genes").dispatchEvent(new Event("input"));
   $("btn-example").disabled = false;
 });
 
-let hallmark = null;
-fetch("data/hallmark_50.gmt").then((r) => r.text()).then((t) => { hallmark = parseGmt(t); updateRun(); });
-let customSets = null;
+// Gene sets: typed genes (one set) or a list file (plain list = one set, GMT = several)
+const splitGenes = (t) => [...new Set(t.split(/[\s,;]+/).map((g) => g.trim().replace(/^"(.*)"$/, "$1")).filter(Boolean))];
+let setSource = "text", fileSets = null;
+
+function parseList(text, fileName) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.some((l) => l.split("\t").length >= 3)) return parseGmt(text);
+  const name = fileName.replace(/\.(txt|csv|tsv|list|gmt)$/i, "");
+  return { [name]: splitGenes(lines.join("\n")) };
+}
+
 $("file-gmt").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   if (!f) return;
-  customSets = parseGmt(await f.text());
-  $("gmt-name").textContent = `${f.name} · ${Object.keys(customSets).length} gene sets`;
-  document.querySelector("input[name=sets][value=gmt]").checked = true;
+  fileSets = parseList(await f.text(), f.name);
+  const k = Object.keys(fileSets);
+  $("drop-gmt").classList.add("loaded");
+  $("gmt-name").textContent = k.length === 1 ? `${f.name} · ${fileSets[k[0]].length} genes`
+    : `${f.name} · ${k.length} gene sets`;
   updateRun();
 });
-document.querySelectorAll("input[name=sets]").forEach((r) => r.addEventListener("change", updateRun));
+$("set-genes").addEventListener("input", () => {
+  const n = splitGenes($("set-genes").value).length;
+  $("text-count").textContent = n ? `${n} genes` : "";
+  updateRun();
+});
+document.querySelectorAll(".set-tabs .seg-btn").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".set-tabs .seg-btn").forEach((x) => x.classList.toggle("active", x === b));
+  setSource = b.dataset.src;
+  $("panel-text").hidden = setSource !== "text";
+  $("panel-file").hidden = setSource !== "file";
+  updateRun();
+}));
 
 function chosenSets() {
-  return document.querySelector("input[name=sets]:checked").value === "gmt" ? customSets : hallmark;
+  if (setSource === "file") return fileSets;
+  const genes = splitGenes($("set-genes").value);
+  return genes.length ? { [$("set-name").value.trim() || "Gene set"]: genes } : null;
 }
 
 function updateRun() {
@@ -405,7 +443,7 @@ function updateRun() {
   else if (!state.coords) why = "Load the spot coordinates.";
   else if (n < 3) why = "Select a region.";
   else if (n > state.region.length - 3) why = "Leave some spots outside the region.";
-  else if (!chosenSets()) why = "Choose a GMT file.";
+  else if (!chosenSets()) why = setSource === "text" ? "Enter the genes of a gene set." : "Upload a gene list.";
   $("btn-run").disabled = !!why || running;
   if (!running && (why || !state.results.length)) { $("run-msg").className = "run-msg"; $("run-msg").textContent = why; }
 }

@@ -113,7 +113,7 @@ main { padding: 40px 48px 32px; max-width: 1080px; width: 100%; }
 .btn.primary { padding: 10px 20px; font-size: 15px; }
 
 /* Drop zones */
-.drops { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.drops { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .drop {
   position: relative; display: block; cursor: pointer;
   border: 1.5px dashed #c6cfe4; border-radius: 10px;
@@ -122,7 +122,7 @@ main { padding: 40px 48px 32px; max-width: 1080px; width: 100%; }
 }
 .drop:hover, .drop.over { border-color: var(--primary); background: var(--fog); }
 .drop.loaded { border-style: solid; border-color: #b9c4de; background: var(--fog); }
-.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .drop-icon { color: var(--primary); margin-bottom: 6px; }
 .drop-title { font-weight: 600; }
 .drop-desc { font-size: 13px; color: var(--ink-3); line-height: 1.45; margin-top: 2px; }
@@ -228,3 +228,22 @@ td.name small { display: block; color: var(--ink-3); font-weight: 400; font-size
   .count { margin-left: 0; width: 100%; }
   .pi-col { min-width: 160px; }
 }
+
+/* Gene set input */
+.set-tabs { margin-bottom: 14px; }
+.set-panel { display: flex; flex-direction: column; gap: 8px; }
+.set-name, .set-panel textarea {
+  border: 1px solid #cfd7ea; border-radius: 8px; padding: 8px 11px; background: #fff; width: 100%;
+}
+.set-name { max-width: 360px; }
+.set-panel textarea { font-family: "IBM Plex Mono", monospace; font-size: 13.5px; resize: vertical; line-height: 1.5; }
+.set-name:focus, .set-panel textarea:focus { outline: 2px solid var(--fog-strong); border-color: var(--primary); }
+.set-count { font-size: 13px; color: var(--ink-3); min-height: 1em; }
+.small-drop { padding: 16px 18px; }
+.mingenes { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 14px 0 0; }
+
+.opt { font-weight: 400; font-size: 12px; color: var(--ink-3); background: var(--fog); border-radius: 999px; padding: 1px 8px; margin-left: 4px; }
+.drop.loaded .opt { background: #fff; }
+.scale-row { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
+.scale-row input { width: 110px; border: 1px solid #cfd7ea; border-radius: 6px; padding: 3px 7px; }
+@media (max-width: 1100px) { .drops { grid-template-columns: 1fr 1fr; } }
