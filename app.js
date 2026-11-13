@@ -397,10 +397,17 @@ for (const id of ["drop-expr", "drop-coord", "drop-img"]) {
 
 const EXAMPLE_GENES = "MBP PLP1 MOBP MAG MOG CNP MAL CLDN11 ERMN OPALIN TF CNTN2 ENPP6 UGT8 GJB1 PLLP ASPA FA2H";
 $("btn-example").addEventListener("click", async () => {
+  // Same site first, then the copy of the website branch on jsDelivr
   const get = async (name) => {
-    const r = await fetch("data/" + name);
-    if (!r.ok) throw new Error(`data/${name} (${r.status})`);
-    return new File([await r.blob()], name);
+    let last;
+    for (const url of ["data/" + name, "https://cdn.jsdelivr.net/gh/lingzhuu/PISTE@website/data/" + name]) {
+      try {
+        const r = await fetch(url);
+        if (r.ok) return new File([await r.blob()], name);
+        last = new Error(`${url} (${r.status})`);
+      } catch (e) { last = new Error(`${url}: ${e.message}`); }
+    }
+    throw last;
   };
   $("btn-example").disabled = true;
   try {
@@ -417,7 +424,7 @@ $("btn-example").addEventListener("click", async () => {
   $("set-genes").dispatchEvent(new Event("input"));
   $("status-expr").className = "drop-status";
   $("status-expr").textContent = "Downloading the example expression (19 MB)…";
-  await loadExpr(await get("example_expression.csv.gz"));
+  await loadExpr(await get("example_expression.bin"));
   } catch (e) {
     console.error(e);
     $("status-expr").className = "drop-status err"; $("status-expr").textContent = "Example failed: " + e.message;
