@@ -2,7 +2,11 @@
 // R runs in this tab through webR; the PISTE R code is loaded from the
 // package source on GitHub, so the site always uses the released functions.
 
-import { WebR } from "https://webr.r-wasm.org/v0.6.1/webr.mjs";
+// webR from its own site, with the npm copy on jsDelivr as a fallback
+const WEBR_SOURCES = [
+  { module: "https://webr.r-wasm.org/v0.6.1/webr.mjs", base: "https://webr.r-wasm.org/v0.6.1/" },
+  { module: "https://cdn.jsdelivr.net/npm/webr@0.6.1/dist/webr.js", base: "https://cdn.jsdelivr.net/npm/webr@0.6.1/dist/" },
+];
 
 const PISTE_R = "https://raw.githubusercontent.com/lingzhuu/PISTE/main/src/piste/";
 const R_FILES = ["R/pi_engine.R", "R/inla_screen.R", "R/observed_fit.R", "R/compare.R", "R/cli_io.R"];
@@ -26,8 +30,18 @@ const state = {
 async function startR() {
   const box = $("engine");
   try {
-    const webR = new WebR({ baseUrl: "https://webr.r-wasm.org/v0.6.1/" });
+    const step = (t) => { $("engine-text").textContent = t; };
+    step("Downloading R (about 30 MB)…");
+    let WebR, base, errors = [];
+    for (const src of WEBR_SOURCES) {
+      try { ({ WebR } = await import(src.module)); base = src.base; break; }
+      catch (e) { errors.push(`${src.module}: ${e.message}`); }
+    }
+    if (!WebR) throw new Error("could not load webR. " + errors.join(" | "));
+    const webR = new WebR({ baseUrl: base });
+    const slow = setTimeout(() => step("Still starting R… (slow network or blocked site webr.r-wasm.org)"), 60000);
     await webR.init();
+    clearTimeout(slow);
     $("engine-text").textContent = "Loading PISTE…";
     await webR.FS.mkdir("/piste");
     await webR.FS.mkdir("/piste/lib");
@@ -64,7 +78,7 @@ async function startR() {
   } catch (e) {
     console.error(e);
     box.classList.add("error");
-    $("engine-text").textContent = "R could not start: " + e.message;
+    $("engine-text").textContent = "R could not start: " + (e && e.message ? e.message : String(e));
   }
   updateRun();
 }
@@ -584,4 +598,5 @@ const observer = new IntersectionObserver((entries) => {
 document.querySelectorAll(".card").forEach((c) => observer.observe(c));
 
 render(); markSteps(); updateRun();
+window.addEventListener("error", (e) => { $("engine").classList.add("error"); $("engine-text").textContent = "Error: " + e.message; });
 startR();
