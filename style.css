@@ -72,7 +72,7 @@ button, input, select { font: inherit; color: inherit; }
 @keyframes pulse { 50% { opacity: .35; } }
 .side-note { font-size: 12.5px; color: var(--ink-3); margin: -14px 0 0; }
 .side-links { margin-top: auto; display: flex; gap: 16px; font-size: 13.5px; }
-.side-links a { color: var(--link); text-decoration: none; }
+.side-links a { color: var(--link); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .side-links a:hover { text-decoration: underline; }
 
 /* Main */
