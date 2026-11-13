@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PISTE · Regional comparison</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">
+    <img src="logo.svg" alt="" width="34" height="34">
+    <div>
+      <div class="brand-name">PISTE</div>
+      <div class="brand-sub">Pathway Inference from Spatial Transcriptomic Expression</div>
+    </div>
+  </div>
+
+  <nav class="steps">
+    <a href="#step-data" class="step" data-step="data"><span class="dot"></span><span>Load a section</span></a>
+    <a href="#step-region" class="step" data-step="region"><span class="dot"></span><span>Select a region</span></a>
+    <a href="#step-sets" class="step" data-step="sets"><span class="dot"></span><span>Choose gene sets</span></a>
+    <a href="#step-results" class="step" data-step="results"><span class="dot"></span><span>Compare</span></a>
+  </nav>
+
+  <div class="engine" id="engine">
+    <span class="engine-light"></span>
+    <span id="engine-text">Starting R in your browser…</span>
+  </div>
+  <p class="side-note">All computation runs locally in this browser tab. Your data are not uploaded to any server.</p>
+  <div class="side-links">
+    <a href="https://piste.readthedocs.io" target="_blank" rel="noopener">Documentation</a>
+    <a href="https://github.com/lingzhuu/PISTE" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</aside>
+
+<main>
+  <header class="hero">
+    <h1>Regional pathway comparison</h1>
+    <p>Load one spatial transcriptomics section, outline a region on the tissue, and PISTE estimates for every gene set whether pathway activity is higher or lower in the region than in the rest of the section.</p>
+  </header>
+
+  <!-- 1. Data -->
+  <section class="card" id="step-data">
+    <div class="card-head">
+      <span class="num">1</span>
+      <div>
+        <h2>Load a section</h2>
+        <p class="hint">Expression must already be normalized (for example SCTransform or log-normalized). Files stay on your computer.</p>
+      </div>
+      <button class="btn ghost" id="btn-example">Try the example</button>
+    </div>
+    <div class="drops">
+      <label class="drop" id="drop-expr">
+        <input type="file" id="file-expr" accept=".csv,.tsv,.txt,.gz">
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16v3H4zM4 10.5h16v3H4zM4 16h16v3H4z" fill="currentColor" opacity=".8"/></svg>
+        </div>
+        <div class="drop-title">Normalized expression</div>
+        <div class="drop-desc">CSV or TSV (.gz accepted); spots × genes or genes × spots; first column holds the row names</div>
+        <div class="drop-status" id="status-expr"></div>
+      </label>
+      <label class="drop" id="drop-coord">
+        <input type="file" id="file-coord" accept=".csv,.tsv,.txt,.gz">
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="6" cy="7" r="2.2" fill="currentColor"/><circle cx="13" cy="6" r="2.2" fill="currentColor" opacity=".7"/><circle cx="9" cy="13" r="2.2" fill="currentColor" opacity=".85"/><circle cx="17" cy="12" r="2.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="18.5" r="2.2" fill="currentColor" opacity=".75"/></svg>
+        </div>
+        <div class="drop-title">Spot coordinates</div>
+        <div class="drop-desc">CSV or TSV: spot name, x, y; extra columns (for example clusters) can be used to pick a region</div>
+        <div class="drop-status" id="status-coord"></div>
+      </label>
+    </div>
+  </section>
+
+  <!-- 2. Region -->
+  <section class="card" id="step-region">
+    <div class="card-head">
+      <span class="num">2</span>
+      <div>
+        <h2>Select a region</h2>
+        <p class="hint">Draw around spots to add them to the region; everything else is the rest of the section.</p>
+      </div>
+    </div>
+    <div class="region-wrap">
+      <div class="toolbar">
+        <div class="seg" role="group">
+          <button class="seg-btn active" data-tool="add" title="Draw to add spots">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 17c-1-4 1-10 7-11s8 4 6 8-7 6-10 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 17l-1 4 4-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Add
+          </button>
+          <button class="seg-btn" data-tool="erase" title="Draw to remove spots">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 4l5 5-9 9H6l-2-2 11-12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 20h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Erase
+          </button>
+        </div>
+        <div class="annot" id="annot-box" hidden>
+          <select id="annot-col"></select>
+          <select id="annot-val"></select>
+          <button class="btn small" id="btn-annot">Use as region</button>
+        </div>
+        <button class="btn small ghost" id="btn-clear">Clear</button>
+        <div class="count" id="region-count">No region yet</div>
+      </div>
+      <div class="canvas-box" id="canvas-box">
+        <canvas id="canvas"></canvas>
+        <div class="canvas-empty" id="canvas-empty">Load spot coordinates to see the section</div>
+      </div>
+      <div class="legend">
+        <span><i class="sw region"></i>Region</span>
+        <span><i class="sw rest"></i>Rest of the section</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Gene sets -->
+  <section class="card" id="step-sets">
+    <div class="card-head">
+      <span class="num">3</span>
+      <div>
+        <h2>Choose gene sets</h2>
+        <p class="hint">Gene sets with fewer than the minimum number of genes found in the data are skipped.</p>
+      </div>
+    </div>
+    <div class="sets">
+      <label class="radio">
+        <input type="radio" name="sets" value="hallmark" checked>
+        <span><b>MSigDB Hallmark</b><br><small>50 gene sets (human gene symbols)</small></span>
+      </label>
+      <label class="radio">
+        <input type="radio" name="sets" value="gmt">
+        <span><b>Your own GMT file</b><br><small id="gmt-name">No file chosen</small></span>
+        <input type="file" id="file-gmt" accept=".gmt,.txt">
+      </label>
+      <label class="mingenes">Minimum genes
+        <input type="number" id="min-genes" value="5" min="2" max="50">
+      </label>
+    </div>
+    <div class="run-row">
+      <button class="btn primary" id="btn-run" disabled>Compare region with the rest</button>
+      <span class="run-msg" id="run-msg"></span>
+    </div>
+    <div class="progress" id="progress" hidden><div class="bar" id="bar"></div></div>
+  </section>
+
+  <!-- 4. Results -->
+  <section class="card" id="step-results">
+    <div class="card-head">
+      <span class="num">4</span>
+      <div>
+        <h2>Results</h2>
+        <p class="hint">π is the posterior directional probability that pathway activity is higher in the region than in the rest; 0.5 means no difference. A gene set is called higher or lower when the evidence in that direction is at least 0.975.</p>
+      </div>
+      <button class="btn ghost" id="btn-download" disabled>Download CSV</button>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="results-empty" id="results-empty">Results appear here after the comparison.</div>
+    <div class="results" id="results" hidden>
+      <div class="filter">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="higher">Higher</button>
+        <button class="chip" data-filter="lower">Lower</button>
+        <button class="chip" data-filter="none">No call</button>
+      </div>
+      <div class="table-wrap">
+        <table id="table">
+          <thead><tr>
+            <th>Gene set</th><th class="r">Genes</th><th class="pi-col" style="text-transform:none">π</th>
+            <th class="r">P(higher)</th><th class="r">P(lower)</th><th>Call</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">PISTE · GPL-3 · computation in R (webR) inside the browser</footer>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
