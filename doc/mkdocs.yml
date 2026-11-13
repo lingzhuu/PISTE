@@ -42,3 +42,4 @@ nav:
       - compare -joint_sections: cli/compare_joint_sections.md
       - map: cli/map.md
   - R API: api.md
+  - Web app: https://lingzhuu.github.io/PISTE/

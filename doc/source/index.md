@@ -8,6 +8,9 @@ an R package with a command-line tool. PISTE takes normalized expression,
 computed beforehand (for example with SCTransform); only the
 composition-adjusted mode takes raw counts.
 
+The [PISTE web app](https://lingzhuu.github.io/PISTE/) runs the regional
+comparison of one section in the browser, without installation.
+
 ![Overview of PISTE](figures/method_overview.png)
 
 ## Citation
