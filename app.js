@@ -92,14 +92,17 @@ async function fetchText(url) {
 // ---------------------------------------------------------------------------
 // File reading (streamed line by line; .gz decompressed in the browser)
 // ---------------------------------------------------------------------------
-function textStream(file) {
+// gzip is recognised by its magic bytes, not by the file name (a server may
+// already have decompressed a .gz download)
+async function textStream(file) {
+  const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
   let s = file.stream();
-  if (file.name.endsWith(".gz")) s = s.pipeThrough(new DecompressionStream("gzip"));
+  if (head[0] === 0x1f && head[1] === 0x8b) s = s.pipeThrough(new DecompressionStream("gzip"));
   return s.pipeThrough(new TextDecoderStream());
 }
 
 async function eachLine(file, fn) {
-  const reader = textStream(file).getReader();
+  const reader = (await textStream(file)).getReader();
   let rest = "", n = 0;
   for (;;) {
     const { value, done } = await reader.read();
@@ -394,10 +397,16 @@ for (const id of ["drop-expr", "drop-coord", "drop-img"]) {
 
 const EXAMPLE_GENES = "MBP PLP1 MOBP MAG MOG CNP MAL CLDN11 ERMN OPALIN TF CNTN2 ENPP6 UGT8 GJB1 PLLP ASPA FA2H";
 $("btn-example").addEventListener("click", async () => {
-  const get = async (name) => new File([await (await fetch("data/" + name)).blob()], name);
+  const get = async (name) => {
+    const r = await fetch("data/" + name);
+    if (!r.ok) throw new Error(`data/${name} (${r.status})`);
+    return new File([await r.blob()], name);
+  };
   $("btn-example").disabled = true;
+  try {
+  $("status-coord").textContent = "Downloading the example…";
   await loadCoords(await get("example_coordinates.csv"));
-  await loadExpr(await get("example_expression.csv.gz"));
+  $("status-img").textContent = "Downloading the example…";
   await loadImage([await get("example_tissue_hires.jpg"), await get("example_scalefactors.json")]);
   const wm = new Set((await (await fetch("data/example_region.txt")).text()).split(/\s+/));
   state.coords.ids.forEach((id, i) => { state.region[i] = wm.has(id) ? 1 : 0; });
@@ -406,6 +415,13 @@ $("btn-example").addEventListener("click", async () => {
   $("set-name").value = "Myelination";
   $("set-genes").value = EXAMPLE_GENES;
   $("set-genes").dispatchEvent(new Event("input"));
+  $("status-expr").className = "drop-status";
+  $("status-expr").textContent = "Downloading the example expression (19 MB)…";
+  await loadExpr(await get("example_expression.csv.gz"));
+  } catch (e) {
+    console.error(e);
+    $("status-expr").className = "drop-status err"; $("status-expr").textContent = "Example failed: " + e.message;
+  }
   $("btn-example").disabled = false;
 });
 
