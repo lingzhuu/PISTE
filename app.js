@@ -423,7 +423,7 @@ $("btn-example").addEventListener("click", async () => {
   $("set-genes").value = EXAMPLE_GENES;
   $("set-genes").dispatchEvent(new Event("input"));
   $("status-expr").className = "drop-status";
-  $("status-expr").textContent = "Downloading the example expression (19 MB)…";
+  $("status-expr").textContent = "Downloading the example expression (1.6 MB)…";
   await loadExpr(await get("example_expression.bin"));
   } catch (e) {
     console.error(e);
