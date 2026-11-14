@@ -339,3 +339,26 @@ td.name { font-weight: 500; }
   .pi-col { width: auto; min-width: 0; }
   td, th button { padding-left: var(--s1); padding-right: var(--s1); }
 }
+
+/* Intro (intro.js): spots appear, a region is drawn and turns red */
+.intro {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background: var(--bg); cursor: pointer;
+  transition: opacity 250ms ease-out;
+}
+.intro.out { opacity: 0; pointer-events: none; }
+.intro svg { width: 240px; max-width: 70vw; height: auto; overflow: visible; }
+.intro .spot {
+  fill: var(--data-rest); opacity: 0;
+  transform: scale(.3); transform-box: fill-box; transform-origin: center;
+  transition: opacity 200ms ease-out var(--d), transform 200ms ease-out var(--d), fill 200ms ease-in-out var(--r, 0ms);
+}
+.intro.play .spot { opacity: 1; transform: none; }
+.intro.play .spot.in { fill: var(--data-hi); }
+.intro .lasso {
+  fill: none; stroke: var(--data-hi); stroke-width: 1.5; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  transition: stroke-dashoffset 300ms ease-in-out 450ms;
+}
+.intro.play .lasso { stroke-dashoffset: 0; }
