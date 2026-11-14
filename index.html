@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261114a">
+<link rel="stylesheet" href="style.css?v=20261114b">
 </head>
 <body>
 <aside class="sidebar">
@@ -24,14 +24,23 @@
     <a href="#step-data" class="step" data-step="data"><span class="dot"></span><span>Load a section</span></a>
     <a href="#step-region" class="step" data-step="region"><span class="dot"></span><span>Select a region</span></a>
     <a href="#step-sets" class="step" data-step="sets"><span class="dot"></span><span>Choose gene sets</span></a>
-    <a href="#step-results" class="step" data-step="results"><span class="dot"></span><span>Compare</span></a>
+    <a href="#step-results" class="step" data-step="results"><span class="dot"></span><span>Results</span></a>
   </nav>
 
-  <div class="engine" id="engine">
-    <span class="engine-light"></span>
-    <span id="engine-text">Starting R in your browser…</span>
+  <div class="engine-box">
+    <div class="engine" id="engine" role="status" aria-live="polite">
+      <span class="engine-light" aria-hidden="true"></span>
+      <span id="engine-text">Starting R…</span>
+    </div>
+    <div class="engine-actions" id="engine-actions" hidden>
+      <button class="btn small ghost" id="btn-reload">Reload</button>
+      <details class="engine-detail" id="engine-detail" hidden>
+        <summary>Details</summary>
+        <code id="engine-detail-text"></code>
+      </details>
+    </div>
+    <p class="side-note">Runs in your browser. Your data stay on this computer.</p>
   </div>
-  <p class="side-note">All computation runs locally in this browser tab. Your data are not uploaded to any server.</p>
   <div class="side-links">
     <a href="https://piste.readthedocs.io" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H11v16H5.5A1.5 1.5 0 0 0 4 20.5zM20 4.5A1.5 1.5 0 0 0 18.5 3H13v16h5.5a1.5 1.5 0 0 1 1.5 1.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Documentation</a>
     <a href="https://github.com/lingzhuu/PISTE" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
@@ -50,7 +59,7 @@
       <span class="num">1</span>
       <div>
         <h2>Load a section</h2>
-        <p class="hint">Expression must already be normalized (for example SCTransform or log-normalized). Files stay on your computer.</p>
+        <p class="hint">Expression must already be normalized (for example SCTransform or log-normalized).</p>
       </div>
       <button class="btn ghost" id="btn-example">Try the example</button>
     </div>
@@ -58,31 +67,31 @@
       <label class="drop" id="drop-expr">
         <input type="file" id="file-expr" accept=".csv,.tsv,.txt,.gz">
         <div class="drop-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16v3H4zM4 10.5h16v3H4zM4 16h16v3H4z" fill="currentColor" opacity=".8"/></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 5h16v3H4zM4 10.5h16v3H4zM4 16h16v3H4z" fill="currentColor" opacity=".8"/></svg>
         </div>
         <div class="drop-title">Normalized expression</div>
         <div class="drop-desc">CSV or TSV (.gz accepted); spots × genes or genes × spots; first column holds the row names</div>
-        <div class="drop-status" id="status-expr"></div>
+        <div class="drop-status" id="status-expr" aria-live="polite"></div>
       </label>
       <label class="drop" id="drop-coord">
         <input type="file" id="file-coord" accept=".csv,.tsv,.txt,.gz">
         <div class="drop-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="6" cy="7" r="2.2" fill="currentColor"/><circle cx="13" cy="6" r="2.2" fill="currentColor" opacity=".7"/><circle cx="9" cy="13" r="2.2" fill="currentColor" opacity=".85"/><circle cx="17" cy="12" r="2.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="18.5" r="2.2" fill="currentColor" opacity=".75"/></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="7" r="2.2" fill="currentColor"/><circle cx="13" cy="6" r="2.2" fill="currentColor" opacity=".7"/><circle cx="9" cy="13" r="2.2" fill="currentColor" opacity=".85"/><circle cx="17" cy="12" r="2.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="18.5" r="2.2" fill="currentColor" opacity=".75"/></svg>
         </div>
         <div class="drop-title">Spot coordinates</div>
         <div class="drop-desc">CSV or TSV: spot name, x, y (for Visium, tissue_positions.csv works as it is)</div>
-        <div class="drop-status" id="status-coord"></div>
+        <div class="drop-status" id="status-coord" aria-live="polite"></div>
       </label>
       <label class="drop" id="drop-img">
         <input type="file" id="file-img" accept=".png,.jpg,.jpeg,.json" multiple>
         <div class="drop-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 3.5 3.5L16 13l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 3.5 3.5L16 13l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         </div>
         <div class="drop-title">Tissue image <span class="opt">optional</span></div>
         <div class="drop-desc">PNG or JPG; for Visium select the image together with scalefactors_json.json</div>
-        <div class="drop-status" id="status-img"></div>
+        <div class="drop-status" id="status-img" aria-live="polite"></div>
         <div class="scale-row" id="scale-row" hidden>Image pixels per coordinate unit
-          <input type="number" id="img-scale" step="any" min="0" value="1">
+          <input type="number" id="img-scale" class="field num-field" step="any" min="0" value="1">
         </div>
       </label>
     </div>
@@ -94,31 +103,31 @@
       <span class="num">2</span>
       <div>
         <h2>Select a region</h2>
-        <p class="hint">Draw around spots to add them to the region; everything else is the rest of the section.</p>
+        <p class="hint">Draw around spots to add them to the region.</p>
       </div>
     </div>
     <div class="region-wrap">
       <div class="toolbar">
-        <div class="seg" role="group">
-          <button class="seg-btn active" data-tool="add" title="Draw to add spots">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 17c-1-4 1-10 7-11s8 4 6 8-7 6-10 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 17l-1 4 4-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <div class="seg" role="group" aria-label="Drawing tool">
+          <button class="seg-btn active" data-tool="add" aria-pressed="true" title="Draw to add spots">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 17c-1-4 1-10 7-11s8 4 6 8-7 6-10 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 17l-1 4 4-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Add
           </button>
-          <button class="seg-btn" data-tool="erase" title="Draw to remove spots">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 4l5 5-9 9H6l-2-2 11-12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 20h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="seg-btn" data-tool="erase" aria-pressed="false" title="Draw to remove spots">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 4l5 5-9 9H6l-2-2 11-12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 20h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Erase
           </button>
         </div>
         <button class="btn small ghost" id="btn-clear">Clear</button>
-        <div class="count" id="region-count">No region yet</div>
+        <div class="count" id="region-count" aria-live="polite">No region yet</div>
       </div>
       <div class="canvas-box" id="canvas-box">
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" aria-label="Tissue section. Draw with the mouse or a finger to select spots."></canvas>
         <div class="canvas-empty" id="canvas-empty">Load spot coordinates to see the section</div>
       </div>
       <div class="legend">
         <span><i class="sw region"></i>Region</span>
-        <span><i class="sw rest"></i>Rest of the section</span>
+        <span><i class="sw rest"></i>Rest</span>
       </div>
     </div>
   </section>
@@ -129,34 +138,36 @@
       <span class="num">3</span>
       <div>
         <h2>Choose gene sets</h2>
-        <p class="hint">Gene sets with fewer than the minimum number of genes found in the data are skipped.</p>
       </div>
     </div>
-    <div class="seg set-tabs" role="tablist">
-      <button class="seg-btn active" data-src="text">Type genes</button>
-      <button class="seg-btn" data-src="file">Upload a list</button>
+    <div class="seg set-tabs" role="tablist" aria-label="Gene set source">
+      <button class="seg-btn active" data-src="text" role="tab" id="tab-text" aria-selected="true" aria-controls="panel-text">Type genes</button>
+      <button class="seg-btn" data-src="file" role="tab" id="tab-file" aria-selected="false" aria-controls="panel-file" tabindex="-1">Upload a list</button>
     </div>
-    <div class="set-panel" id="panel-text">
-      <input type="text" id="set-name" class="set-name" placeholder="Gene set name (optional)">
-      <textarea id="set-genes" rows="5" placeholder="Gene symbols separated by spaces, commas or new lines, e.g.&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
-      <div class="set-count" id="text-count"></div>
+    <div class="set-panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text">
+      <input type="text" id="set-name" class="field set-name" placeholder="Gene set name (optional)" aria-label="Gene set name">
+      <textarea id="set-genes" class="field" rows="5" aria-label="Genes" placeholder="Gene symbols separated by spaces, commas or new lines, e.g.&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
+      <div class="set-count" id="text-count" aria-live="polite"></div>
     </div>
-    <div class="set-panel" id="panel-file" hidden>
+    <div class="set-panel" id="panel-file" role="tabpanel" aria-labelledby="tab-file" hidden>
       <label class="drop small-drop" id="drop-gmt">
         <input type="file" id="file-gmt" accept=".txt,.csv,.tsv,.gmt,.list">
         <div class="drop-title">Gene list file</div>
         <div class="drop-desc">Plain text with one gene per line is one gene set; a GMT file gives several gene sets</div>
-        <div class="drop-status" id="gmt-name"></div>
+        <div class="drop-status" id="gmt-name" aria-live="polite"></div>
       </label>
     </div>
     <label class="mingenes">Minimum genes found in the data
-      <input type="number" id="min-genes" value="5" min="2" max="50">
+      <input type="number" id="min-genes" class="field num-field" value="5" min="2" max="50">
     </label>
     <div class="run-row">
-      <button class="btn primary" id="btn-run" disabled>Compare region with the rest</button>
-      <span class="run-msg" id="run-msg"></span>
+      <button class="btn" id="btn-run" disabled>Run</button>
+      <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
+      <div class="msg" id="run-msg" role="status" aria-live="polite"></div>
     </div>
-    <div class="progress" id="progress" hidden><div class="bar" id="bar"></div></div>
+    <div class="progress" id="progress" role="progressbar" aria-label="Comparison progress" aria-valuemin="0" aria-valuemax="100" hidden>
+      <div class="bar" id="bar"></div><div class="cur" id="cur"></div>
+    </div>
   </section>
 
   <!-- 4. Results -->
@@ -165,34 +176,32 @@
       <span class="num">4</span>
       <div>
         <h2>Results</h2>
-        <p class="hint">π is the posterior directional probability that pathway activity is higher in the region than in the rest; 0.5 means no difference. A gene set is called higher or lower when the evidence in that direction is at least 0.975.</p>
+        <p class="hint">π above 0.5: higher in the region; below 0.5: lower. Evidence is how certain that direction is; a call needs at least 0.975.</p>
       </div>
       <button class="btn ghost" id="btn-download" disabled>Download CSV</button>
     </div>
-    <div class="summary" id="summary"></div>
-    <div class="results-empty" id="results-empty">Results appear here after the comparison.</div>
+    <div class="results-empty" id="results-empty">Results appear here after you run the comparison.</div>
     <div class="results" id="results" hidden>
-      <div class="filter">
-        <button class="chip active" data-filter="all">All</button>
-        <button class="chip" data-filter="higher">Higher</button>
-        <button class="chip" data-filter="lower">Lower</button>
-        <button class="chip" data-filter="none">No call</button>
-      </div>
+      <div class="summary" id="summary" role="group" aria-label="Show gene sets"></div>
       <div class="table-wrap">
         <table id="table">
           <thead><tr>
-            <th>Gene set</th><th class="r">Genes</th><th class="pi-col" style="text-transform:none">π</th>
-            <th class="r">P(higher)</th><th class="r">P(lower)</th><th>Call</th>
+            <th data-key="name"><button>Gene set</button></th>
+            <th data-key="genes" class="r col-genes"><button>Genes</button></th>
+            <th data-key="pi" class="pi-col"><button class="pi">π</button></th>
+            <th data-key="ev" class="r col-ev"><button>Evidence</button></th>
+            <th data-key="call"><button>Call</button></th>
           </tr></thead>
           <tbody></tbody>
         </table>
+        <div class="filter-empty" id="filter-empty" hidden>No gene sets in this group.</div>
       </div>
     </div>
   </section>
 
-  <footer class="foot">PISTE · GPL-3 · computation in R (webR) inside the browser</footer>
+  <footer class="foot">PISTE · GPL-3</footer>
 </main>
 
-<script type="module" src="app.js?v=20261114a"></script>
+<script type="module" src="app.js?v=20261114b"></script>
 </body>
 </html>
