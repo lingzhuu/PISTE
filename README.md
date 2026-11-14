@@ -18,6 +18,9 @@ PISTE takes normalized expression, computed beforehand (for example with
 SCTransform). Region comparison can also be adjusted for cell-type
 composition; this mode takes raw counts.
 
+- Documentation: https://piste.readthedocs.io
+- Web app (regional comparison in the browser, no installation): https://lingzhuu.github.io/PISTE/
+
 ![Overview of PISTE](figure/method_overview.png)
 
 ## Installation
