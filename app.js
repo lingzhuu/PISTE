@@ -483,11 +483,12 @@ function updateRun() {
   else if (!chosenSets()) why = setSource === "text" ? "Enter the genes of a gene set." : "Upload a gene list.";
   $("btn-run").disabled = !!why || running;
   if (!running && (why || !state.results.length)) { $("run-msg").className = "run-msg"; $("run-msg").textContent = why; }
+  markSteps();
 }
 
 function markSteps() {
   const n = state.region ? state.region.reduce((a, b) => a + b, 0) : 0;
-  const done = { data: !!(state.expr && state.coords), region: n > 0, sets: true, results: state.results.length > 0 };
+  const done = { data: !!(state.expr && state.coords), region: n > 0, sets: !!chosenSets(), results: state.results.length > 0 };
   document.querySelectorAll(".step").forEach((s) => s.classList.toggle("done", done[s.dataset.step]));
 }
 
