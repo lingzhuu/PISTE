@@ -1,9 +1,10 @@
-// Intro: the spots of a section appear, a region is drawn around some of them
-// and they turn red, as in the app. It plays once per tab (a reload in the same
-// tab skips it), lasts at most 1.5 s, ends as soon as the page is ready after
-// the short story, skips on a click or a key, and does not play with reduced
-// motion. It is loaded before the rest of the page, so the page never flashes
-// first; if it fails, the page shows as usual.
+// Intro: the three circles of the logo appear large and covered in red dots,
+// like Yayoi Kusama's dotted pumpkins; the dots fade, the circles take their
+// colours and shrink into the logo, and the name appears. About 2 s.
+// It plays once per tab (a reload in the same tab skips it), skips on a click
+// or any key, and does not play with reduced motion or in a background tab.
+// It is loaded before the rest of the page, so the page never flashes first;
+// if it fails, the page shows as usual.
 (() => {
   try {
     if (sessionStorage.getItem("piste-intro")) return;
@@ -11,85 +12,125 @@
   } catch { /* storage blocked: play anyway */ }
   if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.visibilityState === "hidden") return;
 
-  const STORY = 1000;      // ms until the region is red
-  const LATEST = 1250;     // fade starts by then at the latest
-  const FADE = 250;        // so the intro is gone within 1.5 s
-  const SKIP_FADE = 150;
+  const BG = "#fbfcfe", RED = "#d23b2b";
+  // Logo circles around the logo centre, in the units of logo.svg (viewBox 28)
+  const LOGO = [
+    { x: -5, y: -5.5, c: "#5368a6", a: 1 },
+    { x: 5, y: -2.5, c: RED, a: 0.85 },
+    { x: -2, y: 5.5, c: "#f7e0dd", a: 1 },
+  ];
+  const R = 5;                  // circle radius
+  const END = 3.4;              // final scale: logo about 95 px wide
+  const TOTAL = 2050, FADE = 300, SKIP_FADE = 200;
+  const WORD = 1100;            // the name starts to appear
 
-  // Hexagonal spot grid, like a Visium section
-  const COLS = 12, ROWS = 10, DX = 16, DY = 14, R = 5, PAD = 16;
-  const W = 2 * PAD + (COLS - 1) * DX + DX / 2, H = 2 * PAD + (ROWS - 1) * DY;
-  const cx = W / 2, cy = H / 2;
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const outCubic = (x) => 1 - (1 - x) ** 3;
+  const inCubic = (x) => x ** 3;
+  const inOutCubic = (x) => (x < 0.5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2);
+  const outBack = (x, s) => (x <= 0 ? 0 : 1 + (s + 1) * (x - 1) ** 3 + s * (x - 1) ** 2);
+  const hash = (i) => { const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+  const rgb = (h) => [1, 3, 5].map((j) => parseInt(h.slice(j, j + 2), 16));
+  const mix = (a, b, k) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, j) => Math.round(v + (B[j] - v) * k)).join(",")})`; };
 
-  // Tissue outline: a slightly irregular ellipse
-  const inTissue = (x, y) => {
-    const a = Math.atan2(y - cy, x - cx);
-    const k = ((x - cx) / (W * 0.47)) ** 2 + ((y - cy) / (H * 0.46)) ** 2;
-    return k <= 1 + 0.1 * Math.sin(3 * a + 0.6);
-  };
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  const C = { x: W / 2, y: H / 2 - 26 };        // logo centre; the name sits below
+  const S0 = Math.min(W * 0.56, H * 0.52) / 20; // scale of the large circles
 
-  // Region drawn with the lasso: a wobbly loop in the lower left
-  const rx = cx - W * 0.17, ry = cy + H * 0.13, ra = W * 0.2, rb = H * 0.25;
-  const lasso = [];
-  for (let i = 0; i < 28; i++) {
-    const t = (i / 28) * 2 * Math.PI;
-    const w = 1 + 0.08 * Math.sin(3 * t + 1);
-    lasso.push([rx + Math.cos(t) * ra * w, ry + Math.sin(t) * rb * w]);
-  }
-  const inside = (px, py) => {
-    let inn = false;
-    for (let i = 0, j = lasso.length - 1; i < lasso.length; j = i++) {
-      const [xi, yi] = lasso[i], [xj, yj] = lasso[j];
-      if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inn = !inn;
+  // Dots on a hexagonal grid in each circle, larger in the middle and smaller
+  // towards the edge, so each circle reads as a sphere
+  const Rb = R * S0, d = Rb / 3.8;
+  const discs = LOGO.map((c, i) => {
+    const dots = [];
+    let k = 0;
+    for (let y = -Rb; y <= Rb; y += d * 0.866) {
+      const row = Math.round((y + Rb) / (d * 0.866));
+      for (let x = -Rb - d; x <= Rb + d; x += d) {
+        const px = x + (row % 2 ? d / 2 : 0), q = Math.hypot(px, y) / Rb;
+        if (q > 1 - (d * 0.3) / Rb) continue;
+        dots.push({
+          x: px / S0, y: y / S0,
+          size: (d * 0.36 * Math.sqrt(1 - q * q) ** 0.6 + d * 0.06) / S0,
+          appear: 80 + i * 100 + q * 320,
+          leave: 760 + 180 * hash(i * 1000 + k++),
+        });
+      }
     }
-    return inn;
-  };
-
-  let spots = "";
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const x = PAD + col * DX + (row % 2 ? DX / 2 : 0), y = PAD + row * DY;
-      if (!inTissue(x, y)) continue;
-      // Appear in a wave from the top left, within 0.3 s
-      const d = Math.round(300 * (0.6 * row / (ROWS - 1) + 0.4 * col / (COLS - 1)));
-      // Spots in the region turn red from its centre outwards, 0.65 to 0.75 s
-      const attrs = inside(x, y)
-        ? `class="spot in" style="--d:${d}ms;--r:${650 + Math.round(100 * Math.min(1, Math.hypot((x - rx) / ra, (y - ry) / rb)))}ms"`
-        : `class="spot" style="--d:${d}ms"`;
-      spots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${R}" ${attrs}/>`;
-    }
-  }
-  const path = "M" + lasso.map((p) => p.map((v) => v.toFixed(1)).join(" ")).join("L") + "Z";
+    return { ...c, i, dots };
+  });
 
   const el = document.createElement("div");
   el.className = "intro";
   el.setAttribute("aria-hidden", "true");
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${spots}<path class="lasso" d="${path}" pathLength="1"/></svg>`;
+  el.innerHTML = `<canvas></canvas><div class="intro-word">${[..."PISTE"].map((l) => `<span>${l}</span>`).join("")}</div>`;
   document.body.prepend(el);
+  const canvas = el.querySelector("canvas"), ctx = canvas.getContext("2d");
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const word = el.querySelector(".intro-word"), letters = [...word.children];
+  word.style.top = `${C.y + 10.5 * END + 22}px`;
 
-  const t0 = performance.now();
-  let fading = false;
+  function render(t) {
+    ctx.clearRect(0, 0, W, H);
+    const m = inOutCubic(seg(t, 820, 1320));          // large circles shrink into the logo
+    for (const c of discs) {
+      const p = outCubic(seg(t, 40 + c.i * 100, 520 + c.i * 100));
+      if (p <= 0) continue;
+      const s = S0 * (0.72 + 0.28 * p) * (1 - m) + END * m;
+      const cx = C.x + c.x * s, cy = C.y + c.y * s;
+      // Circle: a pale tint of its colour that fills in as it shrinks
+      ctx.globalAlpha = p * (1 + (c.a - 1) * m);
+      ctx.fillStyle = mix(BG, c.c, 0.14 + 0.86 * m);
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * s, 0, 2 * Math.PI);
+      ctx.fill();
+      // Dots
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = RED;
+      ctx.beginPath();
+      const breathe = 1 + 0.05 * Math.sin((t / 1000) * 2 * Math.PI * 1.1 + c.i);
+      for (const o of c.dots) {
+        const a = outBack(seg(t, o.appear, o.appear + 300), 1.8);
+        const v = 1 - inCubic(seg(t, o.leave, o.leave + 300));
+        const r = o.size * s * Math.min(a, 1.2) * v * breathe;
+        if (r <= 0.05) continue;
+        ctx.moveTo(cx + o.x * s + r, cy + o.y * s);
+        ctx.arc(cx + o.x * s, cy + o.y * s, r, 0, 2 * Math.PI);
+      }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // The name: letters come into focus one by one while the spacing closes
+    const ls = `${0.4 + 0.35 * (1 - outCubic(seg(t, WORD, WORD + 600)))}em`;
+    word.style.letterSpacing = ls;
+    word.style.paddingLeft = ls;
+    letters.forEach((l, i) => {
+      const p = outCubic(seg(t, WORD + i * 50, WORD + i * 50 + 380));
+      l.style.opacity = p;
+      l.style.transform = `translateY(${(1 - p) * 10}px)`;
+      l.style.filter = p < 1 ? `blur(${(1 - p) * 5}px)` : "none";
+    });
+  }
+
+  let t0 = null, raf = 0, fading = false;
   const end = (ms) => {
     if (fading) return;
     fading = true;
     removeEventListener("keydown", skip, true);
     el.style.transitionDuration = `${ms}ms`;
     el.classList.add("out");
-    setTimeout(() => el.remove(), ms + 50);
+    setTimeout(() => { cancelAnimationFrame(raf); el.remove(); }, ms + 50);
   };
   const skip = () => end(SKIP_FADE);
   el.addEventListener("pointerdown", skip);
   addEventListener("keydown", skip, true);
-
-  // Start on the next frame, so the transitions run from the hidden state
-  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("play")));
-
-  // Fade when the page is ready, but not before the story is told, and
-  // never later than LATEST
-  const loaded = new Promise((res) => (document.readyState === "complete" ? res() : addEventListener("load", res, { once: true })));
-  const fonts = document.fonts ? document.fonts.ready : Promise.resolve();
-  Promise.all([loaded, fonts]).then(() => {
-    setTimeout(() => end(FADE), Math.max(0, STORY - (performance.now() - t0)));
-  });
-  setTimeout(() => end(FADE), LATEST);
+  const frame = (now) => {
+    if (t0 === null) t0 = now;
+    const t = now - t0;
+    render(Math.min(t, TOTAL));
+    if (t >= TOTAL - FADE) end(FADE);
+    raf = requestAnimationFrame(frame);
+  };
+  raf = requestAnimationFrame(frame);
 })();
