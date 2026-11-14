@@ -1,6 +1,6 @@
 // Intro: the three circles of the logo appear large and covered in red dots,
 // like Yayoi Kusama's dotted pumpkins; the dots fade, the circles take their
-// colours and shrink into the logo, and the name appears. About 2 s.
+// colours and shrink into the logo, and the name appears. 1.7 s.
 // It plays once per tab (a reload in the same tab skips it), skips on a click
 // or any key, and does not play with reduced motion or in a background tab.
 // It is loaded before the rest of the page, so the page never flashes first;
@@ -21,8 +21,8 @@
   ];
   const R = 5;                  // circle radius
   const END = 3.4;              // final scale: logo about 95 px wide
-  const TOTAL = 2050, FADE = 300, SKIP_FADE = 200;
-  const WORD = 1100;            // the name starts to appear
+  const TOTAL = 1700, FADE = 250, SKIP_FADE = 200;
+  const WORD = 880;             // the name starts to appear
 
   const clamp = (x) => Math.max(0, Math.min(1, x));
   const seg = (t, a, b) => clamp((t - a) / (b - a));
@@ -52,8 +52,8 @@
         dots.push({
           x: px / S0, y: y / S0,
           size: (d * 0.36 * Math.sqrt(1 - q * q) ** 0.6 + d * 0.06) / S0,
-          appear: 80 + i * 100 + q * 320,
-          leave: 760 + 180 * hash(i * 1000 + k++),
+          appear: 65 + i * 85 + q * 265,
+          leave: 630 + 150 * hash(i * 1000 + k++),
         });
       }
     }
@@ -73,9 +73,9 @@
 
   function render(t) {
     ctx.clearRect(0, 0, W, H);
-    const m = inOutCubic(seg(t, 820, 1320));          // large circles shrink into the logo
+    const m = inOutCubic(seg(t, 680, 1100));          // large circles shrink into the logo
     for (const c of discs) {
-      const p = outCubic(seg(t, 40 + c.i * 100, 520 + c.i * 100));
+      const p = outCubic(seg(t, 35 + c.i * 85, 435 + c.i * 85));
       if (p <= 0) continue;
       const s = S0 * (0.72 + 0.28 * p) * (1 - m) + END * m;
       const cx = C.x + c.x * s, cy = C.y + c.y * s;
@@ -91,8 +91,8 @@
       ctx.beginPath();
       const breathe = 1 + 0.05 * Math.sin((t / 1000) * 2 * Math.PI * 1.1 + c.i);
       for (const o of c.dots) {
-        const a = outBack(seg(t, o.appear, o.appear + 300), 1.8);
-        const v = 1 - inCubic(seg(t, o.leave, o.leave + 300));
+        const a = outBack(seg(t, o.appear, o.appear + 250), 1.8);
+        const v = 1 - inCubic(seg(t, o.leave, o.leave + 250));
         const r = o.size * s * Math.min(a, 1.2) * v * breathe;
         if (r <= 0.05) continue;
         ctx.moveTo(cx + o.x * s + r, cy + o.y * s);
@@ -102,11 +102,11 @@
     }
     ctx.globalAlpha = 1;
     // The name: letters come into focus one by one while the spacing closes
-    const ls = `${0.4 + 0.35 * (1 - outCubic(seg(t, WORD, WORD + 600)))}em`;
+    const ls = `${0.4 + 0.35 * (1 - outCubic(seg(t, WORD, WORD + 500)))}em`;
     word.style.letterSpacing = ls;
     word.style.paddingLeft = ls;
     letters.forEach((l, i) => {
-      const p = outCubic(seg(t, WORD + i * 50, WORD + i * 50 + 380));
+      const p = outCubic(seg(t, WORD + i * 40, WORD + i * 40 + 300));
       l.style.opacity = p;
       l.style.transform = `translateY(${(1 - p) * 10}px)`;
       l.style.filter = p < 1 ? `blur(${(1 - p) * 5}px)` : "none";
