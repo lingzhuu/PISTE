@@ -12,12 +12,18 @@
   } catch { /* storage blocked: play anyway */ }
   if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.visibilityState === "hidden") return;
 
-  const BG = "#fbfcfe", RED = "#d23b2b";
+  // Colours from the stylesheet tokens (hex), so the intro follows the palette
+  const css = getComputedStyle(document.documentElement);
+  const tok = (name, fallback) => {
+    const v = css.getPropertyValue(name).trim();
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
+  };
+  const BG = tok("--bg", "#fbfcfe"), DOTS = tok("--logo-2", "#d23b2b");
   // Logo circles around the logo centre, in the units of logo.svg (viewBox 28)
   const LOGO = [
-    { x: -5, y: -5.5, c: "#5368a6", a: 1 },
-    { x: 5, y: -2.5, c: RED, a: 0.85 },
-    { x: -2, y: 5.5, c: "#f7e0dd", a: 1 },
+    { x: -5, y: -5.5, c: tok("--logo-1", "#5368a6"), a: 1 },
+    { x: 5, y: -2.5, c: DOTS, a: 0.85 },
+    { x: -2, y: 5.5, c: tok("--logo-3", "#f7e0dd"), a: 1 },
   ];
   const R = 5;                  // circle radius
   const END = 3.4;              // final scale: logo about 95 px wide
@@ -87,7 +93,7 @@
       ctx.fill();
       // Dots
       ctx.globalAlpha = 1;
-      ctx.fillStyle = RED;
+      ctx.fillStyle = DOTS;
       ctx.beginPath();
       const breathe = 1 + 0.05 * Math.sin((t / 1000) * 2 * Math.PI * 1.1 + c.i);
       for (const o of c.dots) {
