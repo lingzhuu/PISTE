@@ -377,7 +377,8 @@ function regionChanged() {
   updateRun();
 }
 
-window.addEventListener("resize", () => { layout(); draw(); });
+// Redraw when the box changes size: window resize, rotation, the wide layout
+new ResizeObserver(() => { layout(); draw(); }).observe($("canvas-box"));
 
 // ---------------------------------------------------------------------------
 // Inputs

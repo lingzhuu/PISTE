@@ -26,7 +26,9 @@
     { x: -2, y: 5.5, c: tok("--logo-3", "#f7e0dd"), a: 1 },
   ];
   const R = 5;                  // circle radius
-  const END = 3.4;              // final scale: logo about 95 px wide
+  // Final scale: the logo about 95 px wide at 1rem = 16 px, larger on large
+  // screens like the rest of the page
+  const END = 3.4 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
   const TOTAL = 1700, FADE = 250, SKIP_FADE = 200;
   const WORD = 880;             // the name starts to appear
 
