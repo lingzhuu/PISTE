@@ -1,3 +1,43 @@
+/* Fonts are served from this site (fonts/, SIL Open Font License), not from
+   Google Fonts: Google Fonts is blocked in some countries, a request to it
+   would contradict "your data stay on this computer", and local files show
+   the right font sooner. Latin covers the page; Greek is loaded only for π. */
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/ibm-plex-sans-greek-400-normal.woff2") format("woff2");
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url("fonts/ibm-plex-sans-greek-500-normal.woff2") format("woff2");
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/ibm-plex-sans-greek-600-normal.woff2") format("woff2");
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
 :root {
   /* Colour. Every colour on the page is one of these tokens, so a palette is
      one set of values. Neutrals and one accent (main action, selected state) */
@@ -82,7 +122,7 @@
 html { scroll-behavior: smooth; font-size: clamp(1rem, calc(.3571vw + .6786rem), 1.375rem); }
 body {
   margin: 0;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: var(--t3);
   line-height: 1.5;
   color: var(--ink);
@@ -159,7 +199,7 @@ a { color: var(--link); }
 .engine-actions { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
 .engine-detail { font-size: var(--t4); color: var(--ink-3); overflow-wrap: anywhere; }
 .engine-detail summary { cursor: pointer; }
-.engine-detail code { font-family: "IBM Plex Mono", monospace; font-size: var(--t4); }
+.engine-detail code { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: var(--t4); }
 .side-note { font-size: var(--t4); color: var(--ink-3); margin: 0; }
 .side-links { margin-top: auto; display: flex; gap: var(--s3); font-size: var(--t4); }
 .side-links a { text-decoration: none; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); }
@@ -275,7 +315,7 @@ main { padding: var(--s4); max-width: 75rem; width: 100%; margin-inline: auto; }
 .set-tabs { margin-bottom: var(--s3); }
 .set-panel { display: flex; flex-direction: column; gap: var(--s2); }
 .set-name { width: 100%; max-width: 22.5rem; }
-.set-panel textarea.field { width: 100%; font-family: "IBM Plex Mono", monospace; font-size: var(--t4); resize: vertical; line-height: 1.5; padding: var(--s2); }
+.set-panel textarea.field { width: 100%; font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: var(--t4); resize: vertical; line-height: 1.5; padding: var(--s2); }
 .set-count { font-size: var(--t4); color: var(--ink-3); }
 .set-count:empty { display: none; }
 .mingenes { display: flex; align-items: center; gap: var(--s2); font-size: var(--t4); color: var(--ink-3); padding-top: var(--s3); }
