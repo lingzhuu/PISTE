@@ -48,13 +48,14 @@ field_mesh <- function(xy, m) {
 #'   gene-specific spatial patterns. `FALSE` is about 50 times faster but
 #'   less accurate: spatial patterns of single genes that are not
 #'   shared by the gene set can then appear as regions of the pathway.
-#' @param threads INLA `num.threads`.
+#' @param threads INLA `num.threads` (outer:inner). The default "2:4" evaluates two CCD
+#'   configurations at a time, which keeps the memory peak low on large meshes.
 #' @return A list with `inla` (the INLA fit), `node` (the mesh node of each
 #'   spot), `spots`, `sigma_e`, `hyperparameters` (posterior summaries of the
 #'   noise precision and the range and sd of each field; ranges on the scaled
 #'   coordinates) and `metadata`.
 #' @export
-field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
+field_fit <- function(Y, coords, gene_field = TRUE, threads = "2:4") {
   started <- proc.time()[["elapsed"]]
   Y <- as.matrix(Y)
   xy <- as.matrix(coords)
@@ -85,7 +86,7 @@ field_fit <- function(Y, coords, gene_field = TRUE, threads = "8:1") {
                     control.predictor = list(A = INLA::inla.stack.A(stack), compute = FALSE),
                     control.compute = list(config = TRUE),
                     control.inla = list(strategy = "gaussian", int.strategy = "ccd"),
-                    inla.mode = "experimental", num.threads = threads)
+                    inla.mode = "experimental", num.threads = threads, safe = FALSE)
 
   hyper <- fit$summary.hyperpar[, c("mean", "0.025quant", "0.5quant", "0.975quant")]
   names(hyper) <- c("mean", "lower", "median", "upper")

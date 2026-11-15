@@ -51,7 +51,7 @@ cli_option_table <- function(command) {
     c("no-gene-field", "false", TRUE, "map", "Leave out the spatial field of each gene: about 50 times faster but less accurate, as patterns of single genes can appear as pathway regions."),
     c("min-genes", "5", FALSE, "compare,joint,map", "Skip gene sets with fewer usable genes than this (at least 2)."),
     c("threads", NA, FALSE, "compare", "Adjusted mode: INLA threads, e.g. 4:1 (default: 1:1)."),
-    c("threads", "8:1", FALSE, "map", "INLA threads."),
+    c("threads", "2:4", FALSE, "map", "INLA threads (outer:inner)."),
     c("alpha", "0.05", FALSE, "compare,joint", "A region is called higher or lower when the posterior probability of that direction is at least 1 - ALPHA/2."),
     c("alpha", "0.05", FALSE, "map", "A region of higher or lower activity has joint posterior probability at least 1 - ALPHA."),
     c("help", "false", TRUE, "compare,joint,map", "Show this help.")

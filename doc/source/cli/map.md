@@ -29,7 +29,7 @@ piste map --input FILE --coords FILE --gene_set FILE --out DIR [options]
 :   Skip gene sets with fewer usable genes than this (at least 2). Default: `5`.
 
 `--threads` THREADS
-:   INLA threads. Default: `8:1`.
+:   INLA threads (outer:inner). Default: `2:4`.
 
 `--alpha` ALPHA
 :   A region of higher or lower activity has joint posterior probability at least 1 - ALPHA. Default: `0.05`.

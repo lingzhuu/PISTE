@@ -408,7 +408,7 @@ unblocked DESeq2 run. Requires DESeq2.
 ```r
 map_activity(counts, coords, gene_sets, gene_field = TRUE,
              alpha = 0.05, out = NULL, min_genes = 5,
-             threads = "8:1", verbose = TRUE)
+             threads = "2:4", verbose = TRUE)
 ```
 
 Fits each gene set with
@@ -450,7 +450,7 @@ With `out`, each gene set is written to its own subfolder (`spots.csv`,
 ## field_fit
 
 ```r
-field_fit(Y, coords, gene_field = TRUE, threads = "8:1")
+field_fit(Y, coords, gene_field = TRUE, threads = "2:4")
 ```
 
 Fits one spatial field shared by all genes of the gene set,

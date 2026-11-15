@@ -589,7 +589,8 @@ screen_joint_fit <- function(Y, region, mode = c("observed", "adjusted"),
     control.inla = list(strategy = cfg$strategy, int.strategy = .int_strategy),
     inla.mode = "experimental",
     num.threads = cfg$threads,
-    verbose = isTRUE(cfg$verbose)
+    verbose = isTRUE(cfg$verbose),
+    safe = FALSE
   )
   # alpha0 ~ N(0, 100 (1 - 1/K)), so that alpha0 + mean(u) ~ N(0, 100).
   inla_args$control.fixed$prec <- c(list(default = .01),
