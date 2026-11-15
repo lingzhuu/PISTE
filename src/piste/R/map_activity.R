@@ -29,7 +29,8 @@
 #'   its own subfolder (`spots.csv`, `hyperparameters.csv`), together with
 #'   `gene_sets.csv`.
 #' @param min_genes Gene sets with fewer usable genes are skipped.
-#' @param threads INLA `num.threads`.
+#' @param threads INLA `num.threads` (outer:inner). The default "2:4" evaluates two CCD
+#'   configurations at a time, which keeps the memory peak low on large meshes.
 #' @param verbose Print progress messages.
 #' @return Invisibly, a list with `gene_sets` (one row per gene set: genes
 #'   used, status, sd of z, spots called higher and lower) and `results` (per
@@ -37,7 +38,7 @@
 #' @export
 map_activity <- function(counts, coords, gene_sets, gene_field = TRUE,
                          alpha = .05, out = NULL, min_genes = 5,
-                         threads = "8:1", verbose = TRUE) {
+                         threads = "2:4", verbose = TRUE) {
   log_step <- function(...) if (verbose) message(format(Sys.time(), "[%H:%M:%S] "), ...)
   if (is.character(gene_sets)) gene_sets <- read_gmt(gene_sets)
   stopifnot(nrow(coords) == nrow(counts), !is.null(rownames(counts)), !is.null(colnames(counts)))

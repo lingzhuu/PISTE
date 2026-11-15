@@ -140,7 +140,7 @@ region <- ifelse(spe$layer_guess_reordered == "WM", "WM", "rest")
 res <- compare(counts, region, gmt, mode = "adjusted",
            proportions = omega, reference = nu,
            baseline = "rest", out = "results_adjusted",
-           cfg = list(threads = "8:1"))
+           cfg = list(threads = "2:4"))
 ```
 
 `compare()` builds the composition offset from `omega` and `nu` and
