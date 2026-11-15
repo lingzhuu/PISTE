@@ -249,8 +249,6 @@ main { padding: var(--s4); max-width: 75rem; width: 100%; margin-inline: auto; }
 .seg-btn + .seg-btn { border-left: 1px solid var(--line); }
 .seg-btn.active { background: var(--accent); color: var(--on-accent); font-weight: 500; }
 .seg-btn:focus-visible { outline-offset: -3px; }
-.count { margin-left: auto; font-size: var(--t4); color: var(--ink-2); }
-.count b { color: var(--data-hi-text); }
 .canvas-box {
   position: relative; border: 1px solid var(--fog-line); border-radius: var(--radius);
   background: var(--card); overflow: hidden; touch-action: none;
@@ -268,6 +266,7 @@ main { padding: var(--s4); max-width: 75rem; width: 100%; margin-inline: auto; }
 }
 .legend { display: flex; gap: var(--s4); font-size: var(--t4); color: var(--ink-2); margin-top: var(--s2); }
 .legend span { display: inline-flex; align-items: center; gap: var(--s2); }
+.legend b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .sw { width: .75rem; height: .75rem; border-radius: 50%; display: inline-block; }
 .sw.region { background: var(--data-hi); }
 .sw.rest { background: var(--data-rest); }
@@ -370,7 +369,6 @@ td.name { font-weight: 500; }
     height: clamp(16rem, calc(100vh - 12rem), 32rem);
     height: clamp(16rem, min(calc(100dvh - 12rem), 100cqw), 32rem);
   }
-  .count { margin-left: 0; width: 100%; }
   .stat { flex: 1 1 calc(50% - var(--s2)); min-width: 0; }
   /* Narrow table: drop the secondary columns */
   .col-genes, .col-ev { display: none; }

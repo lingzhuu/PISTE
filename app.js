@@ -72,7 +72,7 @@ async function startR() {
     }
     if (!WebR) throw new Error("could not load webR. " + errors.join(" | "));
     const webR = new WebR({ baseUrl: base });
-    const slow = setTimeout(() => setEngine("warn", "R is slow to start. Keep waiting, or reload the page.",
+    const slow = setTimeout(() => setEngine("warn", "R is slow to start. Wait, or reload the page.",
       "R downloads from webr.r-wasm.org. A slow network or a firewall that blocks this site delays it."), 60000);
     await webR.init();
     clearTimeout(slow);
@@ -111,7 +111,7 @@ async function startR() {
   } catch (e) {
     console.error(e);
     state.rFailed = true;
-    setEngine("error", "R did not start. Check your internet connection, then reload the page.",
+    setEngine("error", "R did not start. Check your connection and reload the page.",
       e && e.message ? e.message : String(e));
   }
   updateRun();
@@ -155,7 +155,7 @@ const split = (line, d) => line.split(d).map(unquote);
 async function readCoords(file) {
   const lines = [];
   await eachLine(file, (l) => { if (l.trim()) lines.push(l); });
-  if (lines.length < 2) throw new UserError("This file has no spots. Choose the coordinate file of the section.");
+  if (lines.length < 2) throw new UserError("No spots in this file. Choose the coordinate file.");
   const d = guessDelim(lines[0]);
   let header = split(lines[0], d);
   const rows = lines.slice(1).map((l) => split(l, d));
@@ -169,7 +169,7 @@ async function readCoords(file) {
   let yi = pick(["y", "pxl_row_in_fullres", "imagerow", "sdimy", "y_coord", "row", "array_row"]);
   if (xi === undefined || yi === undefined) {
     const num = numeric.map((v, j) => (v && j > 0 ? j : -1)).filter((j) => j > 0);
-    if (num.length < 2) throw new UserError("No x and y columns found. Choose a table with spot name, x and y.");
+    if (num.length < 2) throw new UserError("No x and y columns. Choose a file with spot name, x and y.");
     [xi, yi] = num.slice(-2);
   }
   const keep = lower.indexOf("in_tissue") > 0 ? cols[lower.indexOf("in_tissue")].map((v) => v === "1") : null;
@@ -191,7 +191,7 @@ async function scanExpression(file) {
     rowNames.push(unquote(l.slice(0, j)));
   });
   if (!header || header.length < 2 || !rowNames.length) {
-    throw new UserError("This is not a table with a header row. Choose a CSV or TSV file.");
+    throw new UserError("Not a table with a header row. Choose a CSV or TSV file.");
   }
   return { file, delim, rowNames, fullHeader: header };
 }
@@ -210,7 +210,7 @@ function spotMatch(expr, coords) {
   matchCache = { expr, coords, m };
   return m;
 }
-const NO_MATCH = "Spot names do not match the coordinate file. Choose files from the same section.";
+const NO_MATCH = "Spot names differ from the coordinate file. Use files from the same section.";
 
 // Spots x genes matrix of the genes in `genes`, for the spots of the section
 async function readMatrix(expr, coords, genes, stopped) {
@@ -256,7 +256,7 @@ async function readMatrix(expr, coords, genes, stopped) {
   const values = new Float64Array(spots.length * found.length);
   columns.forEach((c, k) => spots.forEach((s, r) => { values[k * spots.length + r] = c[s]; }));
   if (values.some((v) => !Number.isFinite(v))) {
-    throw new UserError("The expression file has empty or non-numeric values. Fix them and load the file again.");
+    throw new UserError("The expression file has empty or non-numeric values. Fix them and load it again.");
   }
   return { spots, genes: found, values };
 }
@@ -370,9 +370,8 @@ $("btn-clear").addEventListener("click", () => { if (state.region) { state.regio
 function regionChanged() {
   draw();
   const n = state.region.reduce((a, b) => a + b, 0);
-  $("region-count").innerHTML = n
-    ? `Region <b>${n.toLocaleString()}</b> spots · Rest ${(state.region.length - n).toLocaleString()} spots`
-    : "No region yet";
+  $("n-region").textContent = n.toLocaleString();
+  $("n-rest").textContent = (state.region.length - n).toLocaleString();
   markSteps();
   updateRun();
 }
@@ -391,7 +390,8 @@ async function loadCoords(file) {
     state.coords = c;
     state.region = new Uint8Array(c.ids.length);
     $("drop-coord").classList.add("loaded");
-    setMsg(st, `${file.name} · ${c.ids.length.toLocaleString()} spots (x = ${c.xName}, y = ${c.yName})`, "ok");
+    const cols = c.xName.toLowerCase() === "x" && c.yName.toLowerCase() === "y" ? "" : ` (x = ${c.xName}, y = ${c.yName})`;
+    setMsg(st, `${file.name} · ${c.ids.length.toLocaleString()} spots${cols}`, "ok");
     $("canvas-empty").hidden = true;
     layout(); regionChanged();
   } catch (e) {
@@ -416,7 +416,7 @@ async function loadImage(files) {
     if (json && state.image) {
       let sf;
       try { sf = JSON.parse(await json.text()); }
-      catch { throw new UserError("Could not read the scale factors. Choose scalefactors_json.json from the Space Ranger spatial folder."); }
+      catch { throw new UserError("Could not read scalefactors_json.json. Choose the one in the Space Ranger spatial folder."); }
       const name = state.image.name.toLowerCase();
       const scale = name.includes("lowres") ? sf.tissue_lowres_scalef : sf.tissue_hires_scalef;
       if (scale) { state.image.scale = scale; $("img-scale").value = scale; }
@@ -479,7 +479,6 @@ for (const id of ["drop-expr", "drop-coord", "drop-img"]) {
   });
 }
 
-const EXAMPLE_GENES = "MBP PLP1 MOBP MAG MOG CNP MAL CLDN11 ERMN OPALIN TF CNTN2 ENPP6 UGT8 GJB1 PLLP ASPA FA2H";
 $("btn-example").addEventListener("click", async () => {
   // Same site first, then the copy of the website branch on jsDelivr
   const get = async (name) => {
@@ -502,15 +501,14 @@ $("btn-example").addEventListener("click", async () => {
     const wm = new Set((await (await get("example_region.txt")).text()).split(/\s+/));
     state.coords.ids.forEach((id, i) => { state.region[i] = wm.has(id) ? 1 : 0; });
     regionChanged();
-    $("tab-text").click();
-    $("set-name").value = "Myelination";
-    $("set-genes").value = EXAMPLE_GENES;
-    $("set-genes").dispatchEvent(new Event("input"));
+    // Nine marker gene sets, so the results show every kind of call
+    selectTab($("tab-file"));
+    useGeneSetFile("example_gene_sets.gmt", await (await get("example_gene_sets.gmt")).text());
     setMsg($("status-expr"), "Downloading the example expression (6 MB)…");
     await loadExpr(await get("example_expression.csv"));
   } catch (e) {
     console.error(e);
-    setMsg($("status-expr"), "Could not download the example. Check your internet connection and try again.", "err");
+    setMsg($("status-expr"), "Could not download the example. Check your connection and try again.", "err");
   }
   $("btn-example").disabled = false;
 });
@@ -527,22 +525,24 @@ function parseList(text, fileName) {
   return genes.length ? { [name]: genes } : {};
 }
 
-$("file-gmt").addEventListener("change", async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  const sets = parseList(await f.text(), f.name);
+function useGeneSetFile(name, text) {
+  const sets = parseList(text, name);
   const k = Object.keys(sets);
   const st = $("gmt-name");
   if (!k.length) {
     fileSets = null;
     $("drop-gmt").classList.remove("loaded");
-    setMsg(st, "No genes found. Choose a text file with one gene per line, or a GMT file.", "err");
+    setMsg(st, "No genes in this file. Choose one gene per line, or a GMT file.", "err");
   } else {
     fileSets = sets;
     $("drop-gmt").classList.add("loaded");
-    setMsg(st, k.length === 1 ? `${f.name} · ${sets[k[0]].length} genes` : `${f.name} · ${k.length} gene sets`, "ok");
+    setMsg(st, k.length === 1 ? `${name} · ${sets[k[0]].length} genes` : `${name} · ${k.length} gene sets`, "ok");
   }
   updateRun();
+}
+$("file-gmt").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (f) useGeneSetFile(f.name, await f.text());
 });
 $("set-genes").addEventListener("input", () => {
   const n = splitGenes($("set-genes").value).length;
@@ -582,14 +582,14 @@ function chosenSets() {
 function updateRun() {
   const n = state.region ? state.region.reduce((a, b) => a + b, 0) : 0;
   let why = "", kind = "";
-  if (state.rFailed) { why = "R did not start. Reload the page."; kind = "err"; }
-  else if (!state.ready) why = "Waiting for R to start…";
+  if (state.rFailed) { why = "R did not start."; kind = "err"; }
+  else if (!state.ready) why = "Starting R…";
   else if (!state.expr) why = "Load the expression file.";
-  else if (!state.coords) why = "Load the spot coordinates.";
+  else if (!state.coords) why = "Load the coordinate file.";
   else if (spotMatch(state.expr, state.coords).spots === 0) { why = NO_MATCH; kind = "err"; }
   else if (n < 3) why = "Select a region.";
   else if (n > state.region.length - 3) why = "Leave some spots outside the region.";
-  else if (!chosenSets()) why = setSource === "text" ? "Enter the genes of a gene set." : "Upload a gene list.";
+  else if (!chosenSets()) why = setSource === "text" ? "Enter genes." : "Upload a gene set file.";
   $("btn-run").disabled = !!why || running;
   // A message from the last run (done, cancelled, error) stays until there is
   // something new to say
@@ -649,14 +649,14 @@ async function run() {
   let done = 0, total = 0;
   try {
     if (rBusy) {
-      setMsg(msg, "Waiting for the cancelled fit to finish…");
+      setMsg(msg, "Waiting for the cancelled gene set to finish…");
       if (await Promise.race([rBusy.catch(() => {}), stop]) === STOP) throw STOP;
     }
     const sets = chosenSets();
     const names = Object.keys(sets);
     total = names.length;
     const genes = [...new Set(names.flatMap((s) => sets[s]))];
-    setMsg(msg, "Reading expression of the gene-set genes…");
+    setMsg(msg, "Reading the expression file…");
     const m = await readMatrix(state.expr, state.coords, genes, () => stopped);
     if (stopped) throw STOP;
     if (!m.genes.length) throw new UserError("None of the genes are in the expression file. Use gene symbols (such as MBP), not Ensembl IDs.");
@@ -676,7 +676,7 @@ async function run() {
     const t0 = performance.now();
     for (let i = 0; i < names.length; i++) {
       setProgress(i, total, true);
-      setMsg(msg, `Fitting ${i + 1} of ${total}: ${pretty(names[i])}`);
+      setMsg(msg, `Gene set ${i + 1} of ${total}: ${pretty(names[i])}`);
       const r = await rCall(webR.evalRRaw(`piste_one(${i + 1}L, ${minGenes})`, "number[]"), stop);
       if (r === STOP) throw STOP;
       const row = { name: names[i], size: sets[names[i]].length, genes: r[1], status: r[0], secs: r[6] };
@@ -700,10 +700,10 @@ async function run() {
     $("step-results").scrollIntoView();
   } catch (e) {
     if (e === STOP) {
-      setMsg(msg, total ? `Cancelled. ${done} of ${total} gene sets done.` : "Cancelled.");
+      setMsg(msg, total ? `Cancelled after ${done} of ${total} gene sets.` : "Cancelled.");
       render();
     } else {
-      setMsg(msg, userText(e, "The comparison stopped with an error. Reload the page and try again."), "err");
+      setMsg(msg, userText(e, "The run failed. Reload the page and try again."), "err");
     }
   }
   $("progress").hidden = true;
@@ -747,8 +747,8 @@ function render() {
   // The counts are also the filters
   const n = (g) => rows.filter((r) => group(r) === g).length;
   const filters = [
-    ["all", rows.length, "All gene sets", ""], ["higher", n("higher"), "Higher in region", "hi"],
-    ["lower", n("lower"), "Lower in region", "lo"], ["none", n("none"), "No call", ""],
+    ["all", rows.length, "All", ""], ["higher", n("higher"), "Higher", "hi"],
+    ["lower", n("lower"), "Lower", "lo"], ["none", n("none"), "No call", ""],
   ];
   if (n("skipped")) filters.push(["skipped", n("skipped"), "Skipped or failed", ""]);
   if (!filters.some((f) => f[0] === state.filter)) state.filter = "all";
@@ -769,7 +769,7 @@ function render() {
       return `<div class="pibar"><div class="track"><div class="fill" style="left:${lo * 100}%;width:${(hi - lo) * 100}%;background:${col}"></div><div class="mid"></div></div><span class="val">${r.pi.toFixed(3)}</span></div>`;
     })() : r.status === 0
       ? `<span class="row-note">Below the minimum of ${state.lastRun.minGenes} genes</span>`
-      : `<span class="row-note err">Fit failed: ${esc(r.message || "unknown error")}</span>`;
+      : `<span class="row-note err">${esc((r.message || "unknown error").replace(/^./, (c) => c.toUpperCase()))}</span>`;
     return `<tr>
       <td class="name" title="${esc(r.name)}">${esc(pretty(r.name))}</td>
       <td class="r col-genes">${r.genes}/${r.size}</td>

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261115b">
+<link rel="stylesheet" href="style.css?v=20261115c">
 </head>
 <body>
 <script src="intro.js?v=20261115b"></script>
@@ -51,7 +51,7 @@
 <main>
   <header class="hero">
     <h1>Regional pathway comparison</h1>
-    <p>Load one spatial transcriptomics section, outline a region on the tissue, and PISTE estimates for every gene set whether pathway activity is higher or lower in the region than in the rest of the section.</p>
+    <p>Load a section, draw a region, and see which gene sets are more or less active in the region than in the rest.</p>
   </header>
 
   <!-- 1. Data -->
@@ -60,7 +60,6 @@
       <span class="num">1</span>
       <div>
         <h2>Load a section</h2>
-        <p class="hint">Expression must already be normalized (for example SCTransform or log-normalized).</p>
       </div>
       <button class="btn ghost" id="btn-example">Try the example</button>
     </div>
@@ -70,8 +69,8 @@
         <div class="drop-icon">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 5h16v3H4zM4 10.5h16v3H4zM4 16h16v3H4z" fill="currentColor" opacity=".8"/></svg>
         </div>
-        <div class="drop-title">Normalized expression</div>
-        <div class="drop-desc">CSV or TSV (.gz accepted); spots × genes or genes × spots; first column holds the row names</div>
+        <div class="drop-title">Expression</div>
+        <div class="drop-desc">Normalized, for example with SCTransform. CSV or TSV (.gz too), spots × genes or genes × spots, names in the first column.</div>
         <div class="drop-status" id="status-expr" aria-live="polite"></div>
       </label>
       <label class="drop" id="drop-coord">
@@ -79,8 +78,8 @@
         <div class="drop-icon">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="7" r="2.2" fill="currentColor"/><circle cx="13" cy="6" r="2.2" fill="currentColor" opacity=".7"/><circle cx="9" cy="13" r="2.2" fill="currentColor" opacity=".85"/><circle cx="17" cy="12" r="2.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="18.5" r="2.2" fill="currentColor" opacity=".75"/></svg>
         </div>
-        <div class="drop-title">Spot coordinates</div>
-        <div class="drop-desc">CSV or TSV: spot name, x, y (for Visium, tissue_positions.csv works as it is)</div>
+        <div class="drop-title">Coordinates</div>
+        <div class="drop-desc">CSV or TSV with spot name, x and y. Visium tissue_positions.csv works as is.</div>
         <div class="drop-status" id="status-coord" aria-live="polite"></div>
       </label>
       <label class="drop" id="drop-img">
@@ -89,9 +88,9 @@
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 3.5 3.5L16 13l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         </div>
         <div class="drop-title">Tissue image <span class="opt">optional</span></div>
-        <div class="drop-desc">PNG or JPG; for Visium select the image together with scalefactors_json.json</div>
+        <div class="drop-desc">PNG or JPG. For Visium, select it together with scalefactors_json.json.</div>
         <div class="drop-status" id="status-img" aria-live="polite"></div>
-        <div class="scale-row" id="scale-row" hidden>Image pixels per coordinate unit
+        <div class="scale-row" id="scale-row" hidden>Image pixels per coordinate
           <input type="number" id="img-scale" class="field num-field" step="any" min="0" value="1">
         </div>
       </label>
@@ -104,7 +103,7 @@
       <span class="num">2</span>
       <div>
         <h2>Select a region</h2>
-        <p class="hint">Draw around spots to add them to the region.</p>
+        <p class="hint">Draw around spots to add them.</p>
       </div>
     </div>
     <div class="region-wrap">
@@ -120,15 +119,14 @@
           </button>
         </div>
         <button class="btn small ghost" id="btn-clear">Clear</button>
-        <div class="count" id="region-count" aria-live="polite">No region yet</div>
       </div>
       <div class="canvas-box" id="canvas-box">
-        <canvas id="canvas" aria-label="Tissue section. Draw with the mouse or a finger to select spots."></canvas>
-        <div class="canvas-empty" id="canvas-empty">Load spot coordinates to see the section</div>
+        <canvas id="canvas" aria-label="Section. Draw around spots to add them to the region."></canvas>
+        <div class="canvas-empty" id="canvas-empty">Load the coordinate file to see the section</div>
       </div>
-      <div class="legend">
-        <span><i class="sw region"></i>Region</span>
-        <span><i class="sw rest"></i>Rest</span>
+      <div class="legend" aria-live="polite">
+        <span><i class="sw region"></i>Region <b id="n-region">0</b></span>
+        <span><i class="sw rest"></i>Rest <b id="n-rest">0</b></span>
       </div>
     </div>
   </section>
@@ -143,22 +141,22 @@
     </div>
     <div class="seg set-tabs" role="tablist" aria-label="Gene set source">
       <button class="seg-btn active" data-src="text" role="tab" id="tab-text" aria-selected="true" aria-controls="panel-text">Type genes</button>
-      <button class="seg-btn" data-src="file" role="tab" id="tab-file" aria-selected="false" aria-controls="panel-file" tabindex="-1">Upload a list</button>
+      <button class="seg-btn" data-src="file" role="tab" id="tab-file" aria-selected="false" aria-controls="panel-file" tabindex="-1">Upload a file</button>
     </div>
     <div class="set-panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text">
       <input type="text" id="set-name" class="field set-name" placeholder="Gene set name (optional)" aria-label="Gene set name">
-      <textarea id="set-genes" class="field" rows="5" aria-label="Genes" placeholder="Gene symbols separated by spaces, commas or new lines, e.g.&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
+      <textarea id="set-genes" class="field" rows="5" aria-label="Genes" placeholder="Gene symbols, separated by spaces, commas or new lines&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
       <div class="set-count" id="text-count" aria-live="polite"></div>
     </div>
     <div class="set-panel" id="panel-file" role="tabpanel" aria-labelledby="tab-file" hidden>
       <label class="drop small-drop" id="drop-gmt">
         <input type="file" id="file-gmt" accept=".txt,.csv,.tsv,.gmt,.list">
-        <div class="drop-title">Gene list file</div>
-        <div class="drop-desc">Plain text with one gene per line is one gene set; a GMT file gives several gene sets</div>
+        <div class="drop-title">Gene set file</div>
+        <div class="drop-desc">One gene per line for one gene set, or a GMT file for several.</div>
         <div class="drop-status" id="gmt-name" aria-live="polite"></div>
       </label>
     </div>
-    <label class="mingenes">Minimum genes found in the data
+    <label class="mingenes">Minimum genes in the data
       <input type="number" id="min-genes" class="field num-field" value="5" min="2" max="50">
     </label>
     <div class="run-row">
@@ -166,7 +164,7 @@
       <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
       <div class="msg" id="run-msg" role="status" aria-live="polite"></div>
     </div>
-    <div class="progress" id="progress" role="progressbar" aria-label="Comparison progress" aria-valuemin="0" aria-valuemax="100" hidden>
+    <div class="progress" id="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" hidden>
       <div class="bar" id="bar"></div><div class="cur" id="cur"></div>
     </div>
   </section>
@@ -177,11 +175,11 @@
       <span class="num">4</span>
       <div>
         <h2>Results</h2>
-        <p class="hint">π above 0.5: higher in the region; below 0.5: lower. Evidence is how certain that direction is; a call needs at least 0.975.</p>
+        <p class="hint">π above 0.5 is higher in the region, below 0.5 lower. Evidence is how certain; a call needs 0.975.</p>
       </div>
       <button class="btn ghost" id="btn-download" disabled>Download CSV</button>
     </div>
-    <div class="results-empty" id="results-empty">Results appear here after you run the comparison.</div>
+    <div class="results-empty" id="results-empty">Results appear here after you run.</div>
     <div class="results" id="results" hidden>
       <div class="summary" id="summary" role="group" aria-label="Show gene sets"></div>
       <div class="table-wrap">
@@ -195,7 +193,7 @@
           </tr></thead>
           <tbody></tbody>
         </table>
-        <div class="filter-empty" id="filter-empty" hidden>No gene sets in this group.</div>
+        <div class="filter-empty" id="filter-empty" hidden>None in this group.</div>
       </div>
     </div>
   </section>
@@ -203,6 +201,6 @@
   <footer class="foot">PISTE · GPL-3</footer>
 </main>
 
-<script type="module" src="app.js?v=20261115b"></script>
+<script type="module" src="app.js?v=20261115c"></script>
 </body>
 </html>
