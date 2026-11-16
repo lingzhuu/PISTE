@@ -1,5 +1,11 @@
 # PISTE
 
+[![web app](https://img.shields.io/github/deployments/lingzhuu/PISTE/github-pages?label=web%20app)](https://lingzhuu.github.io/PISTE/)
+[![docs](https://img.shields.io/readthedocs/piste)](https://piste.readthedocs.io)
+[![license](https://img.shields.io/github/license/lingzhuu/PISTE)](https://github.com/lingzhuu/PISTE/blob/main/LICENSE)
+[![last commit](https://img.shields.io/github/last-commit/lingzhuu/PISTE)](https://github.com/lingzhuu/PISTE/commits/main)
+[![R](https://img.shields.io/badge/R-%E2%89%A5%204.1.0-276DC3)](https://www.r-project.org/)
+
 **P**athway **I**nference from **S**patial **T**ranscriptomic **E**xpression
 
 PISTE is an R package for pathway-level analysis of spatial transcriptomics
