@@ -1,45 +1,53 @@
 site_name: PISTE
-site_description: Spatial pathway inference for spatial transcriptomics with INLA
+site_description: Pathway Inference from Spatial Transcriptomic Expression
 repo_url: https://github.com/lingzhuu/PISTE
+repo_name: GitHub
 edit_uri: edit/main/doc/source/
 docs_dir: source
+copyright: PISTE · GPL-3
 
 theme:
   name: material
+  custom_dir: overrides
   logo: figures/logo.svg
   favicon: figures/logo.svg
-  font:
-    text: IBM Plex Sans
-    code: IBM Plex Mono
+  # Fonts are served from source/fonts (see stylesheets/extra.css)
+  font: false
   features:
     - content.code.copy
-    - navigation.indexes
-    - navigation.footer
-    - toc.integrate
+    - navigation.sections
+    - toc.follow
+
+extra:
+  generator: false
 
 extra_css:
   - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - tables
-  - def_list
   - toc:
       permalink: true
+      title: On this page
+      toc_depth: 2
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
 
 nav:
-  - Home: index.md
-  - Installation: installation.md
-  - Example usage: usage.md
+  - Getting started:
+      - Overview: index.md
+      - Installation: installation.md
+      - Quick start: usage.md
+      - Web app: https://lingzhuu.github.io/PISTE/
   - Tutorials:
-      - Observed mode on DLPFC: examples/observed.md
-      - Joint analysis of sections on DLPFC: examples/joint_sections.md
-      - Composition-adjusted mode on DLPFC: examples/composition.md
-      - Spatial map on breast cancer: examples/map.md
-  - Command line:
-      - compare: cli/compare.md
-      - compare -joint_sections: cli/compare_joint_sections.md
-      - map: cli/map.md
-  - R API: api.md
-  - Web app: https://lingzhuu.github.io/PISTE/
+      - Region comparison: examples/observed.md
+      - Joint sections: examples/joint_sections.md
+      - Adjusted mode: examples/composition.md
+      - Spatial map: examples/map.md
+  - Reference:
+      - Command line: cli.md
+      - R API: api.md

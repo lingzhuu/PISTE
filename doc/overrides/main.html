@@ -1,0 +1,28 @@
+{#- The page group above the title, and previous / next cards at the end of
+    the content column -#}
+{% extends "base.html" %}
+
+{% block content %}
+  {% if page.parent and page.parent.title %}
+    <p class="pd-eyebrow">{{ page.parent.title }}</p>
+  {% endif %}
+  {{ super() }}
+  {% if page.previous_page or page.next_page %}
+    <nav class="pd-pager" aria-label="Previous and next page">
+      {% if page.previous_page %}
+        <a class="pd-pager__link" href="{{ page.previous_page.url | url }}">
+          <span class="pd-pager__dir">Previous</span>
+          <span class="pd-pager__title">{{ page.previous_page.title | e }}</span>
+        </a>
+      {% else %}
+        <span></span>
+      {% endif %}
+      {% if page.next_page %}
+        <a class="pd-pager__link pd-pager__link--next" href="{{ page.next_page.url | url }}">
+          <span class="pd-pager__dir">Next</span>
+          <span class="pd-pager__title">{{ page.next_page.title | e }}</span>
+        </a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

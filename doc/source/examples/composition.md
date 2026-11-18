@@ -1,29 +1,21 @@
-# Composition-adjusted mode on DLPFC
+# Adjusted mode on DLPFC
 
 <!-- Generated from doc/examples/composition.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
-The composition-adjusted mode reports the regional difference in pathway
-activity that cannot be explained by differences in cell-type composition. It
-models raw counts and uses, for each spot, the expression predicted from its
-deconvolved cell-type proportions and a single-nucleus RNA-seq reference.
+The adjusted mode reports the regional difference that cell-type composition
+does not explain. It fits raw counts and, for each spot, uses the expression
+predicted from its cell-type proportions and a single-nucleus RNA-seq
+reference.
 
-This example uses the human dorsolateral prefrontal cortex (DLPFC) Visium
+This tutorial uses the human dorsolateral prefrontal cortex (DLPFC) Visium
 section 151673 from spatialLIBD (Maynard et al., 2021) and the LIBD DLPFC
-snRNA-seq reference (Huuki-Myers et al., 2024). Cell-type proportions are estimated with RCTD,
-chosen here because it is fast. White matter (WM) is tested against all
-other annotated spots.
+snRNA-seq reference (Huuki-Myers et al., 2024), with cell-type proportions
+from RCTD, chosen because it is fast. White matter (WM) is compared with all
+other annotated spots. Besides PISTE it uses spatialLIBD (Bioconductor) for
+the data and the reference, HDF5Array (Bioconductor) to load the reference,
+and spacexr (GitHub) for RCTD.
 
-## Requirements
-
-This example also uses:
-
-| Package | Source | Used for |
-|---------|--------|----------|
-| spatialLIBD | Bioconductor | Provides the DLPFC Visium data, its layer annotation and the LIBD DLPFC snRNA-seq reference |
-| HDF5Array | Bioconductor | Loads the snRNA-seq reference, which is stored on disk in HDF5 format |
-| spacexr | GitHub | RCTD deconvolution |
-
-## 1. Load the Visium data and the snRNA-seq reference
+## Load the data
 
 
 ``` r
@@ -51,14 +43,13 @@ table(sce$cellType_broad_hc)
 #>      3979      2157      1601     10894      1940     24809     11067     21157
 ```
 
-The section and its layer annotation are shown in the
-[observed-mode example](observed.md).
+The section and its layers are shown in the
+[region comparison tutorial](observed.md).
 
-## 2. Deconvolve with RCTD
+## Estimate cell-type proportions
 
-RCTD is provided by the spacexr package. Build the reference and the spatial
-object from raw counts, then run RCTD in full mode, which allows any number of
-cell types per spot:
+Build the RCTD reference and spatial object from raw counts, and run RCTD in
+full mode, which allows any number of cell types per spot:
 
 
 ``` r
@@ -82,8 +73,8 @@ rctd <- run.RCTD(rctd, doublet_mode = "full")
 omega <- as.matrix(normalize_weights(rctd@results$weights))   # spots x cell types
 ```
 
-Each row of `omega` holds the cell-type proportions of one spot and sums to
-one. The mean proportions in WM and in the other spots:
+Each row of `omega` holds one spot's cell-type proportions and sums to one.
+The mean proportions in WM and in the rest:
 
 
 ``` r
@@ -97,10 +88,10 @@ round(rbind(WM = colMeans(omega[in_wm, ]), rest = colMeans(omega[!in_wm, ])), 3)
 #> rest 0.013     0.013 0.003 0.015 0.002 0.108 0.011     0.835
 ```
 
-Alternatively, cell2location can be used in place of RCTD; it is more
-accurate but considerably slower, and a GPU is recommended (REF).
+cell2location can replace RCTD; it is more accurate but much slower and best
+run on a GPU.
 
-## 3. Reference expression
+## Reference expression
 
 `reference_profile()` pools the raw counts of all nuclei of each cell type and
 scales them to counts per 10,000:
@@ -117,19 +108,17 @@ dim(nu)
 #> [1]     8 36601
 ```
 
-## 4. Gene sets
+## Run PISTE
 
-Read the gene sets to analyse from a GMT file:
+The gene sets come from a GMT file:
 
 
 ``` r
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 5. Run PISTE
-
 RCTD drops spots with too few counts, so keep the spots that have
-proportions. White matter is compared with all other spots:
+proportions, then compare WM with the rest:
 
 
 ``` r
@@ -143,12 +132,11 @@ res <- compare(counts, region, gmt, mode = "adjusted",
            cfg = list(threads = "2:4"))
 ```
 
-`compare()` builds the composition offset from `omega` and `nu` and
-fits every gene set to the raw counts. `cfg$threads` sets the number of threads INLA uses, as
-`"A:B"`: A threads evaluate hyperparameter configurations in parallel and each
-evaluation uses B threads.
+`compare()` builds the composition offset from `omega` and `nu` and fits
+every gene set to the raw counts. `cfg$threads = "A:B"` runs A INLA
+configurations in parallel with B threads each.
 
-## 6. Read the results
+## Read the results
 
 
 ``` r
@@ -203,12 +191,11 @@ wm[, c("gene_set", "genes", "score", "evidence")]
 #> 20 0.2341761 1.327769e-07
 ```
 
-`score` and `evidence` are read as in the
-[observed-mode example](observed.md#5-read-the-results), here after
-adjusting for cell-type composition. For each gene set,
-`gene_coefficients` lists each gene's intercept `a_g` and composition slope
-`lambda_g`; `lambda_g` near 1 means the gene follows the reference
-prediction. For the first gene set:
+`score` and `evidence` read as in the
+[region comparison tutorial](observed.md#read-the-results), now after
+adjusting for composition. `gene_coefficients` gives each gene's intercept
+`a_g` and composition slope `lambda_g`; `lambda_g` near 1 means the gene
+follows the reference prediction. For the first gene set:
 
 
 ``` r
