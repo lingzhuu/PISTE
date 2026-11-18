@@ -123,10 +123,13 @@ body { background: var(--pd-white); }
 }
 .md-typeset pre > code {
   padding: 14px 44px 14px 18px; font-size: 13.5px; line-height: 1.65;
-  border: 0; border-radius: 6px; background: var(--md-code-bg-color); color: var(--md-code-fg-color);
+  border: 0; border-radius: 8px; background: var(--md-code-bg-color); color: var(--md-code-fg-color);
   scrollbar-color: #3a3f4b transparent;
 }
 .md-typeset pre ::selection { background: rgba(143, 176, 255, .3); }
+/* Material squares the top corners of code under tabs; keep all four round */
+.md-typeset .tabbed-block > .highlight:first-child > pre > code,
+.md-typeset .tabbed-set .highlight pre > code { border-radius: 8px; }
 .md-typeset .highlight { margin: 0 0 16px; }
 .md-typeset pre { margin: 0; }
 .md-typeset .highlight, .md-typeset pre {
