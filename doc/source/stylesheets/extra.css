@@ -92,7 +92,6 @@ body { background: var(--pd-white); }
 }
 .md-typeset h3 { margin: 24px 0 8px; font-size: var(--pd-lead); font-weight: 600; color: var(--pd-ink); }
 .md-typeset h2 code, .md-typeset h3 code { font-size: .9em; background: none; padding: 0; color: inherit; }
-.md-typeset .headerlink { color: var(--pd-line); }
 .md-typeset :target { --md-scroll-margin: 72px; }
 
 .md-typeset a { color: var(--pd-accent); text-decoration: underline; text-decoration-color: rgba(63, 90, 150, .35); text-underline-offset: 3px; }
