@@ -1,25 +1,19 @@
-# Spatial map on breast cancer
+# Spatial map of breast cancer
 
 <!-- Generated from doc/examples/map.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
-This example maps where T-cell exhaustion and the interferon-γ response are
-more or less active in one triple-negative breast cancer Visium section
-(GSM6433597; Bassiouni et al., 2023), processed by Zhu et al. (2025). No region labels are used.
+This tutorial maps where T-cell exhaustion and the interferon-γ response are
+more or less active in a triple-negative breast cancer Visium section
+(GSM6433597; Bassiouni et al., 2023), processed by Zhu et al. (2025). No
+region labels are needed. Besides PISTE it uses ggplot2 (CRAN) for the
+plots.
 
-## Requirements
+## Load the data
 
-This example also uses:
-
-| Package | Source | Used for |
-|---------|--------|----------|
-| ggplot2 | CRAN | Plots the maps |
-
-## 1. Load the data
-
-Download `GSM_giotto_processed.tar.gz` from
-[Zenodo 15247064](https://zenodo.org/records/15247064) and extract it. The
-expression in `Giotto_norm_expr.txt` was already normalized by the original
-authors with Giotto, so it is used as is.
+Download and extract `GSM_giotto_processed.tar.gz` from
+[Zenodo 15247064](https://zenodo.org/records/15247064).
+`Giotto_norm_expr.txt` is already normalized (by the original authors, with
+Giotto), so it is used as is.
 
 ``` r
 library(PISTE)
@@ -32,7 +26,9 @@ coords <- as.matrix(locs[match(rownames(expression), locs$cell_ID), c("sdimx", "
 dim(expression)
 ```
 
-## 2. Gene sets
+## Run PISTE
+
+Two gene sets, as a named list:
 
 ``` r
 gene_sets <- list(
@@ -42,16 +38,14 @@ gene_sets <- list(
 )
 ```
 
-## 3. Run PISTE
-
 ``` r
 res <- map_activity(expression, coords, gene_sets, out = "results_map")
 res$gene_sets[, c("gene_set", "genes_used", "sd_z", "spots_higher", "spots_lower")]
 ```
 
-## 4. Plot the maps
+## Plot the maps
 
-`z_mean` is the posterior mean of the pathway field at each spot; `call` marks
+`z_mean` is the posterior mean of the gene set's field at each spot; `call` marks
 the regions of higher and lower activity.
 
 ``` r

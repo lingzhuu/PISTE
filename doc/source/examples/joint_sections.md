@@ -1,22 +1,14 @@
-# Joint analysis of sections on DLPFC
+# Joint sections on DLPFC
 
 <!-- Generated from doc/examples/joint_sections.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
-This example tests pathways in white matter (WM) against the rest of the
-tissue in adjacent DLPFC Visium sections of the same donor, 151673 and 151674
-(spatialLIBD; Maynard et al., 2021). The sections are fitted jointly,
-so that the score reflects the regional difference reproduced across them.
+This tutorial compares white matter (WM) with the rest of the tissue in two
+adjacent DLPFC Visium sections of the same donor, 151673 and 151674
+(spatialLIBD; Maynard et al., 2021). Fitting them jointly gives the difference
+the two sections share. Besides PISTE it uses spatialLIBD (Bioconductor) and
+sctransform (CRAN).
 
-## Requirements
-
-This example also uses:
-
-| Package | Source | Used for |
-|---------|--------|----------|
-| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation |
-| sctransform | CRAN | Normalizes the counts |
-
-## 1. Load the data
+## Load the data
 
 ``` r
 library(spatialLIBD)
@@ -35,7 +27,7 @@ section <- spe$sample_id
 table(section, region)
 ```
 
-## 2. Normalize
+## Normalize
 
 Each section is normalized on its own:
 
@@ -52,13 +44,13 @@ expression <- do.call(rbind, lapply(per_section, function(x) x[, genes]))
 expression <- expression[rownames(counts), ]   # spot order of region and section
 ```
 
-## 3. Gene sets
+## Run PISTE
+
+The gene sets come from a GMT file:
 
 ``` r
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
-
-## 4. Run PISTE
 
 ``` r
 res <- compare(expression, region, gmt, baseline = "rest",
@@ -66,7 +58,7 @@ res <- compare(expression, region, gmt, baseline = "rest",
                out = "results_joint")
 ```
 
-## 5. Read the results
+## Read the results
 
 ``` r
 wm <- res$overall[res$overall$region == "WM", ]
@@ -75,6 +67,6 @@ rownames(wm) <- NULL
 wm[, c("gene_set", "genes", "score", "evidence")]
 ```
 
-`score` and `evidence` are read as in the
-[observed-mode example](observed.md#5-read-the-results), here for the
-difference shared by the sections.
+`score` and `evidence` read as in the
+[region comparison tutorial](observed.md#read-the-results), here for the
+difference the sections share.

@@ -1,24 +1,15 @@
-# Observed mode on DLPFC
+# Region comparison on DLPFC
 
 <!-- Generated from doc/examples/observed.Rmd by doc/examples/render.R; edit the .Rmd. -->
 
-This example tests pathways in white matter (WM) against the cortical layers
-of the human dorsolateral prefrontal cortex (DLPFC) Visium section 151673
-from spatialLIBD (Maynard et al., 2021). The observed mode fits a Gaussian
-model to normalized expression and reports the total regional difference in
-pathway activity, including differences that come from cell composition.
+This tutorial compares white matter (WM) with the cortical layers in the
+human dorsolateral prefrontal cortex (DLPFC) Visium section 151673 from
+spatialLIBD (Maynard et al., 2021). The observed mode fits normalized
+expression, so the difference it reports includes differences in cell-type
+composition. Besides PISTE it uses spatialLIBD (Bioconductor) for the data,
+the layer annotation and the plots, and sctransform (CRAN) to normalize.
 
-## Requirements
-
-This example also uses:
-
-| Package | Source | Used for |
-|---------|--------|----------|
-| spatialLIBD | Bioconductor | Provides the DLPFC Visium data and its layer annotation, and plots spots on the H&E image |
-| sctransform | CRAN | Normalizes the counts |
-
-
-## 1. Load the data
+## Load the data
 
 
 ``` r
@@ -46,8 +37,7 @@ table(region)
 
 `counts` and `region` follow the same spot order.
 
-The H&E image of the section and its manual layer annotation, Layer1 to
-Layer6 and white matter:
+The section and its layer annotation, Layer1 to Layer6 and WM:
 
 
 ``` r
@@ -64,11 +54,10 @@ vis_clus(spe, sampleid = "151673", clustervar = "layer_guess_reordered",
 
 ![plot of chunk layers](figures/observed-layers-1.png)
 
-## 2. Normalize
+## Normalize
 
-PISTE takes normalized expression. Here the counts are normalized with
-SCTransform (sctransform v2 Pearson residuals, clipped at ±√(N/30) as in
-Seurat):
+PISTE takes normalized expression. Here it is SCTransform v2 Pearson
+residuals, clipped at ±√(N/30) as in Seurat:
 
 
 ``` r
@@ -77,26 +66,23 @@ vst_out <- sctransform::vst(t(counts), vst.flavor = "v2", verbosity = 0,
 expression <- t(vst_out$y)                     # spots x genes, normalized
 ```
 
-## 3. Gene sets
+## Run PISTE
 
-Read the gene sets to analyse from a GMT file:
+The gene sets come from a GMT file:
 
 
 ``` r
 gmt <- "benchmark/analysis/DLPFC/data/DLPFC_brain_and_reference.gmt"
 ```
 
-## 4. Run PISTE
-
-
 ``` r
 res <- compare(expression, region, gmt, baseline = "WM",
                out = "results_observed")
 ```
 
-`compare()` fits every gene set, with WM as the baseline region.
+`compare()` fits every gene set; WM is the baseline region.
 
-## 5. Read the results
+## Read the results
 
 
 ``` r
@@ -152,8 +138,7 @@ wm[, c("gene_set", "genes", "score", "evidence")]
 ```
 
 The `overall` table compares each region with the spot-weighted average of all
-other regions. For the WM row, `score` is the posterior mean of π, how often a
-pathway gene's expression state in WM exceeds its state in the cortical
-layers, and `evidence` is the posterior probability that π > 0.5. Evidence
-near 1 indicates higher activity in WM and evidence near 0 higher activity in
-the cortical layers.
+other regions. In the WM rows, `score` is the posterior mean of π, how often a
+gene's expression in WM exceeds that in the cortical layers, and `evidence` is
+the posterior probability that π > 0.5: near 1 means higher activity in WM,
+near 0 higher activity in the cortical layers.
