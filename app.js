@@ -89,10 +89,17 @@ async function startR() {
     await webR.evalRVoid(`
       .libPaths(c("/piste/lib", .libPaths()))
       for (f in c(${R_FILES.map((f) => `"/piste/${f.split("/")[1]}"`).join(",")})) source(f)
+      # Genes that lower pathway activity enter with their sign flipped
+      signed_Y <- function(i) {
+        neg <- intersect(neg_sets[[i]], colnames(Y))
+        Yi <- Y
+        if (length(neg)) Yi[, neg] <- -Yi[, neg]
+        Yi
+      }
       piste_one <- function(i, min_genes) {
         set <- gene_sets[i]
         t0 <- proc.time()[["elapsed"]]
-        res <- compare(Y, region, set, baseline = "Rest", min_genes = min_genes, verbose = FALSE)
+        res <- compare(signed_Y(i), region, set, baseline = "Rest", min_genes = min_genes, verbose = FALSE)
         st <- res$gene_sets
         secs <- proc.time()[["elapsed"]] - t0
         if (st$status != "done") return(c(if (st$status == "skipped") 0 else -1, st$genes_used, 0, 0, 0, 0, secs))
@@ -101,7 +108,7 @@ async function startR() {
         c(1, st$genes_used, o$score, o$evidence_higher, o$evidence_lower, call, secs)
       }
       piste_error <- function(i, min_genes) {
-        compare(Y, region, gene_sets[i], baseline = "Rest", min_genes = min_genes, verbose = FALSE)$gene_sets$message
+        compare(signed_Y(i), region, gene_sets[i], baseline = "Rest", min_genes = min_genes, verbose = FALSE)$gene_sets$message
       }
     `);
     const version = await webR.evalRString(`as.character(utils::packageVersion("PISTE"))`);
@@ -516,6 +523,15 @@ $("btn-example").addEventListener("click", async () => {
 // Gene sets: typed genes (one set) or a list file (plain list = one set, GMT = several)
 const splitGenes = (t) => [...new Set(t.split(/[\s,;]+/).map((g) => g.trim().replace(/^"(.*)"$/, "$1")).filter(Boolean))];
 let setSource = "text", fileSets = null;
+// A gene written with a leading minus lowers pathway activity
+const bare = (g) => g.replace(/^-/, "");
+// Genes that lower activity and the index of their gene set; an empty list
+// is sent as one placeholder with index 0, which split() in R drops
+function lowering(names, sets) {
+  const neg_genes = [], neg_index = [];
+  names.forEach((s, i) => sets[s].forEach((g) => { if (g.startsWith("-")) { neg_genes.push(bare(g)); neg_index.push(i + 1); } }));
+  return neg_genes.length ? { neg_genes, neg_index } : { neg_genes: [""], neg_index: [0] };
+}
 
 function parseList(text, fileName) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
@@ -544,11 +560,13 @@ $("file-gmt").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   if (f) useGeneSetFile(f.name, await f.text());
 });
-$("set-genes").addEventListener("input", () => {
-  const n = splitGenes($("set-genes").value).length;
-  $("text-count").textContent = n ? `${n} genes` : "";
+function textCount() {
+  const up = splitGenes($("set-genes").value).length, down = splitGenes($("set-genes-neg").value).length;
+  $("text-count").textContent = up + down ? `${up + down} genes` + (down ? `, ${down} lowering activity` : "") : "";
   updateRun();
-});
+}
+$("set-genes").addEventListener("input", textCount);
+$("set-genes-neg").addEventListener("input", textCount);
 
 // Tabs: click, or arrow keys between them
 const tabs = [...document.querySelectorAll(".set-tabs .seg-btn")];
@@ -575,7 +593,7 @@ tabs.forEach((b, i) => {
 
 function chosenSets() {
   if (setSource === "file") return fileSets;
-  const genes = splitGenes($("set-genes").value);
+  const genes = [...splitGenes($("set-genes").value), ...splitGenes($("set-genes-neg").value).map((g) => "-" + bare(g))];
   return genes.length ? { [$("set-name").value.trim() || "Gene set"]: genes } : null;
 }
 
@@ -655,7 +673,12 @@ async function run() {
     const sets = chosenSets();
     const names = Object.keys(sets);
     total = names.length;
-    const genes = [...new Set(names.flatMap((s) => sets[s]))];
+    for (const s of names) {
+      const up = new Set(sets[s].filter((g) => !g.startsWith("-")));
+      const both = sets[s].filter((g) => g.startsWith("-") && up.has(bare(g))).map(bare);
+      if (both.length) throw new UserError(`${pretty(s)}: ${both.join(", ")} listed as both raising and lowering activity. Keep one.`);
+    }
+    const genes = [...new Set(names.flatMap((s) => sets[s].map(bare)))];
     setMsg(msg, "Reading the expression file…");
     const m = await readMatrix(state.expr, state.coords, genes, () => stopped);
     if (stopped) throw STOP;
@@ -665,10 +688,12 @@ async function run() {
     const assigned = await rCall(webR.evalRVoid(
       `assign("Y", matrix(v, nrow = length(ids), dimnames = list(ids, genes)), globalenv())
        assign("region", labels, globalenv())
-       assign("gene_sets", split(set_genes, factor(set_index, seq_along(set_names), set_names)), globalenv())`,
+       assign("gene_sets", split(set_genes, factor(set_index, seq_along(set_names), set_names)), globalenv())
+       assign("neg_sets", split(as.character(neg_genes), factor(as.integer(neg_index), seq_along(set_names), set_names)), globalenv())`,
       { env: { v: Array.from(m.values), ids, genes: m.genes, labels: regionLabels,
-               set_names: names, set_genes: names.flatMap((s) => sets[s]),
-               set_index: names.flatMap((s, i) => sets[s].map(() => i + 1)) } }), stop);
+               set_names: names, set_genes: names.flatMap((s) => sets[s].map(bare)),
+               set_index: names.flatMap((s, i) => sets[s].map(() => i + 1)),
+               ...lowering(names, sets) } }), stop);
     if (assigned === STOP) throw STOP;
     const minGenes = Math.max(2, +$("min-genes").value || 5);
     state.results = [];

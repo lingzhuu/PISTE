@@ -6,7 +6,7 @@
 <title>PISTE · Regional comparison</title>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=20261115e">
+<link rel="stylesheet" href="style.css?v=20261123a">
 </head>
 <body>
 <script src="intro.js?v=20261115b"></script>
@@ -143,14 +143,17 @@
     </div>
     <div class="set-panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text">
       <input type="text" id="set-name" class="field set-name" placeholder="Gene set name (optional)" aria-label="Gene set name">
-      <textarea id="set-genes" class="field" rows="5" aria-label="Genes" placeholder="Gene symbols, separated by spaces, commas or new lines&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
+      <label class="set-label" for="set-genes">Genes that raise pathway activity</label>
+      <textarea id="set-genes" class="field" rows="5" placeholder="Gene symbols, separated by spaces, commas or new lines&#10;MBP PLP1 MOBP MAG MOG CNP"></textarea>
+      <label class="set-label" for="set-genes-neg">Genes that lower pathway activity (optional)</label>
+      <textarea id="set-genes-neg" class="field" rows="2" placeholder="Inhibitors of the pathway, if any"></textarea>
       <div class="set-count" id="text-count" aria-live="polite"></div>
     </div>
     <div class="set-panel" id="panel-file" role="tabpanel" aria-labelledby="tab-file" hidden>
       <label class="drop small-drop" id="drop-gmt">
         <input type="file" id="file-gmt" accept=".txt,.csv,.tsv,.gmt,.list">
         <div class="drop-title">Gene set file</div>
-        <div class="drop-desc">One gene per line for one gene set, or a GMT file for several.</div>
+        <div class="drop-desc">One gene per line for one gene set, or a GMT file for several. Put a minus sign before a gene that lowers pathway activity, such as -PTEN.</div>
         <div class="drop-status" id="gmt-name" aria-live="polite"></div>
       </label>
     </div>
@@ -199,6 +202,6 @@
   <footer class="foot">PISTE · GPL-3</footer>
 </main>
 
-<script type="module" src="app.js?v=20261115c"></script>
+<script type="module" src="app.js?v=20261123a"></script>
 </body>
 </html>
